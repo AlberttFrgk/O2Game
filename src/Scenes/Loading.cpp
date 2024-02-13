@@ -213,7 +213,7 @@ void Loading::Update(double delta)
 bool Loading::Attach()
 {
     m_counter = 0.0f;
-    Env::SetFloat("ParameterRate", 1.0f);
+    Env::SetFloat("ParameterRate", 1.5f);
 
     Env::SetInt("Key", -1);
     Env::SetInt("Difficulty", 2);

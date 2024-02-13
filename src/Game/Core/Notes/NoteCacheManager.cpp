@@ -147,17 +147,17 @@ void NoteCacheManager::Release()
     if (s_instance) {
         int holdTotal = 0;
         for (auto &it : s_instance->m_holdTextures) {
-            holdTotal += it.second.size();
+            holdTotal += (int)it.second.size();
         }
 
         int noteTotal = 0;
         for (auto &it : s_instance->m_noteTextures) {
-            noteTotal += it.second.size();
+            noteTotal += (int)it.second.size();
         }
 
         int trailTotal = 0;
         for (auto &it : s_instance->m_trailTextures) {
-            trailTotal += it.second.size();
+            trailTotal += (int)it.second.size();
         }
 
         int total = holdTotal + noteTotal + trailTotal;
