@@ -30,16 +30,16 @@ namespace Configuration {
     void SetBool(std::string section, std::string key, bool value);
 
     // Get string value on key at section
-    std::string Get(std::string section, std::string key);
+    std::string Get(std::string section, std::string key, std::string defaultValue = "");
 
     // Get int value on key at section
-    int GetInt(std::string section, std::string key);
+    int GetInt(std::string section, std::string key, int defaultValue = 0);
 
     // Get float value on key at section
-    float GetFloat(std::string section, std::string key);
+    float GetFloat(std::string section, std::string key, float defaultValue = 0.0f);
 
     // Get bool value on key at section
-    bool GetBool(std::string section, std::string key);
+    bool GetBool(std::string section, std::string key, bool defaultValue = false);
 
 } // namespace Configuration
 

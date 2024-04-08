@@ -23,10 +23,11 @@ Base::Base()
     CornerRadius = { 0.0f, 0.0f, 0.0f, 0.0f };
     Color3 = Color3::fromRGB(255, 255, 255);
     Transparency = 1;
+    Scale = 1;
     Rotation = 0;
     Parent = nullptr;
     ClampToParent = false;
-    BlendState = Graphics::Backends::DefaultBlend::BLEND;
+    PipelineHandle = Graphics::Backends::INVALID_PIPELINE_HANDLE;
 
     m_ScaleSize = true;
     m_renderMode = RenderMode::Normal;
@@ -104,7 +105,7 @@ void Base::CalculateSize()
     y0 -= yAnchor;
 
     AbsolutePosition = { (X + x0), (Y + y0) };
-    AbsoluteSize = { x1, y1 };
+    AbsoluteSize = { x1 * Scale, y1 * Scale };
 
     roundedCornerPixels = glm::vec4(
         CalculatePixelSize(static_cast<float>(CornerRadius.X), glm::vec2(x1, y1)),
@@ -119,31 +120,25 @@ void Base::DrawVertices()
     auto renderer = Graphics::Renderer::Get();
 
     if (m_renderMode == RenderMode::Normal) {
-        auto windowRect = Graphics::NativeWindow::Get()->GetWindowSize();
-        auto bufferRect = Graphics::NativeWindow::Get()->GetBufferSize();
-
-        float widthRatio = static_cast<float>(windowRect.Width) / bufferRect.Width;
-        float heightRatio = static_cast<float>(windowRect.Height) / bufferRect.Height;
-
-        glm::vec2 absoluteSize = glm::vec2(AbsoluteSize.X * widthRatio, AbsoluteSize.Y * heightRatio);
+        float     superSampling = renderer->GetSupersampling();
+        glm::vec2 absoluteSize = glm::vec2(AbsoluteSize.X, AbsoluteSize.Y);
 
         m_SubmitInfo.clipRect = clipRect;
-        if (m_ScaleSize) {
+        if (superSampling > 1.0f) {
             for (auto &vertex : m_SubmitInfo.vertices) {
-                vertex.pos.x *= widthRatio;
-                vertex.pos.y *= heightRatio;
+                vertex.pos.x *= superSampling;
+                vertex.pos.y *= superSampling;
             }
 
             m_SubmitInfo.clipRect = {
-                static_cast<int>(m_SubmitInfo.clipRect.X * widthRatio),
-                static_cast<int>(m_SubmitInfo.clipRect.Y * heightRatio),
-                static_cast<int>(m_SubmitInfo.clipRect.Width * widthRatio),
-                static_cast<int>(m_SubmitInfo.clipRect.Height * heightRatio)
+                static_cast<int>(m_SubmitInfo.clipRect.X * superSampling),
+                static_cast<int>(m_SubmitInfo.clipRect.Y * superSampling),
+                static_cast<int>(m_SubmitInfo.clipRect.Width * superSampling),
+                static_cast<int>(m_SubmitInfo.clipRect.Height * superSampling)
             };
         }
 
-        m_SubmitInfo.fragmentType = shaderFragmentType;
-        m_SubmitInfo.alphablend = BlendState;
+        m_SubmitInfo.pipeline = PipelineHandle;
         m_SubmitInfo.uiSize = absoluteSize;
         m_SubmitInfo.uiRadius = roundedCornerPixels;
 
@@ -153,7 +148,7 @@ void Base::DrawVertices()
             m_SubmitInfo.image = m_texture->GetId();
         }
 
-        // RotateVertex();
+        RotateVertex();
 
         if (SpriteBatch) {
             SpriteBatch->Draw(m_SubmitInfo);
@@ -165,7 +160,7 @@ void Base::DrawVertices()
             InsertToBatch();
         }
 
-        // RotateVertex();
+        RotateVertex();
 
         if (SpriteBatch) {
             SpriteBatch->Draw(m_batches);
@@ -184,31 +179,25 @@ void Base::InsertToBatch()
         return;
     }
 
-    auto windowRect = Graphics::NativeWindow::Get()->GetWindowSize();
-    auto bufferRect = Graphics::NativeWindow::Get()->GetBufferSize();
-
-    float widthRatio = static_cast<float>(windowRect.Width) / bufferRect.Width;
-    float heightRatio = static_cast<float>(windowRect.Height) / bufferRect.Height;
-
-    glm::vec2 absoluteSize = glm::vec2(AbsoluteSize.X * widthRatio, AbsoluteSize.Y * heightRatio);
+    float     superSampling = renderer->GetSupersampling();
+    glm::vec2 absoluteSize = glm::vec2(AbsoluteSize.X, AbsoluteSize.Y);
 
     m_SubmitInfo.clipRect = clipRect;
-    if (m_ScaleSize) {
+    if (superSampling > 1.0f) {
         for (auto &vertex : m_SubmitInfo.vertices) {
-            vertex.pos.x *= widthRatio;
-            vertex.pos.y *= heightRatio;
+            vertex.pos.x *= superSampling;
+            vertex.pos.y *= superSampling;
         }
 
         m_SubmitInfo.clipRect = {
-            static_cast<int>(m_SubmitInfo.clipRect.X * widthRatio),
-            static_cast<int>(m_SubmitInfo.clipRect.Y * heightRatio),
-            static_cast<int>(m_SubmitInfo.clipRect.Width * widthRatio),
-            static_cast<int>(m_SubmitInfo.clipRect.Height * heightRatio)
+            static_cast<int>(m_SubmitInfo.clipRect.X * superSampling),
+            static_cast<int>(m_SubmitInfo.clipRect.Y * superSampling),
+            static_cast<int>(m_SubmitInfo.clipRect.Width * superSampling),
+            static_cast<int>(m_SubmitInfo.clipRect.Height * superSampling)
         };
     }
 
-    m_SubmitInfo.fragmentType = shaderFragmentType;
-    m_SubmitInfo.alphablend = BlendState;
+    m_SubmitInfo.pipeline = PipelineHandle;
     m_SubmitInfo.uiSize = absoluteSize;
     m_SubmitInfo.uiRadius = roundedCornerPixels;
 
@@ -257,7 +246,7 @@ inline glm::vec2 rotate(glm::vec2 &vec, float cos, float sin)
 void Base::RotateVertex()
 {
     if (!m_vertices.size()) {
-        throw Exceptions::EstException("Vertex array is empty");
+        return;
     }
 
     if (Rotation == 0) {

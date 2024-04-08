@@ -21,13 +21,11 @@ namespace Graphics::Backends {
         Rect            Size;
         int             Channels;
 
-        VkImageView    ImageView;
-        VkImage        Image;
-        VkDeviceMemory ImageMemory;
-        VkSampler      Sampler;
+        VkSampler                  Sampler;
+        std::shared_ptr<VK_Memory> UploadBuffer;
+        std::shared_ptr<VK_Image>  ImageData;
 
-        VkBuffer       UploadBuffer;
-        VkDeviceMemory UploadBufferMemory;
+        std::string RefName;
 
         VulkanDescriptor()
         {

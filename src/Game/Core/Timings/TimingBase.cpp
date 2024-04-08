@@ -44,7 +44,15 @@ double TimingBase::GetBeatAt(double offset)
 
 double TimingBase::GetBPMAt(double offset)
 {
-    return FindTimingAt(timings, offset).Value;
+    double BPM = FindTimingAt(timings, offset).Value;
+
+    // HACK: Limit BPM to -INT_MAX = INT_MAX
+    // So the beat-based timing won't crying :joy:
+    if (BPM >= INT_MAX) {
+        BPM = (double)((int32_t)((uint32_t)BPM));
+    }
+
+    return BPM;
 }
 
 double TimingBase::GetOffsetAt(double offset)

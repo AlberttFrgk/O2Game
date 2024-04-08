@@ -414,3 +414,24 @@ uint32_t vkinit::find_memory_type(VkPhysicalDevice phyiscalDevice, uint32_t type
 
     return 0xFFFFFFFF; // Unable to find memoryType
 }
+
+VkFormat vkinit::get_supported_depth_format(VkPhysicalDevice physicalDevice)
+{
+    std::vector<VkFormat> depthFormats = {
+        VK_FORMAT_D32_SFLOAT_S8_UINT,
+        VK_FORMAT_D32_SFLOAT,
+        VK_FORMAT_D24_UNORM_S8_UINT,
+        VK_FORMAT_D16_UNORM_S8_UINT,
+        VK_FORMAT_D16_UNORM
+    };
+
+    for (VkFormat format : depthFormats) {
+        VkFormatProperties props;
+        vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+        if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+            return format;
+        }
+    }
+
+    throw Exceptions::EstException("Failed to find supported depth format");
+}

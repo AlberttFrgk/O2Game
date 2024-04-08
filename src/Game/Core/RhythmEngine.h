@@ -90,6 +90,7 @@ public:
 
     void        SetHitPosition(int offset);
     void        SetLaneOffset(int offset);
+    void        SetLanePosAndOffset(float *sizes, float *pos);
     int         GetHitPosition() const;
     Vector2     GetResolution() const;
     Rect        GetPlayRectangle() const;
@@ -129,6 +130,8 @@ private:
     double m_currentTrackPosition = 0.0;
     float  m_baseBPM, m_currentBPM = 0.0;
     float  m_currentSVMultiplier = 0.0;
+    double m_noteFrameRate = 0.0;
+    double m_currentNoteFrameTime = 0.0;
 
     int    m_currentSampleIndex = 0;
     int    m_currentNoteIndex = 0;
@@ -164,7 +167,7 @@ private:
     Vector2               m_gameResolution = { 0, 0 };
 
     std::vector<double>                                           m_timingPositionMarkers;
-    std::vector<Track *>                                          m_tracks;
+    std::vector<std::shared_ptr<Track>>                                          m_tracks;
     std::vector<NoteInfoDesc>                                     m_noteDescs;
     std::vector<AutoSample>                                       m_autoSamples;
     std::unordered_map<int, int>                                  m_autoHitIndex;

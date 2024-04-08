@@ -65,7 +65,7 @@ void Configuration::SetBool(std::string section, std::string key, bool value)
     Set(section, key, value ? "true" : "false");
 }
 
-std::string Configuration::Get(std::string section, std::string key)
+std::string Configuration::Get(std::string section, std::string key, std::string defaultValue)
 {
     auto path = std::filesystem::current_path() / s_ConfigurationFile;
     if (!std::filesystem::exists(path)) {
@@ -76,20 +76,41 @@ std::string Configuration::Get(std::string section, std::string key)
     INIStructure ini;
     file.read(ini);
 
+    if (!ini[section].has(key)) {
+        return defaultValue;
+    }
+
     return ini[section][key];
 }
 
-int Configuration::GetInt(std::string section, std::string key)
+std::string IntFloatDefaultVal = "###";
+
+int Configuration::GetInt(std::string section, std::string key, int defaultValue)
 {
-    return std::stoi(Get(section, key));
+    auto value = Get(section, key, IntFloatDefaultVal);
+    if (value == IntFloatDefaultVal) {
+        return defaultValue;
+    }
+
+    return std::stoi(value);
 }
 
-float Configuration::GetFloat(std::string section, std::string key)
+float Configuration::GetFloat(std::string section, std::string key, float defaultValue)
 {
-    return std::stof(Get(section, key));
+    auto value = Get(section, key, IntFloatDefaultVal);
+    if (value == IntFloatDefaultVal) {
+        return defaultValue;
+    }
+
+    return std::stof(value);
 }
 
-bool Configuration::GetBool(std::string section, std::string key)
+bool Configuration::GetBool(std::string section, std::string key, bool defaultValue)
 {
-    return Get(section, key) == "true" || Get(section, key) == "1";
+    auto value = Get(section, key, IntFloatDefaultVal);
+    if (value == IntFloatDefaultVal) {
+        return defaultValue;
+    }
+
+    return value == "true" || value == "1";
 }

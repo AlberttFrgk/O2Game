@@ -11,7 +11,65 @@
 #include <cstdarg>
 #include <sstream>
 
+#include "../Graphics/Shaders/SPV/position.spv.h"
+#include "../Graphics/Shaders/SPV/sdf_text.spv.h"
+#include "../Graphics/Shaders/SPV/text.spv.h"
+
 using namespace UI;
+
+namespace {
+    Graphics::Backends::PipelineHandle SDFText_Pipeline = 0;
+    Graphics::Backends::PipelineHandle Text_Pipeline = 0;
+
+    std::once_flag m_flag;
+} // namespace
+
+void InitShader()
+{
+    std::call_once(m_flag, []() {
+        // clang-format off
+        Graphics::Backends::TextureBlendInfo blendAdd = {
+            true,
+            Graphics::Backends::BlendFactor::BLEND_FACTOR_ONE,
+            Graphics::Backends::BlendFactor::BLEND_FACTOR_ONE,
+            Graphics::Backends::BlendOp::BLEND_OP_ADD,
+            Graphics::Backends::BlendFactor::BLEND_FACTOR_ONE,
+            Graphics::Backends::BlendFactor::BLEND_FACTOR_ONE,
+            Graphics::Backends::BlendOp::BLEND_OP_ADD
+        };
+
+        Graphics::Backends::PipelineInfo info = {
+            .IsFile = false,
+            .VertexShader = {
+                .Memory = {
+                    .Code = __glsl_position,
+                    .CodeSize = sizeof(__glsl_position) / sizeof(__glsl_position[0])
+                }
+            },
+            .EntryPoint = "main",
+            .BlendInfo = blendAdd
+        };
+
+        info.FragmentShader = {
+            .Memory = {
+                .Code = __glsl_text,
+                .CodeSize = sizeof(__glsl_text) / sizeof(__glsl_text[0])
+            }
+        };
+
+        Text_Pipeline = Graphics::Renderer::Get()->CreatePipeline(info);
+
+        info.FragmentShader = {
+            .Memory = {
+                .Code = __glsl_sdf_text,
+                .CodeSize = sizeof(__glsl_sdf_text) / sizeof(__glsl_sdf_text[0])
+            }
+        };
+
+        SDFText_Pipeline = Graphics::Renderer::Get()->CreatePipeline(info);
+        // clang-format on
+    });
+}
 
 Text::Text() : UI::Base()
 {
@@ -33,6 +91,9 @@ Text::Text() : UI::Base()
 
     m_texturePtr = m_FontAtlas->Texture.get();
     Alignment = Alignment::Left;
+    IsSDF = false;
+
+    InitShader();
 }
 
 Text::Text(std::string fontName, float fontSize) : UI::Base()
@@ -45,15 +106,15 @@ Text::Text(std::string fontName, float fontSize) : UI::Base()
     info.FontSize = fontSize;
 
     info.Ranges.push_back({ 0x0020, 0x00FF });
-    // info.Ranges.push_back({ 0x3000, 0x30FF });
-    // info.Ranges.push_back({ 0x31F0, 0x31FF });
-    // info.Ranges.push_back({ 0x2600, 0x26FF });
 
     m_FontAtlas = Fonts::FontManager::Get()->LoadFont(info);
     m_renderMode = RenderMode::Batches;
 
     m_texturePtr = m_FontAtlas->Texture.get();
     Alignment = Alignment::Left;
+    IsSDF = false;
+
+    InitShader();
 }
 
 Text::Text(Fonts::FontLoadFileInfo &info) : UI::Base()
@@ -66,6 +127,9 @@ Text::Text(Fonts::FontLoadFileInfo &info) : UI::Base()
 
     m_texturePtr = m_FontAtlas->Texture.get();
     Alignment = Alignment::Left;
+    IsSDF = false;
+
+    InitShader();
 }
 
 Text::Text(Fonts::FontLoadBufferInfo &info) : UI::Base()
@@ -78,6 +142,24 @@ Text::Text(Fonts::FontLoadBufferInfo &info) : UI::Base()
 
     m_texturePtr = m_FontAtlas->Texture.get();
     Alignment = Alignment::Left;
+    IsSDF = false;
+
+    InitShader();
+}
+
+Text::Text(Fonts::FontLoadAtlasInfo &info) : UI::Base()
+{
+    Scale = 1.0f;
+    TextClipping = Graphics::NativeWindow::Get()->GetBufferSize();
+
+    m_FontAtlas = Fonts::FontManager::Get()->LoadFont(info);
+    m_renderMode = RenderMode::Batches;
+
+    m_texturePtr = m_FontAtlas->Texture.get();
+    Alignment = Alignment::Left;
+    IsSDF = false;
+
+    InitShader();
 }
 
 void Text::DrawString(std::string text)
@@ -178,20 +260,11 @@ void Text::OnDraw()
     double x1 = AbsolutePosition.X;
     double y1 = AbsolutePosition.Y;
 
-    auto windowRect = Graphics::NativeWindow::Get()->GetWindowSize();
-    auto bufferRect = Graphics::NativeWindow::Get()->GetBufferSize();
-
-    float widthRatio = static_cast<float>(windowRect.Width) / bufferRect.Width;
-    float heightRatio = static_cast<float>(windowRect.Height) / bufferRect.Height;
-
-    x1 *= widthRatio;
-    y1 *= heightRatio;
-
     clipRect = {
-        static_cast<int>(TextClipping.X * widthRatio),
-        static_cast<int>(TextClipping.Y * heightRatio),
-        static_cast<int>((TextClipping.X + TextClipping.Width) * widthRatio),
-        static_cast<int>((TextClipping.Y + TextClipping.Height) * heightRatio)
+        static_cast<int>(TextClipping.X),
+        static_cast<int>(TextClipping.Y),
+        static_cast<int>((TextClipping.X + TextClipping.Width)),
+        static_cast<int>((TextClipping.Y + TextClipping.Height))
     };
 
     m_ScaleSize = false;
@@ -207,7 +280,12 @@ void Text::OnDraw()
         1.0f, 1.0f, 1.0f, 1.0f
     };
 
-    shaderFragmentType = ShaderFragmentType::Image;
+    if (IsSDF) {
+        PipelineHandle = SDFText_Pipeline;
+    } else {
+        PipelineHandle = Text_Pipeline;
+    }
+
     uint32_t col = ((uint32_t)(color.a) << 24) | ((uint32_t)(color.b) << 16) | ((uint32_t)(color.g) << 8) | ((uint32_t)(color.r) << 0);
     float    posy = (float)y1;
     float    scale = (m_FontAtlas->FontSize * Scale) / m_FontAtlas->FontSize;

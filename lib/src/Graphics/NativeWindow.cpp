@@ -69,6 +69,16 @@ NativeWindow::~NativeWindow()
 {
 }
 
+std::string NativeWindow::GetWindowTitle()
+{
+    return SDL_GetWindowTitle(m_Window.get());
+}
+
+void NativeWindow::SetWindowTitle(const std::string &title)
+{
+    SDL_SetWindowTitle(m_Window.get(), title.c_str());
+}
+
 Rect NativeWindow::GetWindowSize()
 {
     return m_WindowRect;

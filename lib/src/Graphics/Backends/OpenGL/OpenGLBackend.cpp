@@ -25,7 +25,7 @@
 #include "../../ImguiBackends/imgui_impl_opengl3.h"
 #include "../../ImguiBackends/imgui_impl_sdl2.h"
 
-#include <spirv_cross/spirv_glsl.hpp>
+// #include <spirv_cross/spirv_glsl.hpp>
 
 using namespace Graphics::Backends;
 
@@ -42,14 +42,16 @@ uint32_t glBlendOperatioId;
 
 std::string compileSPRIV(const uint32_t *data, size_t size)
 {
-    spirv_cross::CompilerGLSL compiler(data, size);
+    // spirv_cross::CompilerGLSL compiler(data, size);
 
-    spirv_cross::CompilerGLSL::Options options;
-    options.version = 430;
-    options.emit_push_constant_as_uniform_buffer = true;
-    compiler.set_common_options(options);
+    // spirv_cross::CompilerGLSL::Options options;
+    // options.version = 430;
+    // options.emit_push_constant_as_uniform_buffer = true;
+    // compiler.set_common_options(options);
 
-    return compiler.compile();
+    // return compiler.compile();
+
+    return "";
 }
 
 void OpenGL::Init()

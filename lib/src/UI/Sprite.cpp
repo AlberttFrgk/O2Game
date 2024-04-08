@@ -7,7 +7,7 @@ Sprite::Sprite() : Image()
 {
     m_spriteIndex = 0;
 
-    m_frameTime = 1.0;
+    m_frameTime = 30.0;
     m_texCoords = {
         { glm::vec2(0.0f, 0.0f),
           glm::vec2(1.0f, 0.0f),
@@ -32,8 +32,8 @@ Sprite::Sprite(
     m_texCoords = texCoords;
     for (auto &coord : m_texCoords) {
         for (auto &uv : coord) {
-            uv.x /= (float)frameSize.Width;
-            uv.y /= (float)frameSize.Height;
+            uv.x /= (float)(frameSize.Width - 1);
+            uv.y /= (float)(frameSize.Height - 1);
         }
     }
 
@@ -56,8 +56,8 @@ Sprite::Sprite(
     m_texCoords = texCoords;
     for (auto &coord : m_texCoords) {
         for (auto &uv : coord) {
-            uv.x /= (float)frameSize.Width;
-            uv.y /= (float)frameSize.Height;
+            uv.x /= (float)(frameSize.Width - 1);
+            uv.y /= (float)(frameSize.Height - 1);
         }
     }
 
@@ -81,8 +81,8 @@ Sprite::Sprite(
     m_texCoords = texCoords;
     for (auto &coord : m_texCoords) {
         for (auto &uv : coord) {
-            uv.x /= (float)frameSize.Width;
-            uv.y /= (float)frameSize.Height;
+            uv.x /= (float)(frameSize.Width - 1);
+            uv.y /= (float)(frameSize.Height - 1);
         }
     }
 
@@ -107,12 +107,12 @@ Sprite::Sprite(
     m_texCoords = texCoords;
     for (auto &coord : m_texCoords) {
         for (auto &uv : coord) {
-            uv.x /= (float)frameSize.Width;
-            uv.y /= (float)frameSize.Height;
+            uv.x /= (float)(frameSize.Width - 1);
+            uv.y /= (float)(frameSize.Height - 1);
         }
     }
 
-    m_frameTime = 1.0 / frameTime;
+    m_frameTime = frameTime;
 }
 
 void Sprite::Draw(double delta)
@@ -174,8 +174,6 @@ void Sprite::OnDraw()
         | ((uint32_t)(color.g) << 8) 
         | ((uint32_t)(color.r) << 0);
     // clang-format on
-
-    shaderFragmentType = Graphics::Backends::ShaderFragmentType::Image;
 
     m_SubmitInfo.indices = { 0, 1, 2, 3, 4, 5 };
     m_SubmitInfo.vertices = {

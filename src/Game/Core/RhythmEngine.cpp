@@ -5,11 +5,11 @@
  * See the LICENSE file in the root of this project for details.
  */
 
+#include "RhythmEngine.h"
 #include "../Data/Util/Util.hpp"
 #include "../Env.h"
 #include "./Audio/SampleManager.h"
 #include "./Resources/NoteImages.h"
-#include "RhythmEngine.h"
 #include <Configuration.h>
 #include <Graphics/NativeWindow.h>
 #include <Logs.h>
@@ -70,10 +70,6 @@ RhythmEngine::RhythmEngine()
 
 RhythmEngine::~RhythmEngine()
 {
-    for (int i = 0; i < m_tracks.size(); i++) {
-        delete m_tracks[i];
-    }
-
     m_tracks.clear();
     m_timingPositionMarkers.clear();
 
@@ -100,30 +96,26 @@ bool RhythmEngine::Load(RhythmGameInfo info)
 
         // default is 99
         m_noteMaxImageIndex = 99;
+        float noteFrameRate = 0;
 
-        int currentX = m_laneOffset;
         for (int i = 0; i < 7; i++) {
-            m_tracks.push_back(new Track(this, i, currentX));
-            m_autoHitIndex[i] = 0;
+            auto track = std::make_shared<Track>(this, i, m_lanePos[i] + m_laneOffset, m_laneSize[i]);
 
             if (m_eventCallback) {
-                m_tracks[i]->ListenEvent([&](TrackEvent e) {
+                track->ListenEvent([&](TrackEvent e) {
                     m_eventCallback(e);
                 });
             }
 
-            auto noteTex = Resources::NoteImages::Get(Key2Type[i]);
+            m_tracks.push_back(track);
+            m_autoHitIndex[i] = 0;
 
-            int size = noteTex->ImagesRect.Width;
-            m_noteMaxImageIndex = (std::min)(noteTex->MaxFrames, m_noteMaxImageIndex);
-
-            m_lanePos[i] = static_cast<float>(currentX);
-            m_laneSize[i] = static_cast<float>(size);
-            currentX += size;
+            auto noteImage = Resources::NoteImages::Get(Key2Type[i]);
+            m_noteMaxImageIndex = std::min(m_noteMaxImageIndex, noteImage->MaxFrames);
+            noteFrameRate = std::max(noteFrameRate, noteImage->FrameRate);
         }
 
-        currentX = static_cast<int>(accumulate(m_laneSize, m_laneSize + 7, 0));
-        m_playRectangle = { m_laneOffset, 0, m_laneOffset + currentX, m_hitPosition };
+        m_noteFrameRate = 1 / noteFrameRate;
 
         std::filesystem::path audioPath = chart->m_beatmapDirectory;
         audioPath /= chart->m_audio;
@@ -358,21 +350,16 @@ void RhythmEngine::Update(double delta)
     double last = m_currentAudioPosition;
     m_currentAudioPosition += (delta * m_rate) * 1000;
 
-    // check difference between last and current audio position
-    // if it's too big, then it means the game is lagging
-
-    if (m_currentAudioPosition - last > 1000 * 5) {
-        // assert(false); // TODO: Handle this
-    }
-
-    // m_currentAudioPosition = 104037.60425329208;
-
     if (m_currentAudioPosition > m_audioLength + 2500) { // Avoid game ended too early
         m_state = GameState::PosGame;
         ::printf("Audio stopped!\n");
     }
 
-    if (static_cast<int>(m_currentAudioPosition) % 1000 == 0) {
+    m_currentNoteFrameTime += delta;
+
+    if (m_currentNoteFrameTime >= m_noteFrameRate) {
+        m_currentNoteFrameTime = 0;
+
         m_noteImageIndex = (m_noteImageIndex + 1) % m_noteMaxImageIndex;
     }
 
@@ -557,6 +544,17 @@ ReplayFrameData RhythmEngine::GetAutoplayAtThisFrame(double offset)
     }
 
     return data;
+}
+
+void RhythmEngine::SetLanePosAndOffset(float *lanePos, float *laneSizes)
+{
+    for (int i = 0; i < 7; i++) {
+        m_laneSize[i] = laneSizes[i];
+        m_lanePos[i] = lanePos[i];
+    }
+
+    int currentX = static_cast<int>(accumulate(m_laneSize, m_laneSize + 7, 0));
+    m_playRectangle = { m_laneOffset, 0, m_laneOffset + currentX, m_hitPosition };
 }
 
 // Getters arena
@@ -753,4 +751,9 @@ std::shared_ptr<Graphics::SpriteBatch> RhythmEngine::GetHoldSpriteBatch() const
 std::shared_ptr<Graphics::SpriteBatch> RhythmEngine::GetMeasureSpriteBatch() const
 {
     return m_measureSpriteBatch;
+}
+
+GameState RhythmEngine::GetState() const
+{
+    return m_state;
 }

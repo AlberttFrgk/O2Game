@@ -76,7 +76,7 @@ public:
     void                         OnHit(NoteResult result);
     void                         OnRelease(NoteResult result);
 
-    void SetXPosition(int x);
+    void SetXYPosition(float x, float y);
     void SetDrawable(bool drawable);
 
     bool IsHoldEffectDrawable() const;
@@ -106,7 +106,8 @@ private:
     NoteImageType m_ImageType;
     NoteImageType m_ImageBodyType;
 
-    int    m_LaneOffset;
+    float  m_LaneOffset;
+    float  m_LaneSize;
     double m_StartTime;
     double m_EndTime;
     double m_StartBPM;

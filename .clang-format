@@ -5,6 +5,7 @@ IndentWidth: 4
 TabWidth: 4
 BreakBeforeBraces: Custom
 Cpp11BracedListStyle: false
+SortIncludes: false
 BraceWrapping: 
   BeforeLambdaBody: false
   AfterNamespace: false

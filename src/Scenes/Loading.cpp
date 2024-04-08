@@ -35,6 +35,9 @@
 #include "../Game/MsgBoxEx.h"
 #include <UI/Text.h>
 
+#include "../Game/Core/Networking/GameCoordinator.h"
+#include "Gameplay.h"
+
 Loading::Loading()
 {
     m_counter = 0.0f;
@@ -61,7 +64,11 @@ void Loading::Update(double delta)
     bool IsThirdParty = false;
 
     Chart *chart = reinterpret_cast<Chart *>(Env::GetPointer("Chart"));
-    if (!chart || chart->GetO2JamId() != songId) {
+    if (!chart || (songId != -1 && chart->GetO2JamId() != songId)) {
+        if (chart) {
+            delete chart;
+        }
+
         if (!fucked) {
             std::filesystem::path file;
 
@@ -149,24 +156,25 @@ void Loading::Update(double delta)
 
         bool IsPitch = Configuration::GetBool("Game", "AudioPitch");
         SampleManager::SetRate(m_rate);
-        SampleManager::Load(chart, false);
+
+        auto tr = std::thread([=] {
+            SampleManager::Load(chart, false);
+        });
+
+        tr.detach();
     }
 
     if (!fucked) {
         try {
-            if (!m_LoadingBG) {
+            if (!m_Background) {
                 if (chart->m_backgroundFile.size() > 0 && std::filesystem::exists(dirPath)) {
-                    m_LoadingBG = std::make_shared<UI::Image>(dirPath);
+                    m_Background = std::make_shared<Image>(dirPath);
                 }
 
-                if (chart->m_backgroundBuffer.size() > 0 && m_LoadingBG == nullptr) {
-                    m_LoadingBG = std::make_shared<UI::Image>(
+                if (chart->m_backgroundBuffer.size() > 0 && m_Background == nullptr) {
+                    m_Background = std::make_shared<Image>(
                         chart->m_backgroundBuffer.data(),
                         chart->m_backgroundBuffer.size());
-                }
-
-                if (m_LoadingBG) {
-                    m_LoadingBG->ScaleMode = UI::ImageScaleMode::FitWindow;
                 }
             }
 
@@ -177,36 +185,12 @@ void Loading::Update(double delta)
         }
     }
 
-    if (is_ready && m_LoadingBG) {
-        m_LoadingBG->Draw();
+    if (is_ready && m_Background) {
+        m_Background->Draw();
     }
 
-    {
-        float progress = (float)currentProgress / maxProgress;
-
-        m_LoadingBar->Color3 = Color3::fromRGB(255, 255, 255);
-        m_LoadingBar->Size = UDim2::fromScale(progress, 0.015);
-        m_LoadingBar->Position = UDim2::fromScale(0, 1);
-        m_LoadingBar->AnchorPoint = Vector2(0, 1);
-
-        m_LoadingBar->Draw();
-    }
-
-    if (m_counter > 0 && chart != nullptr && !fucked && currentProgress >= maxProgress) {
-        Screens::Manager::Get()->SetScreen(SceneList::GAMEPLAY);
-    } else {
-        if (fucked) {
-            int songId = Env::GetInt("Key");
-            if (songId != -1) {
-                if (m_counter > 1) {
-                    Screens::Manager::Get()->SetScreen(SceneList::MAINMENU);
-                }
-            } else {
-                /*if (MsgBox::GetResult("FailChart") == 4) {
-                    SceneManager::GetInstance()->StopGame();
-                }*/
-            }
-        }
+    if (SampleManager::IsLoaded() && !fucked) {
+        Screens::Manager::Get()->Set<Gameplay>();
     }
 }
 
@@ -217,25 +201,14 @@ bool Loading::Attach()
 
     Env::SetInt("Key", -1);
     Env::SetInt("Difficulty", 2);
-    Env::SetPath("FILE", "C:\\Users\\ACER\\Documents\\Games\\DPJAM\\Music\\o2ma934.ojn");
-
-    m_Text = std::make_shared<UI::Text>("arial.ttf");
-    m_LoadingBar = std::make_shared<UI::Rectangle>();
-
-    SampleManager::OnLoad([&](int _currentProgress, int _maxProgress) {
-        currentProgress = _currentProgress;
-        maxProgress = _maxProgress;
-    });
+    Env::SetPath("FILE", "F:\\test\\o2ma3467.ojn");
 
     return true;
 }
 
 bool Loading::Detach()
 {
-    SampleManager::OnLoad([&](int currentProgress, int maxProgress) {});
-    m_Text.reset();
-    m_LoadingBar.reset();
-    m_LoadingBG.reset();
+    m_Background.reset();
 
     return true;
 }

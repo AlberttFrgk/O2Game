@@ -84,6 +84,30 @@ std::vector<uint16_t> Filesystem::ReadFile16(path path)
     return buf;
 }
 
+std::vector<uint32_t> Filesystem::ReadFile32(path path)
+{
+    auto buffer = InternalReadFile(path);
+
+    bool   needsPadding = false;
+    size_t sizeInBytes = buffer.size();
+
+    if (sizeInBytes % 4 != 0) {
+        sizeInBytes += 4 - (sizeInBytes % 4);
+        needsPadding = true;
+    }
+
+    size_t sizeInU32 = sizeInBytes / 4;
+
+    std::vector<uint32_t> buf(sizeInU32);
+    memcpy(buf.data(), buffer.data(), sizeInBytes - (needsPadding ? 4 : 0));
+
+    if (needsPadding) {
+        buf.back() = 0;
+    }
+
+    return buf;
+}
+
 std::string Filesystem::ReadFileString(path path)
 {
     auto buffer = InternalReadFile(path);
@@ -103,7 +127,15 @@ void Filesystem::WriteFile16(path path, const std::vector<uint16_t> &buffer)
 {
     auto fs = InternalWriteFile(path);
 
-    fs.write((char *)buffer.data(), buffer.size());
+    fs.write((char *)buffer.data(), buffer.size() * sizeof(uint16_t));
+    fs.close();
+}
+
+void Filesystem::WriteFile32(path path, const std::vector<uint32_t> &buffer)
+{
+    auto fs = InternalWriteFile(path);
+
+    fs.write((char *)buffer.data(), buffer.size() * sizeof(uint32_t));
     fs.close();
 }
 

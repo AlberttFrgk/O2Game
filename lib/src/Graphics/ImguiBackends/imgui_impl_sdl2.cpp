@@ -73,6 +73,8 @@
 //  2016-10-15: Misc: Added a void* user_data parameter to Clipboard function handlers.
 
 #include <Imgui/imgui.h>
+#include <Graphics/NativeWindow.h>
+#include <Graphics/Renderer.h>
 #ifndef IMGUI_DISABLE
 #include "imgui_impl_sdl2.h"
 
@@ -389,9 +391,19 @@ bool ImGui_ImplSDL2_ProcessEvent(const SDL_Event *event)
     switch (event->type) {
         case SDL_MOUSEMOTION:
         {
-            ImVec2 mouse_pos((float)event->motion.x, (float)event->motion.y);
+            auto renderer = Graphics::Renderer::Get();
+            auto window = Graphics::NativeWindow::Get();
+            Rect windowSize = window->GetWindowSize();
+            Rect bufferSize = window->GetBufferSize();
+
+            ImVec2 mouse_pos((float)(event->motion.x), (float)(event->motion.y));
             io.AddMouseSourceEvent(event->motion.which == SDL_TOUCH_MOUSEID ? ImGuiMouseSource_TouchScreen : ImGuiMouseSource_Mouse);
-            io.AddMousePosEvent(mouse_pos.x, mouse_pos.y);
+
+            ImVec2 mapped_pos(
+                (mouse_pos.x * (bufferSize.Width) * renderer->GetSupersampling()) / windowSize.Width,
+                (mouse_pos.y * (bufferSize.Height) * renderer->GetSupersampling()) / windowSize.Height);
+
+            io.AddMousePosEvent(mapped_pos.x, mapped_pos.y);
             return true;
         }
         case SDL_MOUSEWHEEL:
@@ -613,31 +625,32 @@ void ImGui_ImplSDL2_Shutdown()
 
 static void ImGui_ImplSDL2_UpdateMouseData()
 {
-    ImGui_ImplSDL2_Data *bd = ImGui_ImplSDL2_GetBackendData();
-    ImGuiIO             &io = ImGui::GetIO();
+    // Removed for
+    //     ImGui_ImplSDL2_Data *bd = ImGui_ImplSDL2_GetBackendData();
+    //     ImGuiIO             &io = ImGui::GetIO();
 
-    // We forward mouse input when hovered or captured (via SDL_MOUSEMOTION) or when focused (below)
-#if SDL_HAS_CAPTURE_AND_GLOBAL_MOUSE
-    // SDL_CaptureMouse() let the OS know e.g. that our imgui drag outside the SDL window boundaries shouldn't e.g. trigger other operations outside
-    SDL_CaptureMouse((bd->MouseButtonsDown != 0) ? SDL_TRUE : SDL_FALSE);
-    SDL_Window *focused_window = SDL_GetKeyboardFocus();
-    const bool  is_app_focused = (bd->Window == focused_window);
-#else
-    const bool is_app_focused = (SDL_GetWindowFlags(bd->Window) & SDL_WINDOW_INPUT_FOCUS) != 0; // SDL 2.0.3 and non-windowed systems: single-viewport only
-#endif
-    if (is_app_focused) {
-        // (Optional) Set OS mouse position from Dear ImGui if requested (rarely used, only when ImGuiConfigFlags_NavEnableSetMousePos is enabled by user)
-        if (io.WantSetMousePos)
-            SDL_WarpMouseInWindow(bd->Window, (int)io.MousePos.x, (int)io.MousePos.y);
+    //     // We forward mouse input when hovered or captured (via SDL_MOUSEMOTION) or when focused (below)
+    // #if SDL_HAS_CAPTURE_AND_GLOBAL_MOUSE
+    //     // SDL_CaptureMouse() let the OS know e.g. that our imgui drag outside the SDL window boundaries shouldn't e.g. trigger other operations outside
+    //     SDL_CaptureMouse((bd->MouseButtonsDown != 0) ? SDL_TRUE : SDL_FALSE);
+    //     SDL_Window *focused_window = SDL_GetKeyboardFocus();
+    //     const bool  is_app_focused = (bd->Window == focused_window);
+    // #else
+    //     const bool is_app_focused = (SDL_GetWindowFlags(bd->Window) & SDL_WINDOW_INPUT_FOCUS) != 0; // SDL 2.0.3 and non-windowed systems: single-viewport only
+    // #endif
+    //     if (is_app_focused) {
+    //         // (Optional) Set OS mouse position from Dear ImGui if requested (rarely used, only when ImGuiConfigFlags_NavEnableSetMousePos is enabled by user)
+    //         if (io.WantSetMousePos)
+    //             SDL_WarpMouseInWindow(bd->Window, (int)io.MousePos.x, (int)io.MousePos.y);
 
-        // (Optional) Fallback to provide mouse position when focused (SDL_MOUSEMOTION already provides this when hovered or captured)
-        if (bd->MouseCanUseGlobalState && bd->MouseButtonsDown == 0) {
-            int window_x, window_y, mouse_x_global, mouse_y_global;
-            SDL_GetGlobalMouseState(&mouse_x_global, &mouse_y_global);
-            SDL_GetWindowPosition(bd->Window, &window_x, &window_y);
-            io.AddMousePosEvent((float)(mouse_x_global - window_x), (float)(mouse_y_global - window_y));
-        }
-    }
+    //         // (Optional) Fallback to provide mouse position when focused (SDL_MOUSEMOTION already provides this when hovered or captured)
+    //         if (bd->MouseCanUseGlobalState && bd->MouseButtonsDown == 0) {
+    //             int window_x, window_y, mouse_x_global, mouse_y_global;
+    //             SDL_GetGlobalMouseState(&mouse_x_global, &mouse_y_global);
+    //             SDL_GetWindowPosition(bd->Window, &window_x, &window_y);
+    //             io.AddMousePosEvent((float)(mouse_x_global - window_x), (float)(mouse_y_global - window_y));
+    //         }
+    //     }
 }
 
 static void ImGui_ImplSDL2_UpdateMouseCursor()

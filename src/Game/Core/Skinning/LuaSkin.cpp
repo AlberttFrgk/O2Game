@@ -1,10 +1,29 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2023 Estrol Mendex
+ * See the LICENSE file in the root of this project for details.
+ */
+
 #include "../../Env.h"
+#define SOL_ALL_SAFETIES_ON 1
 #include "LuaSkin.h"
+#include "LuaManager.h"
 #include <Graphics/Utils/stb_image.h>
 
 #include <Exceptions/EstException.h>
 #include <Graphics/NativeWindow.h>
 #include <map>
+
+// Bindings
+#include "Bindings/LuaMath.h"
+#include "Bindings/LuaColor3.h"
+#include "Bindings/LuaUDim.h"
+#include "Bindings/LuaUDim2.h"
+#include "Bindings/LuaVector2.h"
+
+// For the char range
+#include <Imgui/imgui.h>
 
 static std::map<SkinGroup, std::string> ExpectedFiles = {
     { SkinGroup::Main, "Main.lua" },
@@ -37,30 +56,10 @@ inline void panic_handler(sol::optional<std::string> maybe_msg)
     }
 }
 
-void LuaSkin::LoadSkin(std::string skinName)
-{
-#if defined(_DEBUG)
-    CurrentPath = std::filesystem::current_path() / ".." / ".." / "resources" / "Resources";
-#else
-    CurrentPath = std::filesystem::current_path() / "Skins" / skinName;
-#endif
-    if (!std::filesystem::exists(CurrentPath)) {
-        throw Exceptions::EstException("Skin %s does not exist", skinName.c_str());
-    }
-
-    auto path = CurrentPath / "GameSkin.ini";
-    if (!std::filesystem::exists(path)) {
-        throw Exceptions::EstException("GameSkin.ini does not exist");
-    }
-
-    Misc::mINI::INIFile file(path.string());
-    file.read(ini);
-}
-
-void LuaSkin::LoadScript(SkinGroup group)
+LuaSkin::LuaSkin(std::filesystem::path _path, SkinGroup group)
 {
     auto file = ExpectedFiles[group];
-    auto path = std::filesystem::path(GetPath()) / "Scripts" / file;
+    auto path = _path / "Scripts" / file;
     if (!std::filesystem::exists(path)) {
         throw Exceptions::EstException("Script %s does not exist", ExpectedFiles[group].c_str());
     }
@@ -73,7 +72,6 @@ void LuaSkin::LoadScript(SkinGroup group)
 
     state.open_libraries(
         sol::lib::base,
-        sol::lib::math,
         sol::lib::string,
         sol::lib::table,
         sol::lib::io,
@@ -95,6 +93,8 @@ void LuaSkin::LoadScript(SkinGroup group)
     DataType["Sprite"] = SkinDataType::Sprite;
     DataType["Tween"] = SkinDataType::Tween;
     DataType["Audio"] = SkinDataType::Audio;
+    DataType["Font"] = SkinDataType::Font;
+    DataType["Animation"] = SkinDataType::Animation;
 
     sol::table TweenType = state.create_table();
     TweenType["Linear"] = TweenType::Linear;
@@ -119,14 +119,33 @@ void LuaSkin::LoadScript(SkinGroup group)
     BGMType["Waiting"] = SkinAudioType::BGM_Waiting;
     BGMType["Result"] = SkinAudioType::BGM_Result;
 
+    sol::table CharRange = state.create_table();
+    CharRange["Default"] = CharRangeType::Default;
+    CharRange["Japanese"] = CharRangeType::Japanese;
+    CharRange["Korean"] = CharRangeType::Korean;
+    CharRange["Chinese"] = CharRangeType::Chinese;
+
     sol::table Enums = state.create_table();
     Enums["HeaderType"] = HeaderType;
     Enums["DataType"] = DataType;
     Enums["TweenType"] = TweenType;
     Enums["NumericDirection"] = NumericDirection;
     Enums["AudioType"] = BGMType;
+    Enums["CharRange"] = CharRange;
 
     state["Enum"] = Enums;
+
+    state["LerpEasing"] = [&](int easingType, UDim2 start, UDim2 end, double t) -> UDim2 {
+        ::TweenType type = static_cast<::TweenType>(easingType);
+
+        return Tween::Lerp(type, start, end, static_cast<float>(t));
+    };
+
+    LuaMath::Register(state);
+    LuaColor3::Register(state);
+    LuaUDim::Register(state);
+    LuaUDim2::Register(state);
+    LuaVector2::Register(state);
 
     state.new_usertype<GameLua>(
         "GameLua",
@@ -139,7 +158,9 @@ void LuaSkin::LoadScript(SkinGroup group)
         "GetSkinPath", &GameLua::GetSkinPath,
         "GetScriptPath", &GameLua::GetScriptPath,
         "IsPathExist", &GameLua::IsPathExist,
-        "GetImageSize", &GameLua::GetImageSize);
+        "GetImageSize", &GameLua::GetImageSize,
+        "GetCharRange", &GameLua::GetCharRange,
+        "GetFontPath", &GameLua::GetFontPath);
 
     Script.game = std::make_shared<GameLua>();
     Script.game->__skin = this;
@@ -286,7 +307,7 @@ std::vector<NumericValue> LuaSkin::GetNumeric(std::string key)
                 }
             }
 
-            if (value_table["Position"] == sol::nil || !value_table["Position"].is<sol::table>()) {
+            if (value_table["Position"] == sol::nil || !value_table["Position"].is<UDim2>()) {
                 throw Exceptions::EstException(
                     "[Numeric] %s at key: '%s', Position field is not a table or nil but got %s",
                     luaFileName.c_str(),
@@ -294,22 +315,9 @@ std::vector<NumericValue> LuaSkin::GetNumeric(std::string key)
                     get_type_name(value_table["Position"].get_type()));
             }
 
-            sol::table position = value_table["Position"];
+            numeric_value.Position = value_table["Position"];
 
-            if (position[1] == sol::nil || !position[1].is<double>()) {
-                throw Exceptions::EstException("[Numeric] %s at key: '%s', Position[1] is not a number or nil", luaFileName.c_str(), key.c_str());
-            }
-
-            if (position[2] == sol::nil || !position[2].is<double>()) {
-                throw Exceptions::EstException("[Numeric] %s at key: '%s', Position[2] is not a number or nil", luaFileName.c_str(), key.c_str());
-            }
-
-            double x = position[1];
-            double y = position[2];
-
-            numeric_value.Position = UDim2::fromOffset(x, y);
-
-            if (value_table["Size"] == sol::nil || !value_table["Size"].is<sol::table>()) {
+            if (value_table["Size"] == sol::nil || !value_table["Size"].is<UDim2>()) {
                 throw Exceptions::EstException(
                     "[Numeric] %s at key: '%s', Size field is not a table or nil but got %s",
                     luaFileName.c_str(),
@@ -317,20 +325,7 @@ std::vector<NumericValue> LuaSkin::GetNumeric(std::string key)
                     get_type_name(value_table["Size"].get_type()));
             }
 
-            sol::table size = value_table["Size"];
-
-            if (size[1] == sol::nil || !size[1].is<double>()) {
-                throw Exceptions::EstException("[Numeric] %s at key: '%s', Size[1] is not a number or nil", luaFileName.c_str(), key.c_str());
-            }
-
-            if (size[2] == sol::nil || !size[2].is<double>()) {
-                throw Exceptions::EstException("[Numeric] %s at key: '%s', Size[2] is not a number or nil", luaFileName.c_str(), key.c_str());
-            }
-
-            double width = size[1];
-            double height = size[2];
-
-            numeric_value.Size = UDim2::fromOffset(width, height);
+            numeric_value.Size = value_table["Size"];
 
             if (value_table["MaxDigit"] == sol::nil || !value_table["MaxDigit"].is<int>()) {
                 throw Exceptions::EstException(
@@ -362,7 +357,7 @@ std::vector<NumericValue> LuaSkin::GetNumeric(std::string key)
 
             numeric_value.FillWithZero = value_table["FillWithZero"];
 
-            if (value_table["Color"] == sol::nil || !value_table["Color"].is<sol::table>()) {
+            if (value_table["Color"] == sol::nil || !value_table["Color"].is<Color3>()) {
                 throw Exceptions::EstException(
                     "[Numeric] %s at key: '%s', Color field is not a table or nil but got %s",
                     luaFileName.c_str(),
@@ -370,26 +365,7 @@ std::vector<NumericValue> LuaSkin::GetNumeric(std::string key)
                     get_type_name(value_table["Color"].get_type()));
             }
 
-            {
-                sol::table rgb = value_table["Color"];
-
-                if (rgb[1] == sol::nil || !rgb[1].is<int>()) {
-                    throw Exceptions::EstException("[Numeric] %s at key: '%s', Color[1] is not a number or nil", luaFileName.c_str(), key.c_str());
-                }
-
-                if (rgb[2] == sol::nil || !rgb[2].is<int>()) {
-                    throw Exceptions::EstException("[Numeric] %s at key: '%s', Color[2] is not a number or nil", luaFileName.c_str(), key.c_str());
-                }
-
-                if (rgb[3] == sol::nil || !rgb[3].is<int>()) {
-                    throw Exceptions::EstException("[Numeric] %s at key: '%s', Color[3] is not a number or nil", luaFileName.c_str(), key.c_str());
-                }
-
-                numeric_value.Color = Color3::fromRGB(
-                    rgb[1],
-                    rgb[2],
-                    rgb[3]);
-            }
+            numeric_value.Color = value_table["Color"];
 
             result.push_back(numeric_value);
         }
@@ -501,7 +477,7 @@ std::vector<PositionValue> LuaSkin::GetPosition(std::string key)
                 position_value.TexCoord = texCoord;
             }
 
-            if (value_table["Position"] == sol::nil || !value_table["Position"].is<sol::table>()) {
+            if (value_table["Position"] == sol::nil || !value_table["Position"].is<UDim2>()) {
                 throw Exceptions::EstException(
                     "[Position] %s at key: '%s', Position field is not a table or nil but got %s",
                     luaFileName.c_str(),
@@ -509,22 +485,9 @@ std::vector<PositionValue> LuaSkin::GetPosition(std::string key)
                     get_type_name(value_table["Position"].get_type()));
             }
 
-            sol::table position = value_table["Position"];
+            position_value.Position = value_table["Position"];
 
-            if (position[1] == sol::nil || !position[1].is<double>()) {
-                throw Exceptions::EstException("[Position] %s at key: '%s', Position[1] is not a number or nil", luaFileName.c_str(), key.c_str());
-            }
-
-            if (position[2] == sol::nil || !position[2].is<double>()) {
-                throw Exceptions::EstException("[Position] %s at key: '%s', Position[2] is not a number or nil", luaFileName.c_str(), key.c_str());
-            }
-
-            double x = position[1];
-            double y = position[2];
-
-            position_value.Position = UDim2::fromOffset(x, y);
-
-            if (value_table["Size"] == sol::nil || !value_table["Size"].is<sol::table>()) {
+            if (value_table["Size"] == sol::nil || !value_table["Size"].is<UDim2>()) {
                 throw Exceptions::EstException(
                     "[Position] %s at key: '%s', Size field is not a table or nil but got %s",
                     luaFileName.c_str(),
@@ -532,22 +495,9 @@ std::vector<PositionValue> LuaSkin::GetPosition(std::string key)
                     get_type_name(value_table["Size"].get_type()));
             }
 
-            sol::table size = value_table["Size"];
+            position_value.Size = value_table["Size"];
 
-            if (size[1] == sol::nil || !size[1].is<double>()) {
-                throw Exceptions::EstException("[Position] %s at key: '%s', Size[1] is not a number or nil", luaFileName.c_str(), key.c_str());
-            }
-
-            if (size[2] == sol::nil || !size[2].is<double>()) {
-                throw Exceptions::EstException("[Position] %s at key: '%s', Size[2] is not a number or nil", luaFileName.c_str(), key.c_str());
-            }
-
-            double width = size[1];
-            double height = size[2];
-
-            position_value.Size = UDim2::fromOffset(width, height);
-
-            if (value_table["AnchorPoint"] == sol::nil || !value_table["AnchorPoint"].is<sol::table>()) {
+            if (value_table["AnchorPoint"] == sol::nil || !value_table["AnchorPoint"].is<Vector2>()) {
                 throw Exceptions::EstException(
                     "[Position] %s at key: '%s', AnchorPoint field is not a table or nil but got %s",
                     luaFileName.c_str(),
@@ -555,10 +505,9 @@ std::vector<PositionValue> LuaSkin::GetPosition(std::string key)
                     get_type_name(value_table["AnchorPoint"].get_type()));
             }
 
-            sol::table anchorPoint = value_table["AnchorPoint"];
-            position_value.AnchorPoint = Vector2(anchorPoint[1], anchorPoint[2]);
+            position_value.AnchorPoint = value_table["AnchorPoint"];
 
-            if (value_table["Color"] == sol::nil || !value_table["Color"].is<sol::table>()) {
+            if (value_table["Color"] == sol::nil || !value_table["Color"].is<Color3>()) {
                 throw Exceptions::EstException(
                     "[Position] %s at key: '%s', Color field is not a table or nil but got %s",
                     luaFileName.c_str(),
@@ -566,26 +515,7 @@ std::vector<PositionValue> LuaSkin::GetPosition(std::string key)
                     get_type_name(value_table["Color"].get_type()));
             }
 
-            {
-                sol::table rgb = value_table["Color"];
-
-                if (rgb[1] == sol::nil || !rgb[1].is<int>()) {
-                    throw Exceptions::EstException("[Position] %s at key: '%s', Color[1] is not a number or nil", luaFileName.c_str(), key.c_str());
-                }
-
-                if (rgb[2] == sol::nil || !rgb[2].is<int>()) {
-                    throw Exceptions::EstException("[Position] %s at key: '%s', Color[2] is not a number or nil", luaFileName.c_str(), key.c_str());
-                }
-
-                if (rgb[3] == sol::nil || !rgb[3].is<int>()) {
-                    throw Exceptions::EstException("[Position] %s at key: '%s', Color[3] is not a number or nil", luaFileName.c_str(), key.c_str());
-                }
-
-                position_value.Color = Color3::fromRGB(
-                    rgb[1],
-                    rgb[2],
-                    rgb[3]);
-            }
+            position_value.Color = value_table["Color"];
 
             result.push_back(position_value);
         }
@@ -612,19 +542,19 @@ std::vector<RectInfo> LuaSkin::GetRect(std::string key)
 
         std::vector<RectInfo> result;
         for (auto &value : key_array) {
-            if (!value.second.is<sol::table>()) {
+            sol::table value_table = value.second;
+
+            if (!value_table.is<sol::table>()) {
                 throw Exceptions::EstException(
                     "[Rect] %s at key: '%s', Value is not a table but got %s",
                     luaFileName.c_str(),
                     key.c_str(),
-                    get_type_name(value.second.get_type()));
+                    get_type_name(value_table.get_type()));
             }
 
             RectInfo rect_info = {};
 
-            sol::table value_table = value.second;
-
-            if (value_table["Position"] == sol::nil || !value_table["Position"].is<sol::table>()) {
+            if (value_table["Position"] == sol::nil || !value_table["Position"].is<UDim2>()) {
                 throw Exceptions::EstException(
                     "[Rect] %s at key: '%s', Position field is not a table or nil but got %s",
                     luaFileName.c_str(),
@@ -632,22 +562,9 @@ std::vector<RectInfo> LuaSkin::GetRect(std::string key)
                     get_type_name(value_table["Position"].get_type()));
             }
 
-            sol::table position = value_table["Position"];
+            rect_info.Position = value_table["Position"];
 
-            if (position[1] == sol::nil || !position[1].is<double>()) {
-                throw Exceptions::EstException("[Rect] %s at key: '%s', Position[1] is not a number or nil", luaFileName.c_str(), key.c_str());
-            }
-
-            if (position[2] == sol::nil || !position[2].is<double>()) {
-                throw Exceptions::EstException("[Rect] %s at key: '%s', Position[2] is not a number or nil", luaFileName.c_str(), key.c_str());
-            }
-
-            double x = position[1];
-            double y = position[2];
-
-            rect_info.Position = UDim2::fromOffset(x, y);
-
-            if (value_table["Size"] == sol::nil || !value_table["Size"].is<sol::table>()) {
+            if (value_table["Size"] == sol::nil || !value_table["Size"].is<UDim2>()) {
                 throw Exceptions::EstException(
                     "[Rect] %s at key: '%s', Size field is not a table or nil but got %s",
                     luaFileName.c_str(),
@@ -655,20 +572,7 @@ std::vector<RectInfo> LuaSkin::GetRect(std::string key)
                     get_type_name(value_table["Size"].get_type()));
             }
 
-            sol::table size = value_table["Size"];
-
-            if (size[1] == sol::nil || !size[1].is<double>()) {
-                throw Exceptions::EstException("[Rect] %s at key: '%s', Size[1] is not a number or nil", luaFileName.c_str(), key.c_str());
-            }
-
-            if (size[2] == sol::nil || !size[2].is<double>()) {
-                throw Exceptions::EstException("[Rect] %s at key: '%s', Size[2] is not a number or nil", luaFileName.c_str(), key.c_str());
-            }
-
-            double width = size[1];
-            double height = size[2];
-
-            rect_info.Size = UDim2::fromOffset(width, height);
+            rect_info.Size = value_table["Size"];
 
             result.push_back(rect_info);
         }
@@ -741,78 +645,6 @@ std::vector<AudioInfo> LuaSkin::GetAudio()
         throw Exceptions::EstException("[Audio] %s, (key = Audio)", err.what());
     }
 }
-
-// NoteValue LuaSkin::GetNote(std::string key)
-// {
-//     try {
-//         sol::table &script_table = *Script.table.get();
-//         sol::table  table = script_table["Data"];
-//         auto        luaFileName = ExpectedFiles[CurrentGroup];
-
-//         // check if the key exists
-//         if (table[SkinDataType::Note][key] == sol::nil || !table[SkinDataType::Note][key].is<sol::table>()) {
-//             throw Exceptions::EstException("[%s] Key '%s' does not exist or not table", luaFileName.c_str(), key.c_str());
-//         }
-
-//         sol::table key_array = table[SkinDataType::Note][key];
-
-//         if (key_array["Files"] == sol::nil || !key_array["Files"].is<sol::table>()) {
-//             throw Exceptions::EstException(
-//                 "[Note] %s at key: '%s', Files field is not a table or nil but got %s",
-//                 luaFileName.c_str(),
-//                 key.c_str(),
-//                 get_type_name(key_array[1].get_type()));
-//         }
-
-//         NoteValue note_value = {};
-
-//         sol::table files = key_array["Files"];
-//         for (int i = 1; i <= files.size(); i++) {
-//             std::string file = files[i];
-//             note_value.Files.push_back(file);
-//         }
-
-//         if (key_array["Size"] == sol::nil || !key_array["Size"].is<sol::table>()) {
-//             throw Exceptions::EstException(
-//                 "[Note] %s at key: '%s', Size field is not a table or nil but got %s",
-//                 luaFileName.c_str(),
-//                 key.c_str(),
-//                 get_type_name(key_array["Size"].get_type()));
-//         }
-
-//         sol::table size = key_array["Size"];
-
-//         if (size[1] == sol::nil || !size[1].is<double>()) {
-//             throw Exceptions::EstException("[Note] %s at key: '%s', Size[1] is not a number or nil", luaFileName.c_str(), key.c_str());
-//         }
-
-//         if (size[2] == sol::nil || !size[2].is<double>()) {
-//             throw Exceptions::EstException("[Note] %s at key: '%s', Size[2] is not a number or nil", luaFileName.c_str(), key.c_str());
-//         }
-
-//         note_value.Size = UDim2::fromOffset(size[1], size[2]);
-
-//         if (key_array["FrameTime"] == sol::nil || !key_array["FrameTime"].is<double>()) {
-//             throw Exceptions::EstException(
-//                 "[Note] %s at key: '%s', FrameTime field is not a number or nil but got %s",
-//                 luaFileName.c_str(),
-//                 key.c_str(),
-//                 get_type_name(key_array["FrameTime"].get_type()));
-//         }
-
-//         note_value.FrameTime = key_array["FrameTime"];
-
-//         sol::table color = key_array["Color"];
-//         note_value.Color = Color3::fromRGB(
-//             color[1],
-//             color[2],
-//             color[3]);
-
-//         return note_value;
-//     } catch (const sol::error &err) {
-//         throw Exceptions::EstException("%s, (key = %s)", err.what(), key.c_str());
-//     }
-// }
 
 SpriteValue LuaSkin::GetSprite(std::string key)
 {
@@ -902,7 +734,7 @@ SpriteValue LuaSkin::GetSprite(std::string key)
             }
         }
 
-        if (key_array["Position"] == sol::nil || !key_array["Position"].is<sol::table>()) {
+        if (key_array["Position"] == sol::nil || !key_array["Position"].is<UDim2>()) {
             throw Exceptions::EstException(
                 "[Sprite] %s at key: '%s', Position field is not a table or nil but got %s",
                 luaFileName.c_str(),
@@ -910,19 +742,9 @@ SpriteValue LuaSkin::GetSprite(std::string key)
                 get_type_name(key_array["Position"].get_type()));
         }
 
-        sol::table position = key_array["Position"];
+        sprite_value.Position = key_array["Position"];
 
-        if (position[1] == sol::nil || !position[1].is<double>()) {
-            throw Exceptions::EstException("[Sprite] %s at key: '%s', Position[1] is not a number or nil", luaFileName.c_str(), key.c_str());
-        }
-
-        if (position[2] == sol::nil || !position[2].is<double>()) {
-            throw Exceptions::EstException("[Sprite] %s at key: '%s', Position[2] is not a number or nil", luaFileName.c_str(), key.c_str());
-        }
-
-        sprite_value.Position = UDim2::fromOffset(position[1], position[2]);
-
-        if (key_array["Size"] == sol::nil || !key_array["Size"].is<sol::table>()) {
+        if (key_array["Size"] == sol::nil || !key_array["Size"].is<UDim2>()) {
             throw Exceptions::EstException(
                 "[Sprite] %s at key: '%s', Size field is not a table or nil but got %s",
                 luaFileName.c_str(),
@@ -930,28 +752,37 @@ SpriteValue LuaSkin::GetSprite(std::string key)
                 get_type_name(key_array["Size"].get_type()));
         }
 
-        sol::table size = key_array["Size"];
+        sprite_value.Size = key_array["Size"];
 
-        if (size[1] == sol::nil || !size[1].is<double>()) {
-            throw Exceptions::EstException("[Sprite] %s at key: '%s', Size[1] is not a number or nil", luaFileName.c_str(), key.c_str());
+        if (key_array["AnchorPoint"] == sol::nil || !key_array["AnchorPoint"].is<Vector2>()) {
+            throw Exceptions::EstException(
+                "[Sprite] %s at key: '%s', AnchorPoint field is not a table or nil but got %s",
+                luaFileName.c_str(),
+                key.c_str(),
+                get_type_name(key_array["AnchorPoint"].get_type()));
         }
 
-        if (size[2] == sol::nil || !size[2].is<double>()) {
-            throw Exceptions::EstException("[Sprite] %s at key: '%s', Size[2] is not a number or nil", luaFileName.c_str(), key.c_str());
+        sprite_value.AnchorPoint = key_array["AnchorPoint"];
+
+        if (key_array["FrameTime"] == sol::nil || !key_array["FrameTime"].is<double>()) {
+            throw Exceptions::EstException(
+                "[Sprite] %s at key: '%s', FrameTime field is not a number or nil but got %s",
+                luaFileName.c_str(),
+                key.c_str(),
+                get_type_name(key_array["FrameTime"].get_type()));
         }
-
-        sprite_value.Size = UDim2::fromOffset(size[1], size[2]);
-
-        sol::table anchorPoint = key_array["AnchorPoint"];
-        sprite_value.AnchorPoint = Vector2(anchorPoint[1], anchorPoint[2]);
 
         sprite_value.FrameTime = key_array["FrameTime"];
 
-        sol::table rgb = key_array["Color"];
-        sprite_value.Color = Color3::fromRGB(
-            rgb[1],
-            rgb[2],
-            rgb[3]);
+        if (key_array["Color"] == sol::nil || !key_array["Color"].is<Color3>()) {
+            throw Exceptions::EstException(
+                "[Sprite] %s at key: '%s', Color field is not a table or nil but got %s",
+                luaFileName.c_str(),
+                key.c_str(),
+                get_type_name(key_array["Color"].get_type()));
+        }
+
+        sprite_value.Color = key_array["Color"];
 
         return sprite_value;
     } catch (const sol::error &err) {
@@ -975,7 +806,7 @@ TweenInfo LuaSkin::GetTween(std::string key)
 
         TweenInfo tween_info = {};
 
-        if (key_array["Destination"] == sol::nil || !key_array["Destination"].is<sol::table>()) {
+        if (key_array["Destination"] == sol::nil || !key_array["Destination"].is<UDim2>()) {
             throw Exceptions::EstException(
                 "[Tween] %s at key: '%s', Destination field is not a table or nil but got %s",
                 luaFileName.c_str(),
@@ -983,20 +814,7 @@ TweenInfo LuaSkin::GetTween(std::string key)
                 get_type_name(key_array["Destination"].get_type()));
         }
 
-        sol::table Destination = key_array["Destination"];
-
-        if (Destination[1] == sol::nil || !Destination[1].is<double>()) {
-            throw Exceptions::EstException("[Tween] %s at key: '%s', Destination[1] is not a number or nil", luaFileName.c_str(), key.c_str());
-        }
-
-        if (Destination[2] == sol::nil || !Destination[2].is<double>()) {
-            throw Exceptions::EstException("[Tween] %s at key: '%s', Destination[2] is not a number or nil", luaFileName.c_str(), key.c_str());
-        }
-
-        double x = Destination[1];
-        double y = Destination[2];
-
-        tween_info.Destination = UDim2::fromOffset(x, y);
+        tween_info.Destination = key_array["Destination"];
 
         if (key_array["Type"] == sol::nil || !key_array["Type"].is<int>()) {
             throw Exceptions::EstException(
@@ -1024,21 +842,189 @@ TweenInfo LuaSkin::GetTween(std::string key)
     }
 }
 
-std::string LuaSkin::GetSkinProp(std::string group, std::string key, std::string defaultValue)
+std::vector<FontInfo> LuaSkin::GetFont(std::string key)
 {
-    return ini[group][key].empty() ? defaultValue : ini[group][key];
+    try {
+        sol::table &script_table = *Script.table.get();
+        sol::table  table = script_table["Data"];
+        auto        luaFileName = ExpectedFiles[CurrentGroup];
+
+        // check if the key exists
+        if (table[SkinDataType::Font][key] == sol::nil || !table[SkinDataType::Font][key].is<sol::table>()) {
+            throw Exceptions::EstException("[Rect] [%s] Key '%s' does not exist or not table", luaFileName.c_str(), key.c_str());
+        }
+
+        sol::table key_array = table[SkinDataType::Font][key];
+
+        std::vector<FontInfo> result;
+        for (auto &value : key_array) {
+            if (!value.second.is<sol::table>()) {
+                throw Exceptions::EstException(
+                    "[Font] %s at key: '%s', Value is not a table but got %s",
+                    luaFileName.c_str(),
+                    key.c_str(),
+                    get_type_name(value.second.get_type()));
+            }
+
+            FontInfo font_info = {};
+
+            sol::table value_table = value.second;
+            if (value_table["FontFile"] == sol::nil || !value_table["FontFile"].is<std::string>()) {
+                throw Exceptions::EstException(
+                    "[Font] %s at key: '%s', FontFile field is not a string or nil but got %s",
+                    luaFileName.c_str(),
+                    key.c_str(),
+                    get_type_name(value_table["FontFile"].get_type()));
+            }
+
+            std::string fontFile = value_table["FontFile"];
+            font_info.FontFile = fontFile;
+
+            if (!std::filesystem::exists(fontFile)) {
+                throw Exceptions::EstException("[Font] %s at key: '%s', The font file is not exist! [File: %s]", luaFileName.c_str(), key.c_str(), fontFile.c_str());
+            }
+
+            if (value_table["Size"] == sol::nil || !value_table["Size"].is<double>()) {
+                throw Exceptions::EstException(
+                    "[Font] %s at key: '%s', Size field is not a number or nil but got %s",
+                    luaFileName.c_str(),
+                    key.c_str(),
+                    get_type_name(value_table["Size"].get_type()));
+            }
+
+            double size = value_table["Size"];
+            font_info.Size = static_cast<float>(size);
+
+            if (value_table["CharRange"] == sol::nil || !value_table["CharRange"].is<sol::table>()) {
+                throw Exceptions::EstException(
+                    "[Font] %s at key: '%s', CharRange field is not a table or nil but got %s",
+                    luaFileName.c_str(),
+                    key.c_str(),
+                    get_type_name(value_table["CharRange"].get_type()));
+            }
+
+            sol::table charRanges = value_table["CharRange"];
+            for (auto &charRange : charRanges) {
+                if (!charRange.second.is<sol::table>()) {
+                    throw Exceptions::EstException(
+                        "[Font] %s at key: '%s', CharRange value is not a table but got %s",
+                        luaFileName.c_str(),
+                        key.c_str(),
+                        get_type_name(charRange.second.get_type()));
+                }
+
+                sol::table charRangeTable = charRange.second;
+                if (charRangeTable[1] == sol::nil || !charRangeTable[1].is<int>()) {
+                    throw Exceptions::EstException("[Font] %s at key: '%s', CharRange[1] is not a number or nil", luaFileName.c_str(), key.c_str());
+                }
+
+                if (charRangeTable[2] == sol::nil || !charRangeTable[2].is<int>()) {
+                    throw Exceptions::EstException("[Font] %s at key: '%s', CharRange[2] is not a number or nil", luaFileName.c_str(), key.c_str());
+                }
+
+                font_info.CharRanges.push_back({ charRangeTable[1],
+                                                 charRangeTable[2] });
+            }
+
+            result.push_back(font_info);
+        }
+
+        if (result.empty()) {
+            throw Exceptions::EstException("[Font] %s at key: '%s', FontInfo is empty", luaFileName.c_str(), key.c_str());
+        }
+
+        return result;
+    } catch (const sol::error &err) {
+        throw Exceptions::EstException("[Font] %s, (key = %s)", err.what(), key.c_str());
+    }
 }
 
-std::string LuaSkin::GetPath()
+AnimationInfo LuaSkin::GetAnimation(std::string key)
 {
-    return CurrentPath.string();
+    try {
+        sol::table &script_table = *Script.table.get();
+        sol::table  table = script_table["Data"];
+        auto        luaFileName = ExpectedFiles[CurrentGroup];
+
+        // check if the key exists
+        if (table[SkinDataType::Animation][key] == sol::nil || !table[SkinDataType::Animation][key].is<sol::table>()) {
+            throw Exceptions::EstException("[Animation] [%s] Key '%s' does not exist or not table", luaFileName.c_str(), key.c_str());
+        }
+
+        sol::table key_array = table[SkinDataType::Animation][key];
+
+        AnimationInfo animation_info = {};
+
+        if (key_array["Position"] == sol::nil || !key_array["Position"].is<sol::table>()) {
+            throw Exceptions::EstException(
+                "[Animation] %s at key: '%s', Position field is not a table or nil but got %s",
+                luaFileName.c_str(),
+                key.c_str(),
+                get_type_name(key_array["Position"].get_type()));
+        }
+
+        sol::table position = key_array["Position"];
+
+        if (position["Start"] == sol::nil || !position["Start"].is<UDim2>()) {
+            throw Exceptions::EstException(
+                "[Animation] %s at key: '%s', Position.Start field is not a table or nil but got %s",
+                luaFileName.c_str(),
+                key.c_str(),
+                get_type_name(position["Start"].get_type()));
+        }
+
+        if (position["End"] == sol::nil || !position["End"].is<UDim2>()) {
+            throw Exceptions::EstException(
+                "[Animation] %s at key: '%s', Position.End field is not a table or nil but got %s",
+                luaFileName.c_str(),
+                key.c_str(),
+                get_type_name(position["End"].get_type()));
+        }
+
+        animation_info.Position.Start = position["Start"];
+        animation_info.Position.End = position["End"];
+
+        if (key_array["Duration"] == sol::nil || !key_array["Duration"].is<double>()) {
+            throw Exceptions::EstException(
+                "[Animation] %s at key: '%s', Duration field is not a number or nil but got %s",
+                luaFileName.c_str(),
+                key.c_str(),
+                get_type_name(key_array["Duration"].get_type()));
+        }
+
+        animation_info.Duration = key_array["Duration"];
+
+        if (key_array["Repeat"] == sol::nil || !key_array["Repeat"].is<bool>()) {
+            throw Exceptions::EstException(
+                "[Animation] %s at key: '%s', Repeat field is not a boolean or nil but got %s",
+                luaFileName.c_str(),
+                key.c_str(),
+                get_type_name(key_array["Repeat"].get_type()));
+        }
+
+        animation_info.Repeat = key_array["Repeat"];
+
+        if (key_array["Update"] == sol::nil || !key_array["Update"].is<sol::safe_function>()) {
+            throw Exceptions::EstException(
+                "[Animation] %s at key: '%s', Update field is not a function or nil but got %s",
+                luaFileName.c_str(),
+                key.c_str(),
+                get_type_name(key_array["Update"].get_type()));
+        }
+
+        animation_info.Callback = key_array["Update"];
+
+        return animation_info;
+    } catch (const sol::error &err) {
+        throw Exceptions::EstException("[Animation] %s, (key = %s)", err.what(), key.c_str());
+    }
 }
 
-LuaSkin *LuaSkin::Get()
-{
-    static LuaSkin m_instance;
+// Lua state misc
 
-    return &m_instance;
+LuaState *LuaSkin::GetState()
+{
+    return &Script;
 }
 
 LuaSkin::~LuaSkin()
@@ -1053,14 +1039,16 @@ int GameLua::GetArenaIndex()
 
 int GameLua::GetHitPosition()
 {
-    std::string position = __skin->GetSkinProp("Game", "HitPos", "0");
+    auto        manager = LuaManager::Get();
+    std::string position = manager->GetSkinProp("Game", "HitPos", "0");
 
     return std::stoi(position);
 }
 
 int GameLua::GetLaneOffset()
 {
-    std::string offset = __skin->GetSkinProp("Game", "LaneOffset", "0");
+    auto        manager = LuaManager::Get();
+    std::string offset = manager->GetSkinProp("Game", "LaneOffset", "0");
 
     return std::stoi(offset);
 }
@@ -1082,12 +1070,26 @@ int GameLua::GetKeyCount()
 
 std::string GameLua::GetSkinPath()
 {
-    return __skin->GetPath() + "/" + __group + "/";
+    auto manager = LuaManager::Get();
+    auto path = std::filesystem::path(manager->GetPath()) / __group;
+
+    return path.string();
 }
 
 std::string GameLua::GetScriptPath()
 {
-    return __skin->GetPath() + "/Scripts/";
+    auto manager = LuaManager::Get();
+    auto path = std::filesystem::path(manager->GetPath()) / "Scripts";
+
+    return path.string();
+}
+
+std::string GameLua::GetFontPath()
+{
+    auto manager = LuaManager::Get();
+    auto path = std::filesystem::path(manager->GetPath()) / "Fonts";
+
+    return path.string();
 }
 
 bool GameLua::IsPathExist(std::string Path)
@@ -1109,4 +1111,82 @@ std::pair<int, int> GameLua::GetImageSize(std::string Path)
     }
 
     return std::make_pair(width, height);
+}
+
+sol::table GameLua::GetCharRange(CharRangeType type)
+{
+    auto      &io = ImGui::GetIO();
+    sol::table result = __skin->GetState()->state->create_table();
+
+    switch (type) {
+        case CharRangeType::Default:
+        {
+            const ImWchar *ranges = io.Fonts->GetGlyphRangesDefault();
+            for (int i = 0; i < IM_ARRAYSIZE(ranges); i += 2) {
+                if (ranges[i] == 0) {
+                    break;
+                }
+
+                sol::table row = __skin->GetState()->state->create_table();
+                row.add(ranges[i]);
+                row.add(ranges[i + 1]);
+
+                result.add(row);
+            }
+            break;
+        };
+
+        case CharRangeType::Korean:
+        {
+            const ImWchar *ranges = io.Fonts->GetGlyphRangesKorean();
+            for (int i = 0; i < IM_ARRAYSIZE(ranges); i += 2) {
+                if (ranges[i] == 0) {
+                    break;
+                }
+
+                sol::table row = __skin->GetState()->state->create_table();
+                row.add(ranges[i]);
+                row.add(ranges[i + 1]);
+
+                result.add(row);
+            }
+            break;
+        };
+
+        case CharRangeType::Japanese:
+        {
+            const ImWchar *ranges = io.Fonts->GetGlyphRangesJapanese();
+            for (int i = 0; i < IM_ARRAYSIZE(ranges); i += 2) {
+                if (ranges[i] == 0) {
+                    break;
+                }
+
+                sol::table row = __skin->GetState()->state->create_table();
+                row.add(ranges[i]);
+                row.add(ranges[i + 1]);
+
+                result.add(row);
+            }
+            break;
+        };
+
+        case CharRangeType::Chinese:
+        {
+            const ImWchar *ranges = io.Fonts->GetGlyphRangesChineseSimplifiedCommon();
+            for (int i = 0; i < IM_ARRAYSIZE(ranges); i += 2) {
+                if (ranges[i] == 0) {
+                    break;
+                }
+
+                sol::table row = __skin->GetState()->state->create_table();
+                row.add(ranges[i]);
+                row.add(ranges[i + 1]);
+
+                result.add(row);
+            }
+            break;
+        };
+    }
+
+    return result;
 }

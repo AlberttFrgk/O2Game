@@ -7,10 +7,9 @@
 
 #pragma once
 
+#include "../Game/Core/Drawable/Image.h"
+#include "SceneList.h"
 #include <Screens/Base.h>
-#include <UI/Image.h>
-#include <UI/Rectangle.h>
-#include <UI/Text.h>
 
 class Loading : public Screens::Base
 {
@@ -24,6 +23,8 @@ public:
     bool Attach() override;
     bool Detach() override;
 
+    static int GetId() { return SceneList::Loading; }
+
 private:
     // can't load chart lmao
     bool fucked = false;
@@ -35,8 +36,6 @@ private:
     int currentProgress = 0;
     int maxProgress = 0;
 
-    double                         m_counter;
-    std::shared_ptr<UI::Image>     m_LoadingBG;
-    std::shared_ptr<UI::Rectangle> m_LoadingBar;
-    std::shared_ptr<UI::Text>      m_Text;
+    double                 m_counter;
+    std::shared_ptr<Image> m_Background;
 };

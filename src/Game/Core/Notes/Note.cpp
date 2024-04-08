@@ -5,9 +5,9 @@
  * See the LICENSE file in the root of this project for details.
  */
 
+#include "Note.h"
 #include "../Audio/SampleManager.h"
 #include "../RhythmEngine.h"
-#include "Note.h"
 #include "NoteCacheManager.h"
 #include "Track.h"
 
@@ -250,6 +250,9 @@ void Note::Render(double delta)
         m_Head->Position = UDim2::fromOffset(m_LaneOffset, lerp(0.0, (double)hitPos, (float)y1));
         m_Tail->Position = UDim2::fromOffset(m_LaneOffset, lerp(0.0, (double)hitPos, (float)y2));
 
+        m_Head->Size = UDim2::fromOffset(m_LaneSize, m_Head->Size.Y.Offset);
+        m_Tail->Size = UDim2::fromOffset(m_LaneSize, m_Tail->Size.Y.Offset);
+
         float Transparency = 0.9f;
 
         if (m_HitResult >= NoteResult::GOOD && m_State == NoteState::HOLD_ON_HOLDING) {
@@ -275,7 +278,7 @@ void Note::Render(double delta)
         }
 
         m_Body->Position = UDim2::fromOffset(m_LaneOffset + m_HoldXIncrement, position);
-        m_Body->Size = { 0, m_Body->Size.X.Offset, 0, height };
+        m_Body->Size = { 0, m_LaneSize, 0, height };
 
         m_Body->Color3 = { Transparency, Transparency, Transparency };
 
@@ -284,7 +287,7 @@ void Note::Render(double delta)
 
         if (isCollision(m_Tail->Position.Y.Offset, m_Head->Position.Y.Offset, min, max)) {
             m_Body->SetIndexAt(m_Engine->GetNoteImageIndex());
-            m_Body->Draw(delta, playRect);
+            m_Body->Draw(playRect);
         }
 
         if (b1) {
@@ -300,7 +303,7 @@ void Note::Render(double delta)
             }
 
             m_Head->SetIndexAt(m_Engine->GetNoteImageIndex());
-            m_Head->Draw(delta, playRect);
+            m_Head->Draw(playRect);
         }
 
         if (b2) {
@@ -316,11 +319,12 @@ void Note::Render(double delta)
             }
 
             m_Tail->SetIndexAt(m_Engine->GetNoteImageIndex());
-            m_Tail->Draw(delta, playRect);
+            m_Tail->Draw(playRect);
         }
     } else {
         double y1 = CalculateNotePosition(trackPosition, m_InitialTrackPosition, 1000.0, m_Engine->GetNotespeed(), false) / 1000.0;
         m_Head->Position = UDim2::fromOffset(m_LaneOffset, lerp(0.0, (double)hitPos, (float)y1));
+        m_Head->Size = UDim2::fromOffset(m_LaneSize, m_Head->Size.Y.Offset);
         m_Head->CalculateSize();
 
         bool b1 = isWithinRange(m_Head->Position.Y.Offset, min, max);
@@ -347,7 +351,7 @@ void Note::Render(double delta)
             }
 
             m_Head->SetIndexAt(m_Engine->GetNoteImageIndex());
-            m_Head->Draw(delta, playRect);
+            m_Head->Draw(playRect);
         }
     }
 }
@@ -408,9 +412,10 @@ NoteType Note::GetType() const
     return m_Type;
 }
 
-void Note::SetXPosition(int x)
+void Note::SetXYPosition(float x, float y)
 {
     m_LaneOffset = x;
+    m_LaneSize = y;
 }
 
 void Note::SetDrawable(bool drawable)
@@ -575,7 +580,7 @@ bool Note::IsRemoveable() const
 
 bool Note::IsPassed() const
 {
-    return m_State == NoteState::NORMAL_NOTE_PASSED || m_State == NoteState::HOLD_PASSED;
+    return m_State == NoteState::NORMAL_NOTE_PASSED || m_State == NoteState::HOLD_PASSED || IsRemoveable();
 }
 
 bool Note::IsHeadHit() const

@@ -32,6 +32,7 @@
             "preLaunchTask": "cmake-msvc-build",
             "program": "${workspaceFolder}/build/src/o2game.exe",
             "cwd": "${workspaceFolder}/build/src",
+            "console": "newExternalWindow",
             "args": []
         }
     ]

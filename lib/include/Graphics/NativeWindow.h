@@ -56,6 +56,9 @@ namespace Graphics {
         void AddSDLCallback(std::function<void(SDL_Event &)> callback);
         void AddExitCallback(std::function<void(bool &)> callback);
 
+        std::string GetWindowTitle();
+        void        SetWindowTitle(const std::string &title);
+
         static NativeWindow *Get();
         static void          Destroy();
 

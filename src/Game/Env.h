@@ -10,11 +10,11 @@
 #include <string>
 
 namespace Env {
-    std::string                GetString(const std::string &key);
-    int                        GetInt(const std::string &key);
-    float                      GetFloat(const std::string &key);
-    bool                       GetBool(const std::string &key);
-    std::filesystem::path      GetPath(const std::string &key);
+    std::string                GetString(const std::string &key, const std::string &defaultValue = "");
+    int                        GetInt(const std::string &key, int defaultValue = 0);
+    float                      GetFloat(const std::string &key, float defaultValue = 0.0f);
+    bool                       GetBool(const std::string &key, bool defaultValue = false);
+    std::filesystem::path      GetPath(const std::string &key, const std::filesystem::path &defaultValue = std::filesystem::path());
     void                      *GetPointer(const std::string &key);
     std::vector<unsigned char> GetBuffer(const std::string &key);
 

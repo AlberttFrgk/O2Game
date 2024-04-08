@@ -50,6 +50,16 @@ UDim2 UDim2::operator-(UDim2 const &udim2)
     return UDim2(this->X - udim2.X, this->Y - udim2.Y);
 }
 
+UDim2 UDim2::operator*(UDim2 const &udim2)
+{
+    return UDim2(this->X * udim2.X, this->Y * udim2.Y);
+}
+
+UDim2 UDim2::operator/(UDim2 const &udim2)
+{
+    return UDim2(this->X / udim2.X, this->Y / udim2.Y);
+}
+
 bool UDim2::operator==(UDim2 const &udim2)
 {
     return (this->X == udim2.X) && (this->Y == udim2.Y);

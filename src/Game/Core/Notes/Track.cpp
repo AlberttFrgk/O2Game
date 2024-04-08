@@ -5,20 +5,21 @@
  * See the LICENSE file in the root of this project for details.
  */
 
+#include "Track.h"
 #include "../Audio/SampleManager.h"
 #include "../RhythmEngine.h"
-#include "Track.h"
 #include <algorithm>
 #include <mutex>
 
 // Max Object per lane
 constexpr int kMaxObjectCount = 500;
 
-Track::Track(RhythmEngine *engine, int laneIndex, int offset)
+Track::Track(RhythmEngine *engine, int laneIndex, float offset, float size)
 {
     m_engine = engine;
     m_laneIndex = laneIndex;
     m_laneOffset = offset;
+    m_laneSize = size;
     m_deleteDelay = 0;
     m_keySound = -1;
 }
@@ -233,7 +234,7 @@ void Track::AddNote(NoteInfoDesc desc)
     }
 
     note->Load(desc);
-    note->SetXPosition(m_laneOffset);
+    note->SetXYPosition(m_laneOffset, m_laneSize);
 
     if (m_keySound == -1) {
         m_keySound = note->GetKeysoundId();

@@ -10,12 +10,15 @@
 #include "../Game/Core/Drawable/NumberSprite.h"
 #include "../Game/Core/Drawable/Sprite.h"
 #include "../Game/Core/RhythmEngine.h"
+#include "../Game/Core/Skinning/LuaManager.h"
+#include "../Game/Core/Math/SkinAnimation.h"
 #include <Graphics/SpriteBatch.h>
 #include <Math/Tween.h>
 #include <Screens/Base.h>
 #include <UI/Image.h>
 #include <UI/Text.h>
 #include <memory>
+#include "SceneList.h"
 
 class Gameplay : public Screens::Base
 {
@@ -30,6 +33,8 @@ public:
 
     bool Attach() override;
     bool Detach() override;
+
+    static int GetId() { return SceneList::GamePlay; }
 
 private:
     std::shared_ptr<RhythmEngine> m_Engine;
@@ -122,6 +127,18 @@ private:
     bool  m_autoPlay;
     int   m_autoTextSize;
     UDim2 m_autoTextPos;
+
+    /* Lua skinning */
+    std::shared_ptr<LuaSkin> m_Playing;
+    std::shared_ptr<LuaSkin> m_Arena;
+
+    /* Animation callback */
+    SkinAnimation m_ComboAnimation;
+    SkinAnimation m_ComboLogoAnimation;
+    SkinAnimation m_LongComboAnimation;
+    SkinAnimation m_LongComboLogoAnimation;
+    SkinAnimation m_JamAnimation;
+    SkinAnimation m_JamLogoAnimation;
 
     /* RhythmEngine callback */
     void OnTrackEvent(TrackEvent e);

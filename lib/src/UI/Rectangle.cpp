@@ -58,8 +58,6 @@ void Rectangle::OnDraw()
 
     uint32_t col = ((uint32_t)(color.a) << 24) | ((uint32_t)(color.b) << 16) | ((uint32_t)(color.g) << 8) | ((uint32_t)(color.r) << 0);
 
-    shaderFragmentType = ShaderFragmentType::Solid;
-
     m_SubmitInfo.vertices = {
         { { x1, y1 }, uv1, col },
         { { x1, y2 }, uv4, col },

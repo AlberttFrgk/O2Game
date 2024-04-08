@@ -30,6 +30,8 @@ namespace Graphics {
 
     private:
         Backends::VulkanDescriptor *Descriptor;
+
+        std::string RefName;
     };
 } // namespace Graphics
 

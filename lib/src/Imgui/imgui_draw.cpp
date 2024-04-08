@@ -34,7 +34,7 @@ Index of this file:
 #ifndef IMGUI_DISABLE
 #include <Imgui/imgui_internal.h>
 #ifdef IMGUI_ENABLE_FREETYPE
-#include "misc/freetype/imgui_freetype.h"
+#include <Imgui/imgui_freetype.h>
 #endif
 
 #include <stdio.h> // vsnprintf, sscanf, printf
@@ -2011,6 +2011,7 @@ ImFontConfig::ImFontConfig()
     OversampleV = 1;
     GlyphMaxAdvanceX = FLT_MAX;
     RasterizerMultiply = 1.0f;
+    RasterizerDensity = 1.0f;
     EllipsisChar = (ImWchar)-1;
 }
 

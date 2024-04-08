@@ -42,90 +42,48 @@
 #if defined(IMGUI_IMPL_VULKAN_NO_PROTOTYPES) && !defined(VK_NO_PROTOTYPES)
 #define VK_NO_PROTOTYPES
 #endif
-#include "../Backends/Vulkan/Volk/volk.h"
+#include "../Backends/Vulkan/third-party/Volk/volk.h"
 
 // Initialization data, for ImGui_ImplVulkan_Init()
 // [Please zero-clear before use!]
 struct ImGui_ImplVulkan_InitInfo
 {
-    VkInstance                   Instance;
-    VkPhysicalDevice             PhysicalDevice;
-    VkDevice                     Device;
-    uint32_t                     QueueFamily;
-    VkQueue                      Queue;
-    VkPipelineCache              PipelineCache;
-    VkDescriptorPool             DescriptorPool;
-    uint32_t                     Subpass;
-    uint32_t                     MinImageCount; // >= 2
-    uint32_t                     ImageCount;    // >= MinImageCount
-    VkSampleCountFlagBits        MSAASamples;   // >= VK_SAMPLE_COUNT_1_BIT (0 -> default to VK_SAMPLE_COUNT_1_BIT)
+    VkInstance            Instance;
+    VkPhysicalDevice      PhysicalDevice;
+    VkDevice              Device;
+    uint32_t              QueueFamily;
+    VkQueue               Queue;
+    VkDescriptorPool      DescriptorPool; // See requirements in note above
+    VkRenderPass          RenderPass;     // Ignored if using dynamic rendering
+    uint32_t              MinImageCount;  // >= 2
+    uint32_t              ImageCount;     // >= MinImageCount
+    VkSampleCountFlagBits MSAASamples;    // 0 defaults to VK_SAMPLE_COUNT_1_BIT
+
+    // (Optional)
+    VkPipelineCache PipelineCache;
+    uint32_t        Subpass;
+
+    // (Optional) Dynamic Rendering
+    // Need to explicitly enable VK_KHR_dynamic_rendering extension to use this, even for Vulkan 1.3.
+    bool UseDynamicRendering;
+#ifdef IMGUI_IMPL_VULKAN_HAS_DYNAMIC_RENDERING
+    VkPipelineRenderingCreateInfoKHR PipelineRenderingCreateInfo;
+#endif
+
+    // (Optional) Allocation, Debugging
     const VkAllocationCallbacks *Allocator;
-    void                         (*CheckVkResultFn)(VkResult err);
-};
-
-struct ImGui_ImplVulkanH_FrameRenderBuffers
-{
-    VkDeviceMemory VertexBufferMemory;
-    VkDeviceMemory IndexBufferMemory;
-    VkDeviceSize   VertexBufferSize;
-    VkDeviceSize   IndexBufferSize;
-    VkBuffer       VertexBuffer;
-    VkBuffer       IndexBuffer;
-};
-
-// Each viewport will hold 1 ImGui_ImplVulkanH_WindowRenderBuffers
-// [Please zero-clear before use!]
-struct ImGui_ImplVulkanH_WindowRenderBuffers
-{
-    uint32_t                              Index;
-    uint32_t                              Count;
-    ImGui_ImplVulkanH_FrameRenderBuffers *FrameRenderBuffers;
-};
-
-struct ImGui_ImplVulkan_Data
-{
-    ImGui_ImplVulkan_InitInfo VulkanInitInfo;
-    VkRenderPass              RenderPass;
-    VkDeviceSize              BufferMemoryAlignment;
-    VkPipelineCreateFlags     PipelineCreateFlags;
-    VkDescriptorSetLayout     DescriptorSetLayout;
-    VkPipelineLayout          PipelineLayout;
-    VkPipeline                Pipeline;
-    uint32_t                  Subpass;
-    VkShaderModule            ShaderModuleVert;
-    VkShaderModule            ShaderModuleFrag;
-
-    // Font data
-    VkSampler       FontSampler;
-    VkDeviceMemory  FontMemory;
-    VkImage         FontImage;
-    VkImageView     FontView;
-    VkDescriptorSet FontDescriptorSet;
-    VkDeviceMemory  UploadBufferMemory;
-    VkBuffer        UploadBuffer;
-
-    // Render buffers for main window
-    ImGui_ImplVulkanH_WindowRenderBuffers MainWindowRenderBuffers;
-
-    ImGui_ImplVulkan_Data()
-    {
-        memset((void *)this, 0, sizeof(*this));
-        BufferMemoryAlignment = 256;
-    }
+    void (*CheckVkResultFn)(VkResult err);
+    VkDeviceSize MinAllocationSize; // Minimum allocation size. Set to 1024*1024 to satisfy zealous best practices validation layer and waste a little memory.
 };
 
 // Called by user code
-IMGUI_IMPL_API bool ImGui_ImplVulkan_Init(ImGui_ImplVulkan_InitInfo *info, VkRenderPass render_pass);
+IMGUI_IMPL_API bool ImGui_ImplVulkan_Init(ImGui_ImplVulkan_InitInfo *info);
 IMGUI_IMPL_API void ImGui_ImplVulkan_Shutdown();
 IMGUI_IMPL_API void ImGui_ImplVulkan_NewFrame();
 IMGUI_IMPL_API void ImGui_ImplVulkan_RenderDrawData(ImDrawData *draw_data, VkCommandBuffer command_buffer, VkPipeline pipeline = VK_NULL_HANDLE);
-IMGUI_IMPL_API bool ImGui_ImplVulkan_CreateFontsTexture(VkCommandBuffer command_buffer);
-IMGUI_IMPL_API void ImGui_ImplVulkan_DestroyFontUploadObjects();
+IMGUI_IMPL_API bool ImGui_ImplVulkan_CreateFontsTexture();
+IMGUI_IMPL_API void ImGui_ImplVulkan_DestroyFontsTexture();
 IMGUI_IMPL_API void ImGui_ImplVulkan_SetMinImageCount(uint32_t min_image_count); // To override MinImageCount after initialization (e.g. if swap chain is recreated)
-
-IMGUI_IMPL_API bool                   ImGui_ImplVulkan_HasAFrame();
-IMGUI_IMPL_API bool                   ImGui_ImplVulkan_ResetFrame();
-IMGUI_IMPL_API ImGui_ImplVulkan_Data *ImGui_ImplVulkan__GetBackendData();
 
 // Register a texture (VkDescriptorSet == ImTextureID)
 // FIXME: This is experimental in the sense that we are unsure how to best design/tackle this problem
@@ -194,10 +152,12 @@ struct ImGui_ImplVulkanH_Window
     VkPresentModeKHR                   PresentMode;
     VkRenderPass                       RenderPass;
     VkPipeline                         Pipeline; // The window pipeline may uses a different VkRenderPass than the one passed in ImGui_ImplVulkan_InitInfo
+    bool                               UseDynamicRendering;
     bool                               ClearEnable;
     VkClearValue                       ClearValue;
     uint32_t                           FrameIndex;     // Current frame being rendered to (0 <= FrameIndex < FrameInFlightCount)
     uint32_t                           ImageCount;     // Number of simultaneous in-flight frames (returned by vkGetSwapchainImagesKHR, usually derived from min_image_count)
+    uint32_t                           SemaphoreCount; // Number of simultaneous in-flight frames + 1, to be able to use it in vkAcquireNextImageKHR
     uint32_t                           SemaphoreIndex; // Current set of swapchain wait semaphores we're using (needs to be distinct from per frame data)
     ImGui_ImplVulkanH_Frame           *Frames;
     ImGui_ImplVulkanH_FrameSemaphores *FrameSemaphores;

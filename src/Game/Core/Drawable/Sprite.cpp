@@ -5,8 +5,8 @@
  * See the LICENSE file in the root of this project for details.
  */
 
-#include "../../Env.h"
 #include "Sprite.h"
+#include "../../Env.h"
 #include <Graphics/NativeWindow.h>
 #include <Graphics/Renderer.h>
 
@@ -101,9 +101,9 @@ void Sprite::Draw(double delta, Rect clip)
 
     if (m_spriteIndex < m_texCoords.size()) {
         if (AlphaBlend) {
-            BlendState = Env::GetInt("BlendAlpha");
+            PipelineHandle = Env::GetInt("BlendAlpha");
         } else {
-            BlendState = Env::GetInt("BlendNonAlpha");
+            PipelineHandle = Env::GetInt("BlendNonAlpha");
         }
 
         Image::Draw(clip);
@@ -146,7 +146,7 @@ void Sprite::CalculateSize()
     y0 -= yAnchor;
 
     AbsolutePosition = { (X + x0), (Y + y0) };
-    AbsoluteSize = { x1, y1 };
+    AbsoluteSize = { x1 * Scale, y1 * Scale };
 
     roundedCornerPixels = glm::vec4();
 }

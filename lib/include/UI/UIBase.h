@@ -49,8 +49,9 @@ namespace UI {
         Vector2 AbsolutePosition;
         Vector2 AbsoluteSize;
 
-        UDim2 Position;
-        UDim2 Size;
+        UDim2  Position;
+        UDim2  Size;
+        double Scale;
 
         Base *Parent;
         bool  ClampToParent;
@@ -61,7 +62,7 @@ namespace UI {
         Vector4 CornerRadius;
 
         std::shared_ptr<Graphics::SpriteBatch> SpriteBatch;
-        Graphics::Backends::BlendHandle        BlendState;
+        Graphics::Backends::PipelineHandle     PipelineHandle;
 
         float Transparency;
         float Rotation;
@@ -83,8 +84,7 @@ namespace UI {
 
         glm::vec4 roundedCornerPixels;
 
-        Rect                                   clipRect = {};
-        Graphics::Backends::ShaderFragmentType shaderFragmentType;
+        Rect clipRect = {};
 
         std::vector<Graphics::Backends::Vertex> m_vertices;
         std::vector<uint16_t>                   m_indices;

@@ -47,9 +47,9 @@ Image::Image(const char *pixbuf, uint32_t width, uint32_t height)
 void Image::Draw()
 {
     if (AlphaBlend) {
-        BlendState = Env::GetInt("BlendAlpha");
+        PipelineHandle = Env::GetInt("BlendAlpha");
     } else {
-        BlendState = Env::GetInt("BlendNonAlpha");
+        PipelineHandle = Env::GetInt("BlendNonAlpha");
     }
 
     UI::Image::Draw();
@@ -58,9 +58,9 @@ void Image::Draw()
 void Image::Draw(Rect rect)
 {
     if (AlphaBlend) {
-        BlendState = Env::GetInt("BlendAlpha");
+        PipelineHandle = Env::GetInt("BlendAlpha");
     } else {
-        BlendState = Env::GetInt("BlendNonAlpha");
+        PipelineHandle = Env::GetInt("BlendNonAlpha");
     }
 
     UI::Image::Draw(rect);
@@ -90,8 +90,8 @@ void Image::CalculateSize()
     double x0 = (Width * Position.X.Scale) + Position.X.Offset;
     double y0 = (Height * Position.Y.Scale) + Position.Y.Offset;
 
-    double x1 = (ImageWidth * Size.X.Scale) + Size.X.Offset;
-    double y1 = (ImageHeight * Size.Y.Scale) + Size.Y.Offset;
+    double x1 = ((ImageWidth * Size.X.Scale) + Size.X.Offset) * Scale;
+    double y1 = ((ImageHeight * Size.Y.Scale) + Size.Y.Offset) * Scale;
 
     double xAnchor = x1 * std::clamp(AnchorPoint.X, 0.0, 1.0);
     double yAnchor = y1 * std::clamp(AnchorPoint.Y, 0.0, 1.0);

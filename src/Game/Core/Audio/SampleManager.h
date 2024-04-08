@@ -23,6 +23,7 @@ struct NoteAudioSample
 namespace SampleManager {
     void Load(Chart *chart, bool pitch);
     void Load(Chart *chart, bool pitch, bool force);
+    bool IsLoaded();
 
     void OnLoad(std::function<void(int, int)> callback);
 

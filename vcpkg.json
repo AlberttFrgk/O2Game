@@ -10,12 +10,6 @@
       ]
     },
     {
-      "name": "sdl2-image",
-      "features": [
-        "libjpeg-turbo"
-      ]
-    },
-    {
       "name": "glm"
     },
     {
@@ -25,22 +19,20 @@
       "name": "glslang"
     },
     {
-      "name": "spirv-cross"
-    },
-    {
-      "name": "lodepng"
-    },
-    {
       "name": "freetype"
-    },
-    {
-      "name": "libiconv"
     },
     {
       "name": "sol2"
     },
     {
       "name": "sqlite3"
+    },
+    {
+      "name": "fmt"
+    },
+    {
+      "name": "directxtk",
+      "platform": "windows"
     }
   ],
   "overrides": [

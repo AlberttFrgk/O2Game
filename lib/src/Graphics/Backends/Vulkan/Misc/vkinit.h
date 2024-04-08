@@ -1,5 +1,5 @@
 #pragma once
-#include "./Volk/volk.h"
+#include "../third-party/Volk/volk.h"
 #include <vector>
 
 namespace vkinit {
@@ -16,6 +16,8 @@ namespace vkinit {
     VkSemaphoreCreateInfo semaphore_create_info(VkSemaphoreCreateFlags flags = 0);
 
     VkSampleCountFlagBits get_max_usable_sample_count(VkPhysicalDevice physicalDevice);
+
+    VkFormat get_supported_depth_format(VkPhysicalDevice physicalDevice);
 
     VkSubmitInfo submit_info(VkCommandBuffer *cmd);
 

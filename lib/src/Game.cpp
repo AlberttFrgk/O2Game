@@ -18,6 +18,9 @@
 #include <SDL2/SDL.h>
 #include <iostream>
 
+#include <fmt/core.h>
+#include <fmt/format.h>
+
 Game::Game()
 {
 }
@@ -67,11 +70,14 @@ void Game::Run(RunInfo info)
         auto scenemanager = Screens::Manager::Get();
         auto fontmanager = Fonts::FontManager::Get();
 
+        AccurateTimeWatch mFPSTimer(1.0f);
+        int               frameCount = 0;
+
         if (info.threadMode == ThreadMode::Multi) {
             auto oninit = [=]() {
                 scenemanager->Init(this);
                 renderer->Init(info.graphics, info.samplerInfo);
-                renderer->SetVSync(info.renderVsync);
+                // renderer->SetVSync(info.renderVsync);
                 OnLoad();
             };
 
@@ -82,7 +88,7 @@ void Game::Run(RunInfo info)
                 Graphics::Renderer::Destroy();
             };
 
-            auto onupdate = [=](double delta) {
+            auto onupdate = [&](double delta) {
                 m_FixedUpdateTimer.Update(delta);
 
                 while (m_FixedUpdateTimer.Tick()) {
@@ -94,7 +100,18 @@ void Game::Run(RunInfo info)
                 bool shouldDraw = renderer->BeginFrame();
                 if (shouldDraw) {
                     OnDraw(delta);
+                    frameCount++;
+
                     renderer->EndFrame();
+                }
+
+                mFPSTimer.Update(delta);
+
+                if (mFPSTimer.Tick()) {
+                    auto fpsStr = fmt::format("{} FPS: {}", info.title, frameCount);
+                    window->SetWindowTitle(fpsStr);
+
+                    frameCount = 0;
                 }
             };
 
@@ -122,11 +139,11 @@ void Game::Run(RunInfo info)
             m_DrawThread.Stop();
         } else {
             renderer->Init(info.graphics, info.samplerInfo);
-            renderer->SetVSync(info.renderVsync);
+            // renderer->SetVSync(info.renderVsync);
             scenemanager->Init(this);
             OnLoad();
 
-            auto oninput = [=](double delta) {
+            auto oninput = [&](double delta) {
                 window->PumpEvents();
 
                 m_FixedUpdateTimer.Update(delta);
@@ -141,7 +158,18 @@ void Game::Run(RunInfo info)
                 bool shouldDraw = renderer->BeginFrame();
                 if (shouldDraw) {
                     OnDraw(delta);
+                    frameCount++;
+
                     renderer->EndFrame();
+                }
+
+                mFPSTimer.Update(delta);
+
+                if (mFPSTimer.Tick()) {
+                    auto fpsStr = fmt::format("{} FPS: {}", info.title, frameCount);
+                    window->SetWindowTitle(fpsStr);
+
+                    frameCount = 0;
                 }
             };
 

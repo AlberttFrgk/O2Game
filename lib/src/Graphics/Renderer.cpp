@@ -5,8 +5,8 @@
  * See the LICENSE file in the root of this project for details.
  */
 
-#include "./Backends/OpenGL/OpenGLBackend.h"
-#include "./Backends/OpenGL/OpenGLTexture2D.h"
+// #include "./Backends/OpenGL/OpenGLBackend.h"
+// #include "./Backends/OpenGL/OpenGLTexture2D.h"
 #include "./Backends/Vulkan/VulkanBackend.h"
 #include "./Backends/Vulkan/VulkanTexture2D.h"
 #include <Exceptions/EstException.h>
@@ -54,12 +54,6 @@ void Renderer::Init(API api, TextureSamplerInfo sampler)
         case API::Vulkan:
         {
             backend = new Vulkan();
-            break;
-        }
-
-        case API::OpenGL:
-        {
-            backend = new OpenGL();
             break;
         }
 
@@ -173,13 +167,6 @@ std::shared_ptr<Texture2D> CreateTexture(API api, TextureSamplerInfo sampler)
             texture = std::shared_ptr<Texture2D>(texvk);
             break;
         }
-
-        case API::OpenGL:
-        {
-            auto texgl = new GLTexture2D(sampler);
-            texture = std::shared_ptr<Texture2D>(texgl);
-            break;
-        }
     }
 
     return texture;
@@ -235,7 +222,17 @@ void Renderer::CaptureFrame(std::function<void(std::vector<unsigned char>)> call
     return m_Backend->CaptureFrame(callback);
 }
 
-Graphics::Backends::BlendHandle Renderer::CreateBlendState(Graphics::Backends::TextureBlendInfo info)
+Graphics::Backends::PipelineHandle Renderer::CreatePipeline(Graphics::Backends::PipelineInfo &info)
 {
-    return m_Backend->CreateBlendState(info);
+    return m_Backend->CreatePipeline(info);
+}
+
+void Renderer::SetSupersampling(float value)
+{
+    (void)value;
+}
+
+float Renderer::GetSupersampling()
+{
+    return 2.0f;
 }

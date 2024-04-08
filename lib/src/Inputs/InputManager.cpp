@@ -5,7 +5,9 @@
  * See the LICENSE file in the root of this project for details.
  */
 
+#include <Graphics/NativeWindow.h>
 #include <Inputs/InputManager.h>
+
 using namespace Inputs;
 
 Manager *Manager::Instance = nullptr;
@@ -100,8 +102,15 @@ void Manager::HandleMouseEvent(SDL_Event &event)
 
 void Manager::HandleMouseMotionEvent(SDL_Event &event)
 {
-    MousePosition.X = event.motion.x;
-    MousePosition.Y = event.motion.y;
+    auto window = Graphics::NativeWindow::Get();
+    auto windowRect = window->GetWindowSize();
+    auto backbufferRect = window->GetBufferSize();
+
+    double x = (double)event.motion.x / (double)windowRect.Width * (double)backbufferRect.Width;
+    double y = (double)event.motion.y / (double)windowRect.Height * (double)backbufferRect.Height;
+
+    MousePosition.X = x;
+    MousePosition.Y = y;
 }
 
 Vector2 Manager::GetMousePosition()

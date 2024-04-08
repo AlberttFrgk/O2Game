@@ -9,6 +9,7 @@ add_executable(o2game ${HEADERS}
     "Game/O2Game.cpp"
     "Game/Env.cpp"
     "Game/MsgBoxEx.cpp"
+    "Game/DefaultConfiguration.cpp"
 
     # Scenes
     "Scenes/Gameplay.cpp" 
@@ -39,10 +40,24 @@ add_executable(o2game ${HEADERS}
     "Game/Core/Timings/TimingBase.cpp"
     "Game/Core/Timings/VelocityTiming.cpp"
     "Game/Core/Skinning/LuaSkin.cpp"
+    "Game/Core/Skinning/LuaManager.cpp"
+    "Game/Core/Math/SkinAnimation.cpp"
     # "Game/Core/Skinning/LegacySkin.cpp" 
     # "Game/Core/Skinning/LuaScripting.cpp" 
     # "Game/Core/Skinning/SkinManager.cpp" 
     "Game/Core/Database/GameDatabase.cpp"
+    "Game/Core/Database/MusicListMaker.cpp"
+    "Game/Core/Networking/GameCoordinator.cpp"
+    "Game/Core/Networking/Socket/client.cpp"
+    "Game/Core/Networking/Socket/socketwrapper.cpp"
+    "Game/Core/Imgui/Imgui.cpp"
+
+    # Lua Binding
+    "Game/Core/Skinning/Bindings/LuaMath.cpp"
+    "Game/Core/Skinning/Bindings/LuaUDim.cpp"
+    "Game/Core/Skinning/Bindings/LuaUDim2.cpp"
+    "Game/Core/Skinning/Bindings/LuaVector2.cpp"
+    "Game/Core/SKinning/Bindings/LuaColor3.cpp"
 
     # Data
     "Game/Data/chart.cpp"
@@ -79,18 +94,18 @@ else ()
     $<TARGET_FILE_DIR:o2game>/Skins/Default)
 endif ()
 
-target_include_directories(o2game PRIVATE "../lib/include")
-target_link_libraries(o2game PRIVATE 
+set(COMPILE_LIB 
     EstEngine 
     ${EST_AUDIO_LIBRARIES}
-    spirv-cross-core 
-    spirv-cross-glsl 
     SDL2::SDL2 
-    SDL2_image::SDL2_image 
-    Iconv::Iconv
     sol2
     lua
-    lodepng
+    fmt::fmt
     Freetype::Freetype 
     unofficial::sqlite3::sqlite3
-)
+    ws2_32)
+
+target_include_directories(o2game PRIVATE "../lib/include")
+target_link_libraries(o2game PRIVATE 
+    ${COMPILE_LIB}
+)   

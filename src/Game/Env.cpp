@@ -19,39 +19,42 @@ namespace {
     std::unordered_map<std::string, std::vector<unsigned char>> buffers;
 } // namespace
 
-std::string Env::GetString(const std::string &key)
+std::string Env::GetString(const std::string &key, const std::string &defaultValue)
 {
+    if (env.find(key) == env.end())
+        return defaultValue;
+
     return env[key];
 }
 
-int Env::GetInt(const std::string &key)
+int Env::GetInt(const std::string &key, int defaultValue)
 {
     if (env_int.find(key) == env_int.end())
-        return 0;
+        return defaultValue;
 
     return env_int[key];
 }
 
-float Env::GetFloat(const std::string &key)
+float Env::GetFloat(const std::string &key, float defaultValue)
 {
     if (env_float.find(key) == env_float.end())
-        return 0.0f;
+        return defaultValue;
 
     return env_float[key];
 }
 
-bool Env::GetBool(const std::string &key)
+bool Env::GetBool(const std::string &key, bool defaultValue)
 {
     if (env_bool.find(key) == env_bool.end())
-        return false;
+        return defaultValue;
 
     return env_bool[key];
 }
 
-std::filesystem::path Env::GetPath(const std::string &key)
+std::filesystem::path Env::GetPath(const std::string &key, const std::filesystem::path &defaultValue)
 {
     if (paths.find(key) == paths.end())
-        return std::filesystem::path();
+        return defaultValue;
 
     return paths[key];
 }

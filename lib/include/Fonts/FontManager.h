@@ -56,12 +56,21 @@ namespace Fonts {
         std::vector<std::pair<uint32_t, uint32_t>> Ranges;
     };
 
+    struct FontLoadAtlasInfo
+    {
+        std::filesystem::path                      Texture;
+        float                                      FontSize;
+        std::vector<std::pair<uint32_t, uint32_t>> Ranges;
+        std::vector<Glyph>                         Glyphs;
+    };
+
     class FontManager
     {
     public:
         FontAtlas *LoadFirst();
         FontAtlas *LoadFont(FontLoadBufferInfo &info);
         FontAtlas *LoadFont(FontLoadFileInfo &info);
+        FontAtlas *LoadFont(FontLoadAtlasInfo &info);
 
         static FontManager *Get();
         static void         Destroy();

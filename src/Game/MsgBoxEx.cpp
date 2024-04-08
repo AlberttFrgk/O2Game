@@ -41,8 +41,6 @@ namespace MathUtil {
 void MsgBox::Draw(double delta)
 {
     if (m_msgbox.size() > 0) {
-        Graphics::Renderer::Get()->ImGui_NewFrame();
-
         MsgBoxSession &session = m_msgbox.back();
         std::string    Id = session.Title + "###MsgBox";
 
@@ -144,8 +142,6 @@ void MsgBox::Draw(double delta)
         if (close) {
             m_msgbox.pop_back();
         }
-
-        Graphics::Renderer::Get()->ImGui_EndFrame();
     }
 }
 

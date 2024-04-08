@@ -5,8 +5,8 @@
  * See the LICENSE file in the root of this project for details.
  */
 
-#include "../../Env.h"
 #include "NumberSprite.h"
+#include "../../Env.h"
 
 #include <Exceptions/EstException.h>
 #include <Graphics/NativeWindow.h>
@@ -37,9 +37,9 @@ void NumberSprite::Draw(int number)
     NumberToDraw = number;
 
     if (AlphaBlend) {
-        BlendState = Env::GetInt("BlendAlpha");
+        PipelineHandle = Env::GetInt("BlendAlpha");
     } else {
-        BlendState = Env::GetInt("BlendNonAlpha");
+        PipelineHandle = Env::GetInt("BlendNonAlpha");
     }
 
     UI::Base::Draw();
@@ -160,10 +160,19 @@ void NumberSprite::OnDraw()
     }
 }
 
+inline glm::vec2 fix_nearest(const glm::vec2 &v, const glm::vec2 &g)
+{
+    glm::vec2 floor = glm::floor(v);
+    return floor + g;
+}
+
 void NumberSprite::AddToQueue()
 {
-    double x1 = AbsolutePosition.X;
-    double y1 = AbsolutePosition.Y;
+    glm::vec2 absolutePos(AbsolutePosition.X, AbsolutePosition.Y);
+    glm::vec2 pos = glm::floor(absolutePos);
+
+    double x1 = pos.x;
+    double y1 = pos.y;
     double x2 = x1 + AbsoluteSize.X;
     double y2 = y1 + AbsoluteSize.Y;
 
@@ -185,8 +194,6 @@ void NumberSprite::AddToQueue()
         | ((uint32_t)(color.g) << 8) 
         | ((uint32_t)(color.r) << 0);
     // clang-format on
-
-    shaderFragmentType = Graphics::Backends::ShaderFragmentType::Image;
 
     m_SubmitInfo.indices = { 0, 1, 2, 3, 4, 5 };
     m_SubmitInfo.vertices = {

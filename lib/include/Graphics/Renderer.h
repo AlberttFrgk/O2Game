@@ -35,6 +35,9 @@ namespace Graphics {
         void ImGui_NewFrame();
         void ImGui_EndFrame();
 
+        void  SetSupersampling(float value);
+        float GetSupersampling();
+
         void Push(Graphics::Backends::SubmitInfo &info);
         void Push(std::vector<Graphics::Backends::SubmitInfo> &infos);
 
@@ -51,7 +54,7 @@ namespace Graphics {
         std::shared_ptr<Texture2D> LoadTexture(const unsigned char *buf, size_t size);
         std::shared_ptr<Texture2D> LoadTexture(const unsigned char *pixbuf, uint32_t width, uint32_t height);
 
-        Graphics::Backends::BlendHandle CreateBlendState(Graphics::Backends::TextureBlendInfo info);
+        Graphics::Backends::PipelineHandle CreatePipeline(Graphics::Backends::PipelineInfo &info);
 
         void CaptureFrame(std::function<void(std::vector<unsigned char>)> callback);
 

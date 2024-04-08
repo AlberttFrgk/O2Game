@@ -5,6 +5,7 @@
  * See the LICENSE file in the root of this project for details.
  */
 
+#include <Logs.h>
 #include <Threads/Thread.h>
 
 Thread::Thread()
@@ -48,7 +49,9 @@ void Thread::Start()
             }
 
             m_ThreadPosFunction();
-        } catch (const std::exception) {
+        } catch (const std::exception &e) {
+            Logs::Puts("[Thread] Got an exception: %s", e.what());
+
             m_Exception = std::current_exception();
         }
     });

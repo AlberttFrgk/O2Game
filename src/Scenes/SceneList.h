@@ -8,9 +8,10 @@
 #pragma once
 
 namespace SceneList {
-    constexpr int SPLASH = 0;
-    constexpr int MAINMENU = 1;
-    constexpr int LOADING = 2;
-    constexpr int GAMEPLAY = 3;
-    constexpr int RESULT = 4;
-};
+    constexpr int Splash = 0;
+    constexpr int MainMenu = 1;
+    constexpr int Loading = 2;
+    constexpr int GamePlay = 3;
+    constexpr int Result = 4;
+    constexpr int SongSelect = 5;
+}; // namespace SceneList

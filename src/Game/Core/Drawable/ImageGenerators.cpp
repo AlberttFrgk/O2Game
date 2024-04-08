@@ -6,7 +6,7 @@
  */
 
 #include "ImageGenerators.h"
-#include "lodepng.h"
+#include <Misc/Lodepng.h>
 
 #include <Exceptions/EstException.h>
 

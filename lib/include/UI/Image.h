@@ -37,11 +37,10 @@ namespace UI {
         void SetTexCoord(std::vector<glm::vec2> texCoord);
 
     protected:
-        void OnDraw() override;
+        void                   OnDraw() override;
         std::vector<glm::vec2> texCoord;
 
-            void
-            CalculateSize() override;
+        void CalculateSize() override;
     };
 } // namespace UI
 

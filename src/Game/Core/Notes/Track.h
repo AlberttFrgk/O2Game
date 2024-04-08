@@ -26,7 +26,7 @@ struct TrackEvent
 class Track
 {
 public:
-    Track(RhythmEngine *engine, int laneIndex, int offset);
+    Track(RhythmEngine *engine, int laneIndex, float offset, float size);
     ~Track();
 
     void Update(double delta);
@@ -41,13 +41,13 @@ public:
     void ListenEvent(std::function<void(TrackEvent)> callback);
 
 private:
-
     std::vector<std::shared_ptr<Note>> m_notes;
     std::vector<std::shared_ptr<Note>> m_noteCaches;
     std::vector<std::shared_ptr<Note>> m_inactive_notes;
 
     RhythmEngine *m_engine;
-    int           m_laneOffset;
+    float         m_laneOffset;
+    float         m_laneSize;
     int           m_laneIndex;
 
     int m_keySound;

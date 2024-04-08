@@ -9,6 +9,9 @@
 #include <cstdarg>
 #include <stdio.h>
 
+#include <fmt/core.h>
+#include <fmt/printf.h>
+
 // #include "Console.h"
 
 void Logs::Puts(const char *fmt, ...)
@@ -20,13 +23,12 @@ void Logs::Puts(const char *fmt, ...)
     vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    ::puts(buffer);
-    // Console::Send(buffer);
+    fmt::printf("%s\n", buffer);
 }
 
 void Logs::Debug(const char *fmt, ...)
 {
-#if defined(DEBUG)
+#if defined(_DEBUG)
     char buffer[256] = {};
 
     va_list args;
@@ -34,8 +36,7 @@ void Logs::Debug(const char *fmt, ...)
     vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    ::puts(buffer);
-    // Console::Send(buffer);
+    fmt::printf("%s\n", buffer);
 #else
     (void)fmt;
 #endif

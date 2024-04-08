@@ -26,12 +26,14 @@ namespace UI {
         Text(std::string fontName, float fontSize = 16.0f);
         Text(Fonts::FontLoadFileInfo &info);
         Text(Fonts::FontLoadBufferInfo &info);
+        Text(Fonts::FontLoadAtlasInfo &info);
 
         void      DrawString(std::string text);
         void      DrawStringFormatted(std::string text, ...);
         glm::vec2 MeasureString(std::string text);
 
         float     Scale;
+        bool      IsSDF;
         Alignment Alignment;
         Rect      TextClipping;
 

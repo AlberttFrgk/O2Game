@@ -4,6 +4,7 @@
 #include "Utils/Rect.h"
 #include <functional>
 #include <glm/glm.hpp>
+#include <string>
 #include <vector>
 
 #define MY_OFFSETOF(TYPE, ELEMENT) ((size_t) & (((TYPE *)0)->ELEMENT))
@@ -35,30 +36,6 @@ namespace Graphics {
 
                 color = ((uint32_t)(a) << 24) | ((uint32_t)(b) << 16) | ((uint32_t)(g) << 8) | ((uint32_t)(r) << 0);
             };
-        };
-
-        enum class ShaderFragmentType {
-            Solid,
-            Image,
-            SolidRound,
-            ImageRound
-        };
-
-        typedef uint32_t BlendHandle;
-
-        struct SubmitInfo
-        {
-            std::vector<Vertex>   vertices;
-            std::vector<uint16_t> indices;
-            glm::vec2             uiSize;
-            glm::vec4             uiRadius;
-
-            Rect clipRect;
-            int  zIndex;
-
-            const void        *image = NULL;
-            ShaderFragmentType fragmentType;
-            BlendHandle        alphablend;
         };
 
         enum class BlendFactor {
@@ -106,13 +83,40 @@ namespace Graphics {
             BlendOp     AlphaOp;
         };
 
-        namespace DefaultBlend {
-            const BlendHandle NONE = 0;  // no blending
-            const BlendHandle BLEND = 1; // dstRGB = (srcRGB * srcA) + (dstRGB * (1-srcA)), dstA = srcA + (dstA * (1-srcA))
-            const BlendHandle ADD = 2;   // dstRGB = (srcRGB * srcA) + dstRGB, dstA = dstA
-            const BlendHandle MOD = 3;   // dstRGB = srcRGB * dstRGB, dstA = dstA
-            const BlendHandle MUL = 4;   // dstRGB = (srcRGB * dstRGB) + (dstRGB * (1-srcA)), dstA = (srcA * dstA) + (dstA * (1-srcA))
-        }                                // namespace DefaultBlend
+        typedef uint32_t         PipelineHandle;
+        constexpr PipelineHandle INVALID_PIPELINE_HANDLE = -1;
+
+        struct PipelineInfo
+        {
+            bool IsFile;
+
+            struct
+            {
+                std::string File;
+                struct
+                {
+                    const uint32_t *Code;
+                    size_t          CodeSize;
+                } Memory;
+            } VertexShader, FragmentShader;
+
+            std::string      EntryPoint;
+            TextureBlendInfo BlendInfo;
+        };
+
+        struct SubmitInfo
+        {
+            std::vector<Vertex>   vertices;
+            std::vector<uint16_t> indices;
+            glm::vec2             uiSize;
+            glm::vec4             uiRadius;
+
+            Rect clipRect;
+            int  zIndex;
+
+            const void    *image = NULL;
+            PipelineHandle pipeline;
+        };
 
         class Base
         {
@@ -132,6 +136,7 @@ namespace Graphics {
             virtual void ImGui_DeInit() = 0;
             virtual void ImGui_NewFrame() = 0;
             virtual void ImGui_EndFrame() = 0;
+            virtual bool ImGui_UploadFont() = 0;
 
             virtual void Push(SubmitInfo &info) = 0;
             virtual void Push(std::vector<SubmitInfo> &infos) = 0;
@@ -141,9 +146,8 @@ namespace Graphics {
             virtual void SetClearDepth(float depth) = 0;
             virtual void SetClearStencil(uint32_t stencil) = 0;
 
-            virtual void CaptureFrame(std::function<void(std::vector<unsigned char>)>) = 0;
-
-            virtual BlendHandle CreateBlendState(TextureBlendInfo blendInfo) = 0;
+            virtual void           CaptureFrame(std::function<void(std::vector<unsigned char>)>) = 0;
+            virtual PipelineHandle CreatePipeline(PipelineInfo &info) = 0;
 
         protected:
             std::vector<std::function<void(std::vector<unsigned char>)>> screenshotQueues;

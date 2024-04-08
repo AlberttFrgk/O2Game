@@ -21,6 +21,8 @@ public:
 
     UDim operator+(UDim const &udim);
     UDim operator-(UDim const &udim);
+    UDim operator*(UDim const &udim);
+    UDim operator/(UDim const &udim);
     bool operator==(UDim const &udim);
     bool operator!=(UDim const &udim);
     bool operator<=(UDim const &udim);

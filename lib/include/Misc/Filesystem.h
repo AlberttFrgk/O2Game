@@ -19,10 +19,12 @@ namespace Misc {
     namespace Filesystem {
         std::vector<uint8_t>  ReadFile(std::filesystem::path path);
         std::vector<uint16_t> ReadFile16(std::filesystem::path path);
+        std::vector<uint32_t> ReadFile32(std::filesystem::path path);
         std::string           ReadFileString(std::filesystem::path path);
 
         void WriteFile(std::filesystem::path path, const std::vector<uint8_t> &data);
         void WriteFile16(std::filesystem::path path, const std::vector<uint16_t> &data);
+        void WriteFile32(std::filesystem::path path, const std::vector<uint32_t> &data);
         void WriteFileString(std::filesystem::path path, const std::string &data);
     } // namespace Filesystem
 } // namespace Misc

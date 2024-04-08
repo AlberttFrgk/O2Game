@@ -18,6 +18,12 @@ UDim2 Tween::Update(float time)
     }
 
     float t = Time / Duration;
+
+    return Lerp(Type, Start, End, t);
+}
+
+UDim2 Tween::Lerp(TweenType Type, UDim2 Start, UDim2 End, float t)
+{
     switch (Type) {
         case TweenType::Linear:
             return Start.Lerp(End, t);

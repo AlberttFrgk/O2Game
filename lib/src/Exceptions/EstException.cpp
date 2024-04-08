@@ -6,7 +6,11 @@
  */
 
 #include <Exceptions/EstException.h>
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <fmt/printf.h>
 #include <cstdarg>
+#include <array>
 using namespace Exceptions;
 
 Exceptions::EstException::EstException()
@@ -16,14 +20,16 @@ Exceptions::EstException::EstException()
 
 EstException::EstException(const char *message, ...)
 {
-    char buffer[1024];
+    std::array<char, 1024> buffer = { 0 };
 
     va_list args;
     va_start(args, message);
-    vsprintf(buffer, message, args);
+
+    vsnprintf(buffer.data(), buffer.size(), message, args);
+
     va_end(args);
 
-    m_Message = buffer;
+    m_Message = buffer.data();
 }
 
 EstException::~EstException() throw()

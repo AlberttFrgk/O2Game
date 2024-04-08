@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.8.0)
 message("EstEngine Project - CMake Build System")
 
 # check if Environment VULKAN_SDK is set
@@ -32,6 +32,8 @@ else()
 endif()
 
 if (CMAKE_BUILD_TYPE MATCHES Debug)
+    message("Building with debug mode")
+
     if (MSVC)
         set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /Od /DVK_NO_PROTOTYPES")
         set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Od /DVK_NO_PROTOTYPES")
@@ -40,6 +42,8 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
         set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -DVK_NO_PROTOTYPES")
     endif()
 elseif (CMAKE_BUILD_TYPE MATCHES Release)
+    message("Building with release mode")
+
     if (MSVC)
         set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /O2 /Ob2 /Oi /Ot /GL /DVK_NO_PROTOTYPES")
         set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /Ob2 /Oi /Ot /GL /DVK_NO_PROTOTYPES")
@@ -56,17 +60,20 @@ endif()
 
 set(GFLAGS_USE_TARGET_NAMESPACE ON)
 
+# enable address sanitizer
+if (CMAKE_BUILD_TYPE MATCHES Debug)
+    #add_compile_options(-fsanitize=address)
+    #add_link_options(-fsanitize=address  /Zi)
+endif()
+
 # BEGIN PACKAGES
 find_package(SDL2 REQUIRED)
-find_package(SDL2_image REQUIRED)
 find_package(Freetype REQUIRED)
-find_package(spirv_cross_core REQUIRED)
-find_package(spirv_cross_glsl REQUIRED)
-find_package(Iconv REQUIRED)
 find_package(sol2 REQUIRED)
 find_package(lua REQUIRED)
-find_package(lodepng REQUIRED)
 find_package(unofficial-sqlite3 REQUIRED)
+find_package(fmt REQUIRED)
+#find_package(Iconv REQUIRED)
 # END PACKAGES
 
 # set TRACY_ENABLE

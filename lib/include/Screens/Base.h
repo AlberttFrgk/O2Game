@@ -27,6 +27,8 @@ namespace Screens {
 
         virtual bool Attach();
         virtual bool Detach();
+
+        static int GetId() { return -1; };
     };
 } // namespace Screens
 

@@ -12,6 +12,9 @@
 #include <UI/Image.h>
 #include <UI/Rectangle.h>
 #include <UI/Text.h>
+#include "SceneList.h"
+
+#include "../Game/Core/Skinning/LuaManager.h"
 
 #include "../Game/Core/Drawable/ButtonImage.h"
 #include "../Game/Core/Drawable/Image.h"
@@ -42,15 +45,16 @@ public:
     bool Attach() override;
     bool Detach() override;
 
+    static int GetId() { return SceneList::Result; }
+
 private:
     bool      m_IsAttached;
     ScoreInfo m_ScoreInfo;
 
     std::shared_ptr<ButtonImage> m_BackButton;
 
-    std::shared_ptr<Image> m_Result;
-    std::shared_ptr<Image> m_Lose;
-    std::shared_ptr<Image> m_Win;
+    std::shared_ptr<Image>  m_Result;
+    std::shared_ptr<Sprite> m_WinLose;
 
     std::shared_ptr<NumberSprite> m_Score;
     std::shared_ptr<NumberSprite> m_Stats;
@@ -59,4 +63,6 @@ private:
     std::map<int, Vector2> m_StatsAnchor;
 
     std::shared_ptr<UI::Text> m_Text;
+
+    std::shared_ptr<LuaSkin> m_ResultLua;
 };

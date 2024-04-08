@@ -17,12 +17,16 @@
 #include <Misc/Filesystem.h>
 
 namespace {
+    std::mutex mutex;
+    bool       loaded = false;
+
     std::unordered_map<int, NoteAudioSample> samples;
     std::unordered_map<int, bool>            samplePlaying;
     // std::unordered_map<int, std::shared_ptr<Audio::SampleChannel>> sampleIndex;
 
     std::string currentHash;
     double      m_rate = 1.0;
+    double      m_processed = 0.0;
 
     std::function<void(int, int)> onLoadCallback;
 } // namespace
@@ -72,54 +76,36 @@ void SampleManager::Load(Chart *chart, bool pitch)
 
 void SampleManager::Load(Chart *chart, bool pitch, bool force)
 {
-    if (force) {
-        currentHash = "";
-    }
+    loaded = false;
 
-    if (currentHash.empty()) {
-        Dispose();
-    }
+    std::thread thread([&, chart, pitch, force] {
+        Logs::Puts("[AudioSampleManager] Loading audio samples...");
 
-    auto manager = Audio::Engine::Get();
-    currentHash = chart->MD5Hash;
+        std::lock_guard<std::mutex> lock(mutex);
 
-    std::array<std::string, 3> ext = { ".wav", ".ogg", ".mp3" };
-
-    struct tr_result
-    {
-        bool                  found = false;
-        std::filesystem::path path = "";
-        int                   index = 0;
-
-        std::shared_ptr<Audio::Encoder> encoder;
-        NoteAudioSample                 sample = {};
-    };
-
-    auto processSampleBuf = [&](std::shared_ptr<tr_result> &tr,
-                                const Sample               &it) -> void {
-        tr->encoder = std::make_shared<Audio::Encoder>();
-        tr->encoder->Load((const char *)it.FileBuffer.data(), (int)it.FileBuffer.size());
-
-        if (pitch) {
-            float sampleRate = tr->encoder->GetSampleRate();
-            tr->encoder->SetSampleRate(sampleRate * (float)m_rate);
-        } else {
-            tr->encoder->SetTempo((float)m_rate);
+        if (currentHash != chart->MD5Hash || m_processed != m_rate) {
+            Dispose();
         }
 
-        tr->encoder->Render();
-    };
+        auto manager = Audio::Engine::Get();
+        currentHash = chart->MD5Hash;
 
-    auto processSampleFile = [&](std::shared_ptr<tr_result> &tr,
-                                 const Sample               &it) -> void {
-        tr->encoder = std::make_shared<Audio::Encoder>();
+        std::array<std::string, 3> ext = { ".wav", ".ogg", ".mp3" };
 
-        auto find_result = find_file_support_ext(it.FileName, ext);
-        if (std::get<0>(find_result)) {
-            auto path = std::get<1>(find_result);
+        struct tr_result
+        {
+            bool                  found = false;
+            std::filesystem::path path = "";
+            int                   index = 0;
 
-            tr->encoder->Load(path);
-            tr->path = path;
+            std::shared_ptr<Audio::Encoder> encoder;
+            NoteAudioSample                 sample = {};
+        };
+
+        auto processSampleBuf = [&](std::shared_ptr<tr_result> &tr,
+                                    const Sample               &it) -> void {
+            tr->encoder = std::make_shared<Audio::Encoder>();
+            tr->encoder->Load((const char *)it.FileBuffer.data(), (int)it.FileBuffer.size());
 
             if (pitch) {
                 float sampleRate = tr->encoder->GetSampleRate();
@@ -129,120 +115,153 @@ void SampleManager::Load(Chart *chart, bool pitch, bool force)
             }
 
             tr->encoder->Render();
-        } else {
-            throw Exceptions::EstException("Failed to load audio sample: %s", it.FileName.c_str());
-        }
-    };
+        };
 
-    int currentProgress = 0;
-    int maxProgress = (int)chart->m_samples.size();
+        auto processSampleFile = [&](std::shared_ptr<tr_result> &tr,
+                                     const Sample               &it) -> void {
+            tr->encoder = std::make_shared<Audio::Encoder>();
 
-    if (m_rate != 1.0f) {
-        std::vector<std::shared_ptr<tr_result>> tr_results;
-        std::vector<std::thread>                tr_threads;
+            auto find_result = find_file_support_ext(it.FileName, ext);
+            if (std::get<0>(find_result)) {
+                auto path = std::get<1>(find_result);
 
-        std::mutex mutexLock;
+                tr->encoder->Load(path);
+                tr->path = path;
 
-        for (auto &it : chart->m_samples) {
-            tr_threads.push_back(std::thread(
-                [&tr_results, &it, &ext, &processSampleBuf, &processSampleFile, &mutexLock, &currentProgress, maxProgress] {
-                    std::shared_ptr<tr_result> tr = std::make_shared<tr_result>();
+                if (pitch) {
+                    float sampleRate = tr->encoder->GetSampleRate();
+                    tr->encoder->SetSampleRate(sampleRate * (float)m_rate);
+                } else {
+                    tr->encoder->SetTempo((float)m_rate);
+                }
 
-                    if (it.Type == 2) {
-                        tr->sample.FilePath = "Internal" + std::to_string(it.Index);
+                tr->encoder->Render();
+            } else {
+                throw Exceptions::EstException("Failed to load audio sample: %s", it.FileName.c_str());
+            }
+        };
 
-                        try {
-                            processSampleBuf(tr, it);
-                            tr->found = true;
-                            tr->index = it.Index;
-                        } catch (Exceptions::EstException &e) {
-                            Logs::Puts("[AudioSampleManager] %s", e.what());
-                        }
-                    } else {
-                        auto find_result = find_file_support_ext(it.FileName, ext);
-                        if (std::get<0>(find_result)) {
-                            auto path = std::get<1>(find_result);
+        int currentProgress = 0;
+        int maxProgress = (int)chart->m_samples.size();
 
-                            tr->sample.FilePath = path.string();
+        if (m_rate != 1.0f) {
+            std::vector<std::shared_ptr<tr_result>> tr_results;
+            std::vector<std::thread>                tr_threads;
+
+            std::mutex mutexLock;
+
+            for (auto &it : chart->m_samples) {
+                tr_threads.push_back(std::thread(
+                    [&tr_results, &it, &ext, &processSampleBuf, &processSampleFile, &mutexLock, &currentProgress, maxProgress] {
+                        std::shared_ptr<tr_result> tr = std::make_shared<tr_result>();
+
+                        if (it.Type == 2) {
+                            tr->sample.FilePath = "Internal" + std::to_string(it.Index);
 
                             try {
-                                processSampleFile(tr, it);
+                                processSampleBuf(tr, it);
                                 tr->found = true;
                                 tr->index = it.Index;
                             } catch (Exceptions::EstException &e) {
                                 Logs::Puts("[AudioSampleManager] %s", e.what());
                             }
                         } else {
-                            // TODO: silent sample
+                            auto find_result = find_file_support_ext(it.FileName, ext);
+                            if (std::get<0>(find_result)) {
+                                auto path = std::get<1>(find_result);
+
+                                tr->sample.FilePath = path.string();
+
+                                try {
+                                    processSampleFile(tr, it);
+                                    tr->found = true;
+                                    tr->index = it.Index;
+                                } catch (Exceptions::EstException &e) {
+                                    Logs::Puts("[AudioSampleManager] %s", e.what());
+                                }
+                            } else {
+                                // TODO: silent sample
+                            }
                         }
+
+                        std::lock_guard<std::mutex> lock(mutexLock);
+
+                        if (onLoadCallback) {
+                            onLoadCallback(++currentProgress, maxProgress);
+                        }
+
+                        tr_results.push_back(tr);
+                    }));
+            }
+
+            for (auto &it : tr_threads) {
+                it.join();
+            }
+
+            for (auto &it : tr_results) {
+                if (it->found) {
+                    it->sample.Sample = it->encoder->GetSample();
+
+                    if (it->encoder) {
+                        it->encoder.reset();
                     }
 
-                    std::lock_guard<std::mutex> lock(mutexLock);
-
-                    onLoadCallback(++currentProgress, maxProgress);
-                    tr_results.push_back(tr);
-                }));
-        }
-
-        for (auto &it : tr_threads) {
-            it.join();
-        }
-
-        for (auto &it : tr_results) {
-            if (it->found) {
-                it->sample.Sample = it->encoder->GetSample();
-
-                if (it->encoder) {
-                    it->encoder.reset();
+                    samples[it->index] = it->sample;
                 }
-
-                samples[it->index] = it->sample;
             }
-        }
-    } else {
-        for (auto &it : chart->m_samples) {
-            NoteAudioSample sample;
-            sample.Sample = nullptr;
+        } else {
+            for (auto &it : chart->m_samples) {
+                NoteAudioSample sample;
+                sample.Sample = nullptr;
 
-            if (it.Type == 2) {
-                sample.FilePath = "Internal" + std::to_string(it.Index);
-
-                try {
-                    sample.Sample = Audio::Engine::Get()->LoadSample((const char *)it.FileBuffer.data(), it.FileBuffer.size());
-                } catch (Exceptions::EstException &e) {
-                    sample.Sample = nullptr;
-                    Logs::Puts("[AudioSampleManager] Failed to load sample: %s", e.what());
-
-                    std::fstream fs("F:\\test.wav", std::ios::out | std::ios::binary);
-                    fs.write((const char *)it.FileBuffer.data(), it.FileBuffer.size());
-                    fs.close();
-                }
-            } else {
-                auto find_result = find_file_support_ext(it.FileName, ext);
-                if (std::get<0>(find_result)) {
-                    auto path = std::get<1>(find_result);
-
-                    sample.FilePath = path.string();
+                if (it.Type == 2) {
+                    sample.FilePath = "Internal" + std::to_string(it.Index);
 
                     try {
-                        sample.Sample = Audio::Engine::Get()->LoadSample(sample.FilePath);
-                    } catch (Exceptions::EstException &) {
+                        sample.Sample = Audio::Engine::Get()->LoadSample((const char *)it.FileBuffer.data(), it.FileBuffer.size());
+                    } catch (Exceptions::EstException &e) {
                         sample.Sample = nullptr;
-                        Logs::Puts("[AudioSampleManager] Failed to load sample: %s", it.FileName.c_str());
+                        Logs::Puts("[AudioSampleManager] Failed to load sample: %s", e.what());
                     }
                 } else {
-                    // TODO: silent sample
-                    Logs::Puts("[AudioSampleManager] Failed to load sample: %s", it.FileName.c_str());
+                    auto find_result = find_file_support_ext(it.FileName, ext);
+                    if (std::get<0>(find_result)) {
+                        auto path = std::get<1>(find_result);
+
+                        sample.FilePath = path.string();
+
+                        try {
+                            sample.Sample = Audio::Engine::Get()->LoadSample(sample.FilePath);
+                        } catch (Exceptions::EstException &) {
+                            sample.Sample = nullptr;
+                            Logs::Puts("[AudioSampleManager] Failed to load sample: %s", it.FileName.c_str());
+                        }
+                    } else {
+                        // TODO: silent sample
+                        Logs::Puts("[AudioSampleManager] Failed to load sample: %s", it.FileName.c_str());
+                    }
+                }
+
+                if (sample.Sample != nullptr) {
+                    samples[it.Index] = sample;
+                }
+
+                if (onLoadCallback) {
+                    onLoadCallback(++currentProgress, maxProgress);
                 }
             }
-
-            if (sample.Sample != nullptr) {
-                samples[it.Index] = sample;
-            }
-
-            onLoadCallback(++currentProgress, maxProgress);
         }
-    }
+
+        m_processed = m_rate;
+        loaded = true;
+    });
+
+    thread.detach();
+}
+
+bool SampleManager::IsLoaded()
+{
+    return loaded;
 }
 
 void SampleManager::OnLoad(std::function<void(int, int)> callback)

@@ -1,3 +1,10 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2023 Estrol Mendex
+ * See the LICENSE file in the root of this project for details.
+ */
+
 #pragma once
 
 #include "SkinStructs.h"
@@ -16,12 +23,16 @@ struct GameLua
     std::tuple<int, int> GetResolution();
     int                  GetKeyCount();
     std::string          GetSkinPath();
+    std::string          GetFontPath();
     std::string          GetScriptPath();
 
     /* Utility */
 
     bool                IsPathExist(std::string Path);
     std::pair<int, int> GetImageSize(std::string Path);
+
+    /* Font ranges */
+    sol::table GetCharRange(CharRangeType type);
 
     LuaSkin    *__skin;
     std::string __group;
@@ -37,28 +48,22 @@ struct LuaState
 class LuaSkin
 {
 public:
-    void LoadSkin(std::string skinName);
-    void LoadScript(SkinGroup group);
+    LuaSkin() = default;
+    LuaSkin(std::filesystem::path path, SkinGroup group);
+    ~LuaSkin();
 
     std::vector<NumericValue>  GetNumeric(std::string key);
     std::vector<PositionValue> GetPosition(std::string key);
     std::vector<RectInfo>      GetRect(std::string key);
     std::vector<AudioInfo>     GetAudio();
-    //NoteValue                  GetNote(std::string key);
+    std::vector<FontInfo>      GetFont(std::string key);
     SpriteValue                GetSprite(std::string key);
     TweenInfo                  GetTween(std::string key);
+    AnimationInfo              GetAnimation(std::string key);
 
-    std::string GetSkinProp(std::string group, std::string key, std::string defaultValue = "");
-    std::string GetPath();
-
-    static LuaSkin *Get();
+    LuaState *GetState();
 
 private:
-    LuaSkin() = default;
-    ~LuaSkin();
-
-    SkinGroup                CurrentGroup;
-    std::filesystem::path    CurrentPath;
-    LuaState                 Script;
-    Misc::mINI::INIStructure ini;
+    SkinGroup CurrentGroup;
+    LuaState  Script;
 };

@@ -7,19 +7,22 @@
 
 #include "../Drawable/Sprite.h"
 #include "../Skinning/LuaSkin.h"
+#include "../Skinning/LuaManager.h"
 #include "NoteImages.h"
 #include <Exceptions/EstException.h>
 #include <Graphics/Renderer.h>
+#include <Graphics/NativeWindow.h>
 #include <Misc/Filesystem.h>
 #include <filesystem>
 #include <fstream>
 #include <unordered_map>
+#include <Logs.h>
 
 using namespace Resources;
 
 namespace {
     bool                                                          s_Loaded = false;
-    std::unordered_map<NoteImageType, std::unique_ptr<NoteImage>> s_NoteImages;
+    std::unordered_map<NoteImageType, std::shared_ptr<NoteImage>> s_NoteImages;
 } // namespace
 
 void NoteImages::LoadImageResources()
@@ -28,17 +31,19 @@ void NoteImages::LoadImageResources()
         throw Exceptions::EstException("Note images already loaded");
     }
 
-    auto manager = LuaSkin::Get();
+    auto manager = LuaManager::Get();
     auto renderer = Graphics::Renderer::Get();
+    auto window = Graphics::NativeWindow::Get();
+    auto bufferWindowSize = window->GetBufferSize();
 
-    manager->LoadScript(SkinGroup::Notes);
+    auto skin = manager->LoadScript(SkinGroup::Notes);
 
     for (int i = 0; i < 7; i++) {
-        SpriteValue note = manager->GetSprite("LaneHit" + std::to_string(i));
-        SpriteValue hold = manager->GetSprite("LaneHold" + std::to_string(i));
+        SpriteValue note = skin->GetSprite("LaneHit" + std::to_string(i));
+        SpriteValue hold = skin->GetSprite("LaneHold" + std::to_string(i));
 
-        auto noteImage = std::make_unique<NoteImage>();
-        auto holdImage = std::make_unique<NoteImage>();
+        auto noteImage = std::make_shared<NoteImage>();
+        auto holdImage = std::make_shared<NoteImage>();
 
         noteImage->MaxFrames = (int)note.TexCoords.size();
         holdImage->MaxFrames = (int)hold.TexCoords.size();
@@ -49,8 +54,16 @@ void NoteImages::LoadImageResources()
         noteImage->Color = note.Color;
         holdImage->Color = hold.Color;
 
-        Rect noteSize = { 0, 0, (int)note.Size.X.Offset, (int)note.Size.Y.Offset };
-        Rect holdSize = { 0, 0, (int)hold.Size.X.Offset, (int)hold.Size.Y.Offset };
+        Rect noteSize = {
+            0, 0,
+            (int)(note.Size.X.Offset + (bufferWindowSize.Width * note.Size.X.Scale)),
+            (int)(note.Size.Y.Offset + (bufferWindowSize.Height * note.Size.Y.Scale))
+        };
+        Rect holdSize = {
+            0, 0,
+            (int)(hold.Size.X.Offset + (bufferWindowSize.Width * hold.Size.X.Scale)),
+            (int)(hold.Size.Y.Offset + (bufferWindowSize.Height * hold.Size.X.Scale))
+        };
 
         if (!std::filesystem::exists(note.Path)) {
             throw Exceptions::EstException("File: %s is not found!", note.Path.c_str());
@@ -76,11 +89,11 @@ void NoteImages::LoadImageResources()
         s_NoteImages[(NoteImageType)(i + 7)] = std::move(holdImage);
     }
 
-    auto trailUp = manager->GetSprite("NoteTrailUp");
-    auto trailDown = manager->GetSprite("NoteTrailDown");
+    auto trailUp = skin->GetSprite("NoteTrailUp");
+    auto trailDown = skin->GetSprite("NoteTrailDown");
 
-    auto trailUpImg = std::make_unique<NoteImage>();
-    auto trailDownImg = std::make_unique<NoteImage>();
+    auto trailUpImg = std::make_shared<NoteImage>();
+    auto trailDownImg = std::make_shared<NoteImage>();
 
     int trailUpMaxFrames = (int)trailUp.TexCoords.size();
     int trailDownMaxFrames = (int)trailDown.TexCoords.size();
@@ -91,8 +104,16 @@ void NoteImages::LoadImageResources()
     trailUpImg->Color = trailUp.Color;
     trailDownImg->Color = trailDown.Color;
 
-    Rect tailUpSize = { 0, 0, (int)trailUp.Size.X.Offset, (int)trailUp.Size.Y.Offset };
-    Rect tailDownSize = { 0, 0, (int)trailDown.Size.X.Offset, (int)trailDown.Size.Y.Offset };
+    Rect tailUpSize = {
+        0, 0,
+        (int)(trailUp.Size.X.Offset + (bufferWindowSize.Width * trailUp.Size.X.Scale)),
+        (int)(trailUp.Size.Y.Offset + (bufferWindowSize.Height * trailUp.Size.Y.Scale))
+    };
+    Rect tailDownSize = {
+        0, 0,
+        (int)(trailDown.Size.X.Offset + (bufferWindowSize.Width * trailDown.Size.X.Scale)),
+        (int)(trailDown.Size.Y.Offset + (bufferWindowSize.Height * trailDown.Size.Y.Scale))
+    };
 
     std::filesystem::path path = trailUp.Path;
     if (!std::filesystem::exists(path)) {
@@ -115,14 +136,18 @@ void NoteImages::LoadImageResources()
     s_NoteImages[NoteImageType::TRAIL_UP] = std::move(trailUpImg);
     s_NoteImages[NoteImageType::TRAIL_DOWN] = std::move(trailDownImg);
 
-    auto measure = manager->GetSprite("MeasureLine");
+    auto measure = skin->GetSprite("MeasureLine");
 
-    auto measureLine = std::make_unique<NoteImage>();
+    auto measureLine = std::make_shared<NoteImage>();
     measureLine->FrameRate = measure.FrameTime;
     measureLine->MaxFrames = (int)measure.TexCoords.size();
     measureLine->Color = measure.Color;
 
-    Rect measureRect = { 0, 0, (int)measure.Size.X.Offset, (int)measure.Size.Y.Offset };
+    Rect measureRect = {
+        0, 0,
+        (int)(measure.Size.X.Offset + (bufferWindowSize.Width * measure.Size.X.Scale)),
+        (int)(measure.Size.Y.Offset + (bufferWindowSize.Height * measure.Size.Y.Scale))
+    };
     measureLine->ImagesRect = measureRect;
     measureLine->TexCoords = measure.TexCoords;
     measureLine->Texture = renderer->LoadTexture(measure.Path);
@@ -134,8 +159,11 @@ void NoteImages::LoadImageResources()
 
 void NoteImages::UnloadImageResources()
 {
-    for (auto &noteImage : s_NoteImages) {
-        noteImage.second->Texture.reset();
+    for (NoteImageType type = NoteImageType::LANE_1; type <= NoteImageType::MEASURE_LINE; type = (NoteImageType)((int)type + 1)) {
+        if (s_NoteImages.find(type) != s_NoteImages.end() && s_NoteImages[type] != nullptr) {
+            Logs::Debug("Unloading note image type: %d with vk_image id: %d", (int)type, s_NoteImages[type]->Texture->GetId());
+            s_NoteImages[type]->Texture.reset();
+        }
     }
 
     s_NoteImages.clear();

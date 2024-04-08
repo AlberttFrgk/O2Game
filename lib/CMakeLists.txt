@@ -32,24 +32,33 @@ add_library(EstEngine STATIC ${HEADERS}
 
     # Vulkan backends
     "src/Graphics/Backends/Vulkan/VulkanBackend.cpp" 
-    "src/Graphics/Backends/Vulkan/vkinit.cpp" 
-    "src/Graphics/Backends/Vulkan/VulkanBootstrap/VkBootstrap.cpp" 
-    "src/Graphics/Backends/Vulkan/Volk/volk.cpp" 
+    "src/Graphics/Backends/Vulkan/Misc/vkinit.cpp"
+    "src/Graphics/Backends/Vulkan/Misc/VkDevice.cpp" 
+    "src/Graphics/Backends/Vulkan/Misc/VkMemory.cpp"
+    "src/Graphics/Backends/Vulkan/Misc/VkRenderpass.cpp"
+    "src/Graphics/Backends/Vulkan/Misc/VkImage.cpp"
+    "src/Graphics/Backends/Vulkan/Misc/VkPipeline.cpp"
+    "src/Graphics/Backends/Vulkan/Misc/VkCommandPool.cpp"
+    "src/Graphics/Backends/Vulkan/Misc/VkShader.cpp"
+    "src/Graphics/Backends/Vulkan/Misc/VkSwapchain.cpp"
+    "src/Graphics/Backends/Vulkan/Misc/VkRenderchain.cpp"
+    "src/Graphics/Backends/Vulkan/third-party/VulkanBootstrap/VkBootstrap.cpp" 
+    "src/Graphics/Backends/Vulkan/third-party/Volk/volk.cpp" 
 
     # Vulkan image backends
     "src/Graphics/Backends/Vulkan/VulkanTexture2D.cpp" 
 
     # OpenGL backends
-    "src/Graphics/Backends/OpenGL/OpenGLBackend.cpp"
+    # "src/Graphics/Backends/OpenGL/OpenGLBackend.cpp"
 
     # OpenGl image backends
-    "src/Graphics/Backends/OpenGL/OpenGlTexture2D.cpp"
+    # "src/Graphics/Backends/OpenGL/OpenGlTexture2D.cpp"
 
     # D3D11 backends
-    "src/Graphics/Backends/D3D11/D3D11Backend.cpp"
+    # "src/Graphics/Backends/D3D11/D3D11Backend.cpp"
 
     # D3D11 image backends
-    "src/Graphics/Backends/D3D11/D3D11Texture2D.cpp"
+    # "src/Graphics/Backends/D3D11/D3D11Texture2D.cpp"
 
     # Audio
     "src/Audio/AudioEngine.cpp" 
@@ -93,6 +102,7 @@ add_library(EstEngine STATIC ${HEADERS}
     "src/Imgui/imgui_tables.cpp" 
     "src/Imgui/imgui_widgets.cpp"
     "src/Imgui/imgui_demo.cpp"
+    "src/Imgui/imgui_freetype.cpp"
     "src/Graphics/ImguiBackends/imgui_impl_sdl2.cpp"
     "src/Graphics/ImguiBackends/imgui_impl_vulkan.cpp"
     "src/Graphics/ImguiBackends/imgui_impl_opengl3.cpp"

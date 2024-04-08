@@ -17,7 +17,7 @@
 #include <cerrno>
 #include <cmath>
 #include <codecvt>
-#include <iconv.h>
+// #include <iconv.h>
 #include <string>
 
 std::vector<std::string> splitString(std::string &input, char delimeter)
@@ -139,34 +139,35 @@ void flipArray(uint8_t *arr, size_t size)
 
 std::string CodepageToUtf8(const char *string, size_t str_len, const char *encoding)
 {
-    std::string result;
-    iconv_t     conv = iconv_open("UTF-8", encoding);
-    if (conv == (iconv_t)-1) {
-        return (const char *)(u8"<encoding error>");
-    }
+    // std::string result;
+    // iconv_t     conv = iconv_open("UTF-8", encoding);
+    // if (conv == (iconv_t)-1) {
+    //     return (const char *)(u8"<encoding error>");
+    // }
 
-    size_t            inbytesleft = str_len;
-    size_t            outbytesleft = str_len * 4;
-    char             *inbuf = (char *)string;
-    std::vector<char> outbuf;
-    outbuf.resize(outbytesleft, 0);
+    // size_t            inbytesleft = str_len;
+    // size_t            outbytesleft = str_len * 4;
+    // char             *inbuf = (char *)string;
+    // std::vector<char> outbuf;
+    // outbuf.resize(outbytesleft, 0);
 
-    char *outbufptr = outbuf.data();
+    // char *outbufptr = outbuf.data();
 
-    if (iconv(conv, &inbuf, &inbytesleft, &outbufptr, &outbytesleft) == (size_t)-1) {
-        iconv_close(conv);
+    // if (iconv(conv, &inbuf, &inbytesleft, &outbufptr, &outbytesleft) == (size_t)-1) {
+    //     iconv_close(conv);
 
-        // return whatever we have left, even if it's not valid
-        size_t      len = strlen(outbuf.data());
-        std::string remaining = std::string((const char *)outbuf.data(), len);
+    //     // return whatever we have left, even if it's not valid
+    //     size_t      len = strlen(outbuf.data());
+    //     std::string remaining = std::string((const char *)outbuf.data(), len);
 
-        return remaining;
-    }
+    //     return remaining;
+    // }
 
-    result = std::string(outbuf.data(), str_len * 4 - outbytesleft);
-    iconv_close(conv);
+    // result = std::string(outbuf.data(), str_len * 4 - outbytesleft);
+    // iconv_close(conv);
 
-    return result;
+    // return result;
+    return std::string(string, str_len);
 }
 
 bool starts_with(std::string &str, std::string_view prefix)

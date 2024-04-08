@@ -26,6 +26,8 @@ public:
 
     UDim2 operator+(UDim2 const &udim2);
     UDim2 operator-(UDim2 const &udim2);
+    UDim2 operator*(UDim2 const &udim2);
+    UDim2 operator/(UDim2 const &udim2);
     bool  operator==(UDim2 const &udim2);
     bool  operator<=(UDim2 const &udim2);
     bool  operator>=(UDim2 const &udim2);

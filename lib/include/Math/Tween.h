@@ -35,6 +35,8 @@ public:
 
     bool IsFinished() const;
 
+    static UDim2 Lerp(TweenType type, UDim2 start, UDim2 end, float t);
+
 private:
     UDim2 Start;
     UDim2 End;

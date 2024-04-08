@@ -13,6 +13,8 @@
 #include <glm/glm.hpp>
 #include <map>
 #include <string>
+#include <functional>
+#include <sol/sol.hpp>
 #include <vector>
 
 enum class SkinGroup {
@@ -23,7 +25,7 @@ enum class SkinGroup {
     Arena,
     SongSelect,
     Result,
-    Audio
+    Audio,
 };
 
 enum class SkinDataType {
@@ -33,7 +35,9 @@ enum class SkinDataType {
     Note,
     Sprite,
     Tween,
-    Audio
+    Audio,
+    Font,
+    Animation
 };
 
 enum class SkinNumericDirection {
@@ -122,4 +126,38 @@ struct AudioInfo
 {
     std::filesystem::path Path;
     SkinAudioType         Type;
+};
+
+enum class CharRangeType {
+    Default,
+    Japanese,
+    Korean,
+    Chinese
+};
+
+struct CharRange
+{
+    int Start;
+    int End;
+};
+
+struct FontInfo
+{
+    float                  Size;
+    std::filesystem::path  FontFile;
+    std::vector<CharRange> CharRanges;
+};
+
+struct AnimationPosition
+{
+    UDim2 Start;
+    UDim2 End;
+};
+
+struct AnimationInfo
+{
+    AnimationPosition  Position;
+    double             Duration;
+    bool               Repeat;
+    sol::safe_function Callback;
 };

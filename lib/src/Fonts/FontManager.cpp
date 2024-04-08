@@ -8,6 +8,7 @@
 #include <Misc/Filesystem.h>
 #include <freetype/config/ftheader.h>
 #include FT_FREETYPE_H
+#include FT_BITMAP_H
 
 #if _WIN32
 #include "./Platform/Win32.h"
@@ -96,6 +97,18 @@ FontAtlas *FontManager::LoadFont(FontLoadFileInfo &info)
     return LoadFont(_info);
 }
 
+const char *getErrorMessage(FT_Error err)
+{
+#undef FTERRORS_H_
+#define FT_ERRORDEF(e, v, s) \
+    case e:                  \
+        return s;
+#define FT_ERROR_START_LIST switch (err) {
+#define FT_ERROR_END_LIST }
+#include FT_ERRORS_H
+    return "(Unknown error)";
+}
+
 FontAtlas *FontManager::LoadFont(FontLoadBufferInfo &info)
 {
     auto fileName = GenerateHash((const char *)info.Buffer.data(), info.Buffer.size(), info.FontSize);
@@ -115,14 +128,7 @@ FontAtlas *FontManager::LoadFont(FontLoadBufferInfo &info)
         throw Exceptions::EstException("Failed to load font");
     }
 
-    auto window = Graphics::NativeWindow::Get();
-    auto bufferRect = window->GetBufferSize();
-    auto windowRect = window->GetWindowSize();
-
-    float originScale = (bufferRect.Width + bufferRect.Height) / 15.6f;
-    float targetScale = (windowRect.Width + windowRect.Height) / 15.6f;
-
-    FT_UInt fontPixel = static_cast<FT_UInt>(::floor(info.FontSize * (targetScale / originScale)));
+    FT_UInt fontPixel = static_cast<FT_UInt>(::floor(info.FontSize));
 
     FT_Set_Pixel_Sizes(face, fontPixel, fontPixel);
 
@@ -170,7 +176,6 @@ FontAtlas *FontManager::LoadFont(FontLoadBufferInfo &info)
                     uint32_t x = pen_x + col;
                     uint32_t y = pen_y + row;
                     uint8_t  glyph_value = bmp->buffer[row * bmp->pitch + col];
-                    // uint32_t pixel = ((255 << 24) | (255 << 16) | (255 << 8) | glyph_value); // RGBA color, white glyph, alpha from glyph bitmap
                     tex_data[y * tex_width + x] = glyph_value;
                 }
             }
@@ -233,6 +238,32 @@ FontAtlas *FontManager::LoadFont(FontLoadBufferInfo &info)
     atlas->NewlineHeight = faceHeight;
     atlas->TexSize = glm::vec2(tex_width, tex_height);
     atlas->Invalid = Invalid;
+    atlas->FontSize = info.FontSize;
+
+    m_fonts[fileName] = std::move(atlas);
+
+    return m_fonts[fileName].get();
+}
+
+FontAtlas *FontManager::LoadFont(FontLoadAtlasInfo &info)
+{
+    std::vector<uint8_t> texData = Misc::Filesystem::ReadFile(info.Texture);
+
+    auto fileName = GenerateHash((const char *)texData.data(), texData.size(), info.FontSize);
+    if (m_fonts.find(fileName) != m_fonts.end()) {
+        return m_fonts[fileName].get();
+    }
+
+    auto atlas = std::make_unique<FontAtlas>();
+    atlas->Texture = Graphics::Renderer::Get()->LoadTexture(
+        (const unsigned char *)texData.data(),
+        texData.size());
+
+    auto texSize = atlas->Texture->GetSize();
+
+    atlas->Glyphs = std::move(info.Glyphs);
+    atlas->NewlineHeight = info.FontSize;
+    atlas->TexSize = glm::vec2(texSize.Width, texSize.Height);
     atlas->FontSize = info.FontSize;
 
     m_fonts[fileName] = std::move(atlas);

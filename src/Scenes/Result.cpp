@@ -30,11 +30,12 @@ void Result::Draw(double delta)
     m_Score->Draw(m_ScoreInfo.score);
 
     if (m_ScoreInfo.isClear) {
-        m_Win->Draw();
+        m_WinLose->SetIndexAt(0);
     } else {
-        m_Lose->Draw();
+        m_WinLose->SetIndexAt(1);
     }
 
+    m_WinLose->Draw();
     m_BackButton->Draw();
 
     m_Stats->Position = m_StatsPosition[0];
@@ -79,41 +80,34 @@ void Result::Input(double delta)
 
 bool Result::Attach()
 {
-    auto manager = LuaSkin::Get();
-    manager->LoadScript(SkinGroup::Result);
+    auto manager = LuaManager::Get();
+    m_ResultLua = manager->LoadScript(SkinGroup::Result);
 
-    auto resultPos = manager->GetPosition("Result").front();
+    auto resultPos = m_ResultLua->GetPosition("Result").front();
     m_Result = std::make_shared<Image>(resultPos.Path);
     m_Result->Position = resultPos.Position;
     m_Result->Size = resultPos.Size;
     m_Result->AnchorPoint = resultPos.AnchorPoint;
     m_Result->Color3 = resultPos.Color;
 
-    auto scorePos = manager->GetPosition("Score").front();
-    auto scoreImgs = manager->GetNumeric("Score").front();
+    auto scorePos = m_ResultLua->GetPosition("Score").front();
+    auto scoreImgs = m_ResultLua->GetNumeric("Score").front();
     m_Score = std::make_shared<NumberSprite>(scoreImgs.Path, scoreImgs.TexCoords);
+    m_Score->Size = scoreImgs.Size;
     m_Score->Position = scorePos.Position;
-    m_Score->Size = scorePos.Size;
     m_Score->AnchorPoint = scorePos.AnchorPoint;
     m_Score->NumberPosition = IntToPos(scoreImgs.Direction);
     m_Score->FillWithZeros = scoreImgs.FillWithZero;
 
-    auto winPos = manager->GetPosition("Win").front();
-    m_Win = std::make_shared<Image>(winPos.Path);
-    m_Win->Position = winPos.Position;
-    m_Win->Size = winPos.Size;
-    m_Win->AnchorPoint = winPos.AnchorPoint;
-    m_Win->Color3 = winPos.Color;
+    auto winLose = m_ResultLua->GetSprite("WinLose");
+    m_WinLose = std::make_shared<Sprite>(winLose.Path, winLose.TexCoords, 0.0f);
+    m_WinLose->Position = winLose.Position;
+    m_WinLose->Size = winLose.Size;
+    m_WinLose->AnchorPoint = winLose.AnchorPoint;
+    m_WinLose->Color3 = winLose.Color;
 
-    auto losePos = manager->GetPosition("Lose").front();
-    m_Lose = std::make_shared<Image>(losePos.Path);
-    m_Lose->Position = losePos.Position;
-    m_Lose->Size = losePos.Size;
-    m_Lose->AnchorPoint = losePos.AnchorPoint;
-    m_Lose->Color3 = losePos.Color;
-
-    auto backRect = manager->GetRect("Back").front();
-    auto backHoverButton = manager->GetSprite("BackHover");
+    auto backRect = m_ResultLua->GetRect("Back").front();
+    auto backHoverButton = m_ResultLua->GetSprite("BackHoverButton");
 
     std::shared_ptr<Sprite> backButtonSprite = std::make_shared<Sprite>(backHoverButton.Path, backHoverButton.TexCoords, 0.0f);
     backButtonSprite->Position = backHoverButton.Position;
@@ -131,12 +125,12 @@ bool Result::Attach()
 
     m_BackButton->OnClick([]() { MsgBox::Show("Hello", "Hello"); });
 
-    auto coolPos = manager->GetPosition("StatsCool").front();
-    auto goodPos = manager->GetPosition("StatsGood").front();
-    auto badPos = manager->GetPosition("StatsBad").front();
-    auto missPos = manager->GetPosition("StatsMiss").front();
-    auto maxcomboPos = manager->GetPosition("StatsMaxCombo").front();
-    auto maxjamPos = manager->GetPosition("StatsMaxJam").front();
+    auto coolPos = m_ResultLua->GetPosition("StatsCool").front();
+    auto goodPos = m_ResultLua->GetPosition("StatsGood").front();
+    auto badPos = m_ResultLua->GetPosition("StatsBad").front();
+    auto missPos = m_ResultLua->GetPosition("StatsMiss").front();
+    auto maxcomboPos = m_ResultLua->GetPosition("StatsMaxCombo").front();
+    auto maxjamPos = m_ResultLua->GetPosition("StatsMaxJam").front();
 
     m_StatsPosition = {
         { 0, coolPos.Position },
@@ -156,7 +150,7 @@ bool Result::Attach()
         { 5, maxjamPos.AnchorPoint }
     };
 
-    auto statsImgs = manager->GetNumeric("Stats").front();
+    auto statsImgs = m_ResultLua->GetNumeric("Stats").front();
     m_Stats = std::make_shared<NumberSprite>(statsImgs.Path, statsImgs.TexCoords);
     m_Stats->NumberPosition = IntToPos(statsImgs.Direction);
     m_Stats->FillWithZeros = statsImgs.FillWithZero;
@@ -183,5 +177,6 @@ bool Result::Detach()
     m_Result.reset();
     m_Text.reset();
 
+    m_ResultLua.reset();
     return true;
 }
