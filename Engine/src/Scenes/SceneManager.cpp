@@ -111,9 +111,6 @@ void SceneManager::Update(double delta)
 
 void SceneManager::Render(double delta)
 {
-    m_renderId = std::this_thread::get_id();
-    m_ready_change_state = false;
-
     if (m_currentScene)
         m_currentScene->Render(delta);
     if (m_currentOverlay && !MsgBox::Any()) {
@@ -127,9 +124,9 @@ void SceneManager::Render(double delta)
         ImGui::OpenPopup(title.c_str());
 
         if (ImGui::BeginPopupModal(
-                title.c_str(),
-                nullptr,
-                ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
+            title.c_str(),
+            nullptr,
+            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
 
             m_currentOverlay->Render(delta);
             ImGui::EndPopup();
@@ -147,8 +144,31 @@ void SceneManager::Render(double delta)
     }
 
     if (m_nextScene != nullptr) {
-        m_ready_change_state = true;
-        m_cv.notify_one();
+        if (m_currentOverlay) {
+            // Delay scene change until the overlay is closed
+            return;
+        }
+
+        if (m_currentScene) {
+            if (!m_currentScene->Detach()) {
+                MsgBox::ShowOut("EstEngine Error", "Failed to detach current scene", MsgBoxType::OK, MsgBoxFlags::BTN_ERROR);
+                m_parent->Stop();
+                return;
+            }
+        }
+
+        if (!m_nextScene->Attach()) {
+            MsgBox::ShowOut("EstEngine Error", "Failed to init next scene", MsgBoxType::OK, MsgBoxFlags::BTN_ERROR);
+            m_parent->Stop();
+            return;
+        }
+
+        m_currentScene = m_nextScene;
+        m_nextScene = nullptr;
+
+        if (m_onSceneChange) {
+            m_onSceneChange();
+        }
     }
 }
 
@@ -211,7 +231,10 @@ void SceneManager::ChangeScene(int idx)
     if (s_instance == nullptr)
         throw std::runtime_error(notInitialized);
 
-    s_instance->IChangeScene(idx);
+    // Load the next scene asynchronously
+    std::thread([idx]() {
+        s_instance->IChangeScene(idx);
+        }).detach();
 }
 
 void SceneManager::AddOverlay(int Idx, Overlay *overlay)
@@ -261,7 +284,6 @@ void SceneManager::IChangeScene(int idx)
 {
     if (m_scenes.find(idx) == m_scenes.end()) {
         std::string msg = "Failed to find SceneId: " + std::to_string(idx);
-
         MsgBox::ShowOut("EstEngine Error", msg.c_str(), MsgBoxType::OK, MsgBoxFlags::BTN_ERROR);
         return;
     }
@@ -270,6 +292,8 @@ void SceneManager::IChangeScene(int idx)
     m_currentSceneId = idx;
 
     m_nextScene = m_scenes[idx].get();
+    m_ready_change_state = true;
+    m_cv.notify_one();
 }
 
 void SceneManager::SetParent(Game *parent)
@@ -308,7 +332,7 @@ void SceneManager::DisplayFade(int transparency, std::function<void()> callback)
         }
 
         callback();
-    }).detach();
+        }).detach();
 }
 
 void SceneManager::ExecuteAfter(int ms_time, std::function<void()> callback)
@@ -333,17 +357,17 @@ void SceneManager::GameExecuteAfter(ExecuteThread thread, int ms_time, std::func
         game->GetMainThread()->QueueAction(callback);
     } else {
         switch (thread) {
-            case ExecuteThread::UPDATE:
-            {
-                game->GetRenderThread()->QueueAction(callback);
-                break;
-            }
+        case ExecuteThread::UPDATE:
+        {
+            game->GetRenderThread()->QueueAction(callback);
+            break;
+        }
 
-            case ExecuteThread::WINDOW:
-            {
-                game->GetMainThread()->QueueAction(callback);
-                break;
-            }
+        case ExecuteThread::WINDOW:
+        {
+            game->GetMainThread()->QueueAction(callback);
+            break;
+        }
         }
     }
 }
