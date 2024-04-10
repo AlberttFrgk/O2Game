@@ -32,7 +32,7 @@ ScoreManager::~ScoreManager()
 {
 }
 
-void ScoreManager::OnHit(NoteHitInfo info) // Fuck it, just leave it max HP 100 and divided that by 10
+void ScoreManager::OnHit(NoteHitInfo info) // Fuck it just leave it max HP 100 and divided that by 10
 {
     int difficulty = EnvironmentSetup::GetInt("Difficulty");
     switch (difficulty) {
@@ -178,8 +178,7 @@ void ScoreManager::OnHit(NoteHitInfo info) // Fuck it, just leave it max HP 100 
             m_coolCombo = 0;
             m_numOfPills = std::clamp(m_numOfPills + 1, 0, 5);
         }
-    }
-    else {
+    } else {
         m_coolCombo = 0;
     }
 
@@ -210,17 +209,17 @@ void ScoreManager::OnHit(NoteHitInfo info) // Fuck it, just leave it max HP 100 
 void ScoreManager::OnLongNoteHold(HoldResult result)
 {
     switch (result) {
-    case HoldResult::HoldBreak:
-    {
-        m_lnCombo = 0;
-        break;
-    }
+        case HoldResult::HoldBreak:
+        {
+            m_lnCombo = 0;
+            break;
+        }
 
-    case HoldResult::HoldAdd:
-    {
-        m_lnCombo += 1;
-        break;
-    }
+        case HoldResult::HoldAdd:
+        {
+            m_lnCombo += 1;
+            break;
+        }
     }
 
     m_lnMaxCombo = (std::max)(m_lnCombo, m_lnMaxCombo);

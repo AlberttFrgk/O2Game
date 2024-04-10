@@ -28,7 +28,26 @@
 #include "../Data/Chart.hpp"
 #include "../Data/Util/Util.hpp"
 
-static std::array<std::string, 10>  Mods = { "Mirror", "Random", "Panic (FixMe)", "Rearrange", "Autoplay", "Hidden", "Flashlight", "Sudden", "Song BG", "Black BG" };
+static std::wstring OpenFilePrompt() {
+    OPENFILENAMEW ofn;
+    wchar_t szFile[MAX_PATH] = { 0 };
+
+    ZeroMemory(&ofn, sizeof(ofn));
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = NULL;
+    ofn.lpstrFilter = L"All Supported Files (*.ojn;*.osu;*.bms;*.bme;*.bml;*)\0*.ojn;*.osu;*.bms;*.bme;*.bml\0";
+    ofn.lpstrFile = szFile;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+    if (GetOpenFileNameW(&ofn)) {
+        return szFile;
+    }
+    else {
+        return L"";
+    }
+}
+
+static std::array<std::string, 10>  Mods = { "Mirror", "Random", "Panic", "Rearrange", "Autoplay", "Hidden", "Flashlight", "Sudden", "Song BG", "Black BG"};
 static std::array<std::string, 13> Arena = { "Random",
                                              "Arena 1", "Arena 2", "Arena 3", "Arena 4", "Arena 5", "Arena 6", "Arena 7", "Arena 8", "Arena 9", "Arena 10", "Arena 11", "Arena 12" };
 
@@ -61,12 +80,13 @@ void SongSelectScene::Render(double delta)
     auto window = GameWindow::GetInstance();
 
     bPlay = false;
-    bExitPopup = false;
+    bOpenFile = false;
     bOptionPopup = false;
     bSelectNewSong = false;
     bOpenSongContext = false;
     bOpenEditor = false;
     bOpenRearrange = false;
+    bQuit = false;
     bScaleOutput = window->IsScaleOutput();
 
     auto windowNextSz = ImVec2((float)window->GetBufferWidth(), (float)window->GetBufferHeight());
@@ -90,9 +110,14 @@ void SongSelectScene::Render(double delta)
                      nullptr,
                      flags)) {
         if (ImGui::BeginMenuBar()) {
-            if (ImGui::Button("Back", MathUtil::ScaleVec2(ImVec2(50, 0)))) {
-                bExitPopup = true;
+
+            if (ImGui::Button("Quit", MathUtil::ScaleVec2(ImVec2(50, 0)))) {
+                bQuit = true;
             }
+
+            /*if (ImGui::Button("Open File", MathUtil::ScaleVec2(ImVec2(50, 0)))) {
+                bOpenFile = true;
+            }*/ // FIXME: Plz Fix This
 
             if (ImGui::Button("Options", MathUtil::ScaleVec2(ImVec2(50, 0)))) {
                 bOptionPopup = true;
@@ -100,9 +125,10 @@ void SongSelectScene::Render(double delta)
 
             ImGuiIO &io = ImGui::GetIO();
 
-            ImGui::Text("Song Selection....");
+            ImGui::Text("Select Song");
 
-            std::string text = "No Account!";
+            /*std::string text = "No Account!";*/
+            std::string text = "O2Jam Simulator, Base game by Estrol, Effect by Albet";
             auto        textWidth = ImGui::CalcTextSize(text.c_str()).x;
 
             ImGui::SameLine(MathUtil::ScaleVec2(ImVec2(windowNextSz.x, 0)).x - textWidth - 15);
@@ -325,11 +351,31 @@ void SongSelectScene::Render(double delta)
         });
     }
 
-    if (bExitPopup) {
-        SaveConfiguration();
-        SceneManager::DisplayFade(100, [this]() {
-            SceneManager::ChangeScene(GameScene::MAINMENU);
-        });
+    if (bOpenFile) {
+        std::wstring songfile = OpenFilePrompt();
+        if (!songfile.empty()) {
+            EnvironmentSetup::SetPath("FILE", songfile);
+            is_departing = true;
+            SaveConfiguration();
+
+            if (m_songBackground) {
+                EnvironmentSetup::SetObj("SongBackground", m_songBackground.get());
+            }
+
+            nextAlpha = 0;
+            SceneManager::ExecuteAfter(600, [this]() {
+                SceneManager::ChangeScene(GameScene::LOADING);
+                });
+        }
+        else {
+            MsgBox::Show("MustSelectFile", "Error", "You must select a file!", MsgBoxType::OK);
+        }
+    }
+
+    if (bQuit) {
+        SDL_Event e = {};
+        e.type = SDL_QUIT;
+        SDL_PushEvent(&e);
     }
 }
 
@@ -431,7 +477,7 @@ void SongSelectScene::OnGameSelectMusic(double delta)
         }
 
         if (ImGui::BeginChild("#test2", MathUtil::ScaleVec2(ImVec2(200, 290)), true)) {
-            std::vector<std::string> difficulty = { "EZ", "NM", "HD" };
+            std::vector<std::string> difficulty = { "EZ", "NM", "HD" }; 
 
             ImGui::Text("Note difficulty");
             for (int i = 0; i < difficulty.size(); i++) {
@@ -443,7 +489,7 @@ void SongSelectScene::OnGameSelectMusic(double delta)
                 }
 
                 if (ImGui::Button(difficulty[i].c_str(), MathUtil::ScaleVec2(ImVec2(30, 30)))) {
-                    EnvironmentSetup::SetInt("Difficulty", i);  // 0 EZ, 1 NM, 2 HD 
+                    EnvironmentSetup::SetInt("Difficulty", i); // 0 EZ, 1 NM, 2 HD
                 }
 
                 if (index == i) {
@@ -659,7 +705,7 @@ void SongSelectScene::OnGameSelectMusic(double delta)
         if (ImGui::BeginChild("###CHILD", ImVec2(0, 0), false, 0)) {
             ImGui::PushItemWidth(ImGui::GetWindowSize().x);
             ImGui::Text("Search:");
-            ImGui::InputTextEx("###Search", "Search by Title, Artist, Noter or Id....", search, sizeof(search), ImVec2(0, 0), ImGuiInputTextFlags_AutoSelectAll);
+            ImGui::InputTextEx("###Search", "Search by Title, Artist, Notecharter or ID...", search, sizeof(search), ImVec2(0, 0), ImGuiInputTextFlags_AutoSelectAll);
 
             // if press Enter
             if (ImGui::IsKeyPressed(ImGuiKey_Enter)) {
@@ -801,7 +847,7 @@ bool SongSelectScene::Attach()
         }
 
         if (bgm && !bgm->IsPlaying()) {
-            bgm->SetVolume(50);
+            bgm->SetVolume(100);
             bgm->Play(0, true);
         }
     }

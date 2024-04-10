@@ -233,30 +233,30 @@ void Texture2D::Draw(Rect *clipRect, bool manualDraw)
         for (int i = 0; i < 6; i++) {
             ImDrawVert &vertex = vertexData[i];
             switch (i) {
-                case 0:
-                    vertex.pos = ImVec2(x1, y1);
-                    vertex.uv = uv1;
-                    break;
-                case 1:
-                    vertex.pos = ImVec2(x2, y1);
-                    vertex.uv = uv2;
-                    break;
-                case 2:
-                    vertex.pos = ImVec2(x2, y2);
-                    vertex.uv = uv3;
-                    break;
-                case 3:
-                    vertex.pos = ImVec2(x1, y1);
-                    vertex.uv = uv1;
-                    break;
-                case 4:
-                    vertex.pos = ImVec2(x2, y2);
-                    vertex.uv = uv3;
-                    break;
-                case 5:
-                    vertex.pos = ImVec2(x1, y2);
-                    vertex.uv = uv4;
-                    break;
+            case 0:
+                vertex.pos = ImVec2(x1, y1);
+                vertex.uv = uv1;
+                break;
+            case 1:
+                vertex.pos = ImVec2(x2, y1);
+                vertex.uv = uv2;
+                break;
+            case 2:
+                vertex.pos = ImVec2(x2, y2);
+                vertex.uv = uv3;
+                break;
+            case 3:
+                vertex.pos = ImVec2(x1, y1);
+                vertex.uv = uv1;
+                break;
+            case 4:
+                vertex.pos = ImVec2(x2, y2);
+                vertex.uv = uv3;
+                break;
+            case 5:
+                vertex.pos = ImVec2(x1, y2);
+                vertex.uv = uv4;
+                break;
             }
             vertex.col = color;
         }

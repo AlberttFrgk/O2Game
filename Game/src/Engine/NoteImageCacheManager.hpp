@@ -12,22 +12,27 @@ public:
     ~NoteImageCacheManager();
 
     // Store a note texture in the cache
-    void Repool(DrawableNote *image, NoteImageType noteType);
-    void RepoolHold(DrawableNote *image, NoteImageType noteType);
-    void RepoolTrail(DrawableNote *image, NoteImageType noteType);
+    void Repool(DrawableNote* image, NoteImageType noteType);
+    void RepoolHold(DrawableNote* image, NoteImageType noteType);
+    void RepoolTrail(DrawableNote* image, NoteImageType noteType);
 
     // Get a note texture from the cache if exists, otherwise create a new one
-    DrawableNote *Depool(NoteImageType noteType);
-    DrawableNote *DepoolHold(NoteImageType noteType);
-    DrawableNote *DepoolTrail(NoteImageType noteType);
+    DrawableNote* Depool(NoteImageType noteType);
+    DrawableNote* DepoolHold(NoteImageType noteType);
+    DrawableNote* DepoolTrail(NoteImageType noteType);
 
-    static NoteImageCacheManager *GetInstance();
+    static NoteImageCacheManager* GetInstance();
     static void                   Release();
 
 private:
-    static NoteImageCacheManager *s_instance;
+    size_t m_totalCount;
+    size_t m_totalNoteCount;
+    size_t m_totalHoldCount;
+    size_t m_totalTrailCount;
 
-    std::unordered_map<NoteImageType, std::vector<DrawableNote *>> m_noteTextures;
-    std::unordered_map<NoteImageType, std::vector<DrawableNote *>> m_holdTextures;
-    std::unordered_map<NoteImageType, std::vector<DrawableNote *>> m_trailTextures;
+    static NoteImageCacheManager* s_instance;
+
+    std::unordered_map<NoteImageType, std::vector<DrawableNote*>> m_noteTextures;
+    std::unordered_map<NoteImageType, std::vector<DrawableNote*>> m_holdTextures;
+    std::unordered_map<NoteImageType, std::vector<DrawableNote*>> m_trailTextures;
 };

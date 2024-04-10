@@ -43,8 +43,9 @@ public:
 
     void CalculateSize();
 
+    std::vector<Texture2D*> m_frames;
+
 protected:
-    std::vector<Texture2D *> m_frames;
     int                      m_currentFrame;
     double                   m_frameTime;
     double                   m_currentTime;

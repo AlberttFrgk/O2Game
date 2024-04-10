@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <random>
+#include <unordered_set>
 
 float float_floor(float value)
 {
@@ -86,7 +87,12 @@ Chart::Chart(Osu::Beatmap &beatmap)
 
     {
         AutoSample sample = {};
-        sample.StartTime = beatmap.AudioLeadIn;
+        if (beatmap.AudioLeadIn = 0) {
+            sample.StartTime = beatmap.AudioLeadIn - 1; // Handle if offset 0 that causing audio delay
+        }
+        else {
+            sample.StartTime = beatmap.AudioLeadIn;
+        }
         sample.Index = beatmap.GetCustomSampleIndex(beatmap.AudioFilename);
         sample.Volume = 1;
         sample.Pan = 0;
@@ -166,22 +172,9 @@ Chart::Chart(Osu::Beatmap &beatmap)
         }
     }
 
-    m_bpms[0].Beat = 0;
-    for (int i = 1; i < m_bpms.size(); i++) {
-        m_bpms[i].Beat = m_bpms[i - 1].CalculateBeat(m_bpms[i].StartTime);
-    }
+    CalculateBeat();
 
-    std::sort(m_autoSamples.begin(), m_autoSamples.end(), [](const AutoSample &a, const AutoSample &b) {
-        return a.StartTime < b.StartTime;
-    });
-
-    std::sort(m_bpms.begin(), m_bpms.end(), [](const TimingInfo &a, const TimingInfo &b) {
-        return a.StartTime < b.StartTime;
-    });
-
-    std::sort(m_svs.begin(), m_svs.end(), [](const TimingInfo &a, const TimingInfo &b) {
-        return a.StartTime < b.StartTime;
-    });
+    SortTimings();
 
     NormalizeTimings();
     ComputeHash();
@@ -288,22 +281,9 @@ Chart::Chart(BMS::BMSFile &file)
         m_bpms.push_back(info);
     }
 
-    m_bpms[0].Beat = 0;
-    for (int i = 1; i < m_bpms.size(); i++) {
-        m_bpms[i].Beat = m_bpms[i - 1].CalculateBeat(m_bpms[i].StartTime);
-    }
+    CalculateBeat();
 
-    std::sort(m_autoSamples.begin(), m_autoSamples.end(), [](const AutoSample &a, const AutoSample &b) {
-        return a.StartTime < b.StartTime;
-    });
-
-    std::sort(m_bpms.begin(), m_bpms.end(), [](const TimingInfo &a, const TimingInfo &b) {
-        return a.StartTime < b.StartTime;
-    });
-
-    std::sort(m_svs.begin(), m_svs.end(), [](const TimingInfo &a, const TimingInfo &b) {
-        return a.StartTime < b.StartTime;
-    });
+    SortTimings();
 
     PredefinedAudioLength = file.AudioLength;
     NormalizeTimings();
@@ -368,10 +348,7 @@ Chart::Chart(O2::OJN &file, int diffIndex)
         m_bpms.push_back(info);
     }
 
-    m_bpms[0].Beat = 0;
-    for (int i = 1; i < m_bpms.size(); i++) {
-        m_bpms[i].Beat = m_bpms[i - 1].CalculateBeat(m_bpms[i].StartTime);
-    }
+    CalculateBeat();
 
     for (auto &autoSample : diff.AutoSamples) {
         AutoSample sm = {};
@@ -392,22 +369,37 @@ Chart::Chart(O2::OJN &file, int diffIndex)
         m_samples.push_back(sm);
     }
 
-    std::sort(m_autoSamples.begin(), m_autoSamples.end(), [](const AutoSample &a, const AutoSample &b) {
-        return a.StartTime < b.StartTime;
-    });
-
-    std::sort(m_bpms.begin(), m_bpms.end(), [](const TimingInfo &a, const TimingInfo &b) {
-        return a.StartTime < b.StartTime;
-    });
-
-    std::sort(m_svs.begin(), m_svs.end(), [](const TimingInfo &a, const TimingInfo &b) {
-        return a.StartTime < b.StartTime;
-    });
+    SortTimings();
 
     PredefinedAudioLength = diff.AudioLength;
     NormalizeTimings();
     ComputeKeyCount();
     ComputeHash();
+}
+
+
+
+void Chart::CalculateBeat() 
+{
+    m_bpms[0].Beat = 0;
+    for (size_t  i = 1; i < m_bpms.size(); i++) {
+        m_bpms[i].Beat = m_bpms[i - 1].CalculateBeat(m_bpms[i].StartTime);
+    }
+}
+
+void Chart::SortTimings() 
+{
+    std::sort(m_autoSamples.begin(), m_autoSamples.end(), [](const AutoSample& a, const AutoSample& b) {
+        return a.StartTime < b.StartTime;
+        });
+
+    std::sort(m_bpms.begin(), m_bpms.end(), [](const TimingInfo& a, const TimingInfo& b) {
+        return a.StartTime < b.StartTime;
+        });
+
+    std::sort(m_svs.begin(), m_svs.end(), [](const TimingInfo& a, const TimingInfo& b) {
+        return a.StartTime < b.StartTime;
+        });
 }
 
 Chart::~Chart()
@@ -444,7 +436,7 @@ void Chart::ApplyMod(Mod mod, void *data)
         case Mod::RANDOM:
         {
             std::vector<int> lanes(m_keyCount);
-            for (int i = 0; i < 7; i++) {
+            for (int i = 0; i < m_keyCount; i++) {
                 lanes[i] = i;
             }
 
@@ -453,9 +445,91 @@ void Chart::ApplyMod(Mod mod, void *data)
 
             std::shuffle(std::begin(lanes), std::end(lanes), rng);
 
-            for (auto &note : m_notes) {
+            for (auto& note : m_notes) {
                 note.LaneIndex = lanes[note.LaneIndex];
             }
+
+            /*std::stringstream pattern;
+            for (int lane : lanes) {
+                pattern << lane;
+            }
+
+            Logs::Puts("[Chart] Set lane pattern to: %s", pattern.str().c_str());*/
+
+            break;
+        }
+
+        case Mod::PANIC:
+        {
+            std::vector<int> lanes(m_keyCount);
+            for (int i = 0; i < m_keyCount; i++) {
+                lanes[i] = i;
+            }
+
+            auto rng = std::default_random_engine{};
+            rng.seed((uint32_t)time(NULL));
+
+            std::unordered_map<int, std::vector<int>> measureLane;
+
+            // Keep track of BPM changes
+            std::unordered_map<int, float> measureBPM;
+            for (const auto& bpm : m_bpms) {
+                int measure = static_cast<int>(bpm.StartTime / bpm.TimeSignature);
+                measureBPM[measure] = bpm.Value;
+            }
+
+            for (auto& note : m_notes) {
+                int measure = -1;
+                for (size_t i = 0; i < m_bpms.size(); i++) {
+                    if (m_bpms[i].StartTime > note.StartTime) {
+                        measure = static_cast<int>(m_bpms[i - 1].CalculateBeat(note.StartTime) / m_bpms[i - 1].TimeSignature);
+                        break;
+                    }
+                }
+
+                if (measure == -1) {
+                    measure = static_cast<int>(m_bpms.back().CalculateBeat(note.StartTime) / m_bpms.back().TimeSignature);
+                }
+
+                for (int i = measure; i > 0; i--) {
+                    if (measureBPM.find(i) == measureBPM.end()) {
+                        measureBPM[i] = measureBPM[i - 1];
+                    }
+                }
+
+                if (measureLane.find(measure) == measureLane.end()) {
+                    std::shuffle(std::begin(lanes), std::end(lanes), rng);
+                    measureLane[measure] = lanes;
+                }
+
+                note.LaneIndex = measureLane[measure][note.LaneIndex];
+
+                int nextMeasure = measure + 1;
+                if (note.EndTime > nextMeasure * measureBPM[nextMeasure]) {
+                    if (measureLane.find(nextMeasure) == measureLane.end()) {
+                        measureLane[nextMeasure] = measureLane[measure];
+                    }
+                }
+            }
+
+            // Log the randomization pattern for each measure
+            //int prevMeasure = -1;
+            //std::vector<int> prevPattern;
+            //for (const auto& [measure, randomizedLane] : measureLane) {
+            //    if (prevMeasure != -1 && prevPattern == randomizedLane) {
+            //        continue; // Skip logging if the pattern is the same as the previous measure
+            //    }
+            //    std::stringstream pattern;
+            //    for (int lane : randomizedLane) {
+            //        pattern << lane;
+            //    }
+            //    int startMeasure = prevMeasure == -1 ? 0 : prevMeasure + 1;
+            //    int endMeasure = measure;
+            //    Logs::Puts("[Chart] Randomized Lane from Measure %d to %d with pattern: %s", startMeasure, endMeasure, pattern.str().c_str());
+            //    prevMeasure = measure;
+            //    prevPattern = randomizedLane;
+            //}
+
             break;
         }
 

@@ -54,13 +54,14 @@ private:
     bool imgui_modal_quit_confirm = false;
 
     bool bPlay = false;
-    bool bExitPopup = false;
+    bool bOpenFile = false;
     bool bOptionPopup = false;
     bool bSelectNewSong = false;
     bool bOpenSongContext = false;
     bool bOpenEditor = false;
     bool bOpenRearrange = false;
     bool bScaleOutput = true;
+    bool bQuit = false;
 
     char lanePos[8] = {};
 

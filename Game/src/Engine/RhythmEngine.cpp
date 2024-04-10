@@ -17,8 +17,8 @@
 #include "Judgements/BeatBasedJudge.h"
 #include "Judgements/MsBasedJudge.h"
 
-#include <chrono>
-#include <codecvt>
+//#include <chrono>
+//#include <codecvt>
 
 #define MAX_BUFFER_TXT_SIZE 256
 
@@ -62,7 +62,10 @@ namespace {
     int trackOffset[] = { 5, 33, 55, 82, 114, 142, 164 };
 } // namespace
 
-RhythmEngine::RhythmEngine()
+RhythmEngine::RhythmEngine() :
+    m_lanePos{ 0 },
+    m_laneSize{ 0 },
+    m_playRectangle{ 0, 0, 0, 0 }
 {
     m_currentAudioGamePosition = 0;
     m_currentVisualPosition = 0;
@@ -70,8 +73,10 @@ RhythmEngine::RhythmEngine()
     m_rate = 1;
     m_offset = 0;
     m_scrollSpeed = 180;
-
+    m_PlayTime = 0.0;
     m_timingPositionMarkers = std::vector<double>();
+    m_baseBPM = 0;
+    m_currentChart = nullptr;
 }
 
 RhythmEngine::~RhythmEngine()
@@ -93,7 +98,7 @@ bool RhythmEngine::Load(Chart *chart)
     m_noteMaxImageIndex = 99;
 
     int currentX = m_laneOffset;
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < chart->m_keyCount; i++) {
         m_tracks.push_back(new GameTrack(this, i, currentX));
         m_autoHitIndex[i] = 0;
 
@@ -103,10 +108,10 @@ bool RhythmEngine::Load(Chart *chart)
             });
         }
 
-        auto noteTex = GameNoteResource::GetNoteTexture(Key2Type[i]);
+        auto noteImage = GameNoteResource::GetNoteTexture(Key2Type[i]);
 
-        int size = noteTex->TextureRect.right;
-        m_noteMaxImageIndex = (std::min)(noteTex->MaxFrames, m_noteMaxImageIndex);
+        int size = noteImage->TextureRect.right;
+        m_noteMaxImageIndex = (std::min)(noteImage->MaxFrames, m_noteMaxImageIndex);
 
         m_lanePos[i] = static_cast<float>(currentX);
         m_laneSize[i] = static_cast<float>(size);
@@ -124,9 +129,10 @@ bool RhythmEngine::Load(Chart *chart)
         chart->ApplyMod(Mod::MIRROR);
     } else if (EnvironmentSetup::GetInt("Random")) {
         chart->ApplyMod(Mod::RANDOM);
+    } else if (EnvironmentSetup::GetInt("Panic")) {
+        chart->ApplyMod(Mod::PANIC);
     } else if (EnvironmentSetup::GetInt("Rearrange")) {
         void *lane_data = EnvironmentSetup::GetObj("LaneData");
-
         chart->ApplyMod(Mod::REARRANGE, lane_data);
     } else if (EnvironmentSetup::GetInt("NoSV")) {
         isSV = true;
@@ -296,7 +302,7 @@ bool RhythmEngine::Load(Chart *chart)
     m_timingLineManager = chart->m_customMeasures.size() > 0 ? new TimingLineManager(this, chart->m_customMeasures) : new TimingLineManager(this);
     m_scoreManager = new ScoreManager();
 
-    m_startClock = std::chrono::system_clock::now();
+    //m_startClock = std::chrono::system_clock::now();
 
     m_timingLineManager->Init();
     m_state = GameState::NotGame;
@@ -314,15 +320,16 @@ bool RhythmEngine::Start()
 { // no, use update event instead
     m_currentAudioPosition -= 3000;
     m_state = GameState::Playing;
-
-    m_startClock = std::chrono::system_clock::now();
+    //m_startClock = std::chrono::system_clock::now();
     return true;
 }
 
 bool RhythmEngine::Stop()
 {
     m_state = GameState::PosGame;
+    GameAudioSampleCache::StopAll();
     return true;
+    m_PlayTime = 0.0;
 }
 
 bool RhythmEngine::Ready()
@@ -347,9 +354,9 @@ void RhythmEngine::Update(double delta)
         // assert(false); // TODO: Handle this
     }
 
-    if (m_currentAudioPosition > m_audioLength + 2500) { // Avoid game ended too early
+    if (m_currentAudioPosition > m_audioLength + 2000) { // Avoid game ended too early
         m_state = GameState::PosGame;
-        ::printf("Audio stopped!\n");
+        GameAudioSampleCache::StopAll();
     }
 
     if (static_cast<int>(m_currentAudioPosition) % 1000 == 0) {
@@ -392,9 +399,10 @@ void RhythmEngine::Update(double delta)
         }
     }
 
-    auto currentTime = std::chrono::system_clock::now();
-    auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(currentTime - m_startClock);
-    m_PlayTime = static_cast<int>(elapsedTime.count() - 2);
+    //auto currentTime = std::chrono::system_clock::now();
+    //auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(currentTime - m_startClock);
+    //m_PlayTime = static_cast<int>(elapsedTime.count() - 4);
+    m_PlayTime += delta;
 }
 
 void RhythmEngine::Render(double delta)
@@ -564,14 +572,14 @@ std::vector<TimingInfo> RhythmEngine::GetSVs() const
     return m_currentChart->m_svs;
 }
 
-double RhythmEngine::GetElapsedTime() const
-{ // Get game frame
+double RhythmEngine::GetGameFrame() const
+{
     return static_cast<double>(SDL_GetTicks()) / 1000.0;
 }
 
 int RhythmEngine::GetPlayTime() const
-{ // Get game time
-    return m_PlayTime;
+{
+    return static_cast<int>(m_PlayTime - 3);
 }
 
 int RhythmEngine::GetNoteImageIndex()
@@ -682,7 +690,7 @@ ReplayFrameData RhythmEngine::GetAutoplayAtThisFrame(double offset)
         }
     }
 
-    return std::move(data);
+    return data;
 }
 
 const float *RhythmEngine::GetLaneSizes() const

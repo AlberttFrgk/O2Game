@@ -95,6 +95,7 @@ private:
     double m_judgeTimer;
     double m_comboTimer;
     double m_lnTimer;
+    double m_counter;
 
     /* other stuff */
     double m_judgeSize;
@@ -106,6 +107,8 @@ private:
     /* button */
     bool m_drawExitButton;
     bool m_doExit;
+
+    double lifeFillDuration;
 
     /* auto text size */
     bool  m_autoPlay;

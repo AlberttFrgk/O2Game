@@ -91,7 +91,7 @@ Note::Note(RhythmEngine *engine, GameTrack *track)
     m_hitPos = 0;
     m_relPos = 0;
 
-    m_keyVolume = 50;
+    m_keyVolume = 100;
     m_keyPan = 0;
 
     m_lastScoreTime = -1;
@@ -205,6 +205,10 @@ void Note::Update(double delta)
                 m_state = NoteState::DO_REMOVE;
             }
         }
+    }
+    bool pressed = IsPassed();
+    if (pressed) {
+        m_state = NoteState::DO_REMOVE;
     }
 }
 
@@ -489,8 +493,8 @@ void Note::OnRelease(NoteResult result)
             m_lastScoreTime = -1;
 
             if (result == NoteResult::MISS) {
-                GameAudioSampleCache::Stop(m_keysoundIndex);
-                m_state = NoteState::HOLD_MISSED_ACTIVE;
+                //GameAudioSampleCache::Stop(m_keysoundIndex);
+                m_state = NoteState::DO_REMOVE;
 
                 m_track->HandleHoldScore(HoldResult::HoldBreak);
                 m_track->HandleScore({ result,
@@ -541,7 +545,7 @@ bool Note::IsRemoveable()
 
 bool Note::IsPassed()
 {
-    return m_state == NoteState::NORMAL_NOTE_PASSED || m_state == NoteState::HOLD_PASSED;
+    return m_state == NoteState::NORMAL_NOTE_PASSED || m_state == NoteState::HOLD_PASSED || IsRemoveable();
 }
 
 bool Note::IsHeadHit()

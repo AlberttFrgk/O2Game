@@ -17,7 +17,7 @@ static int                                                        m_textureCount
 static std::mutex                                                 m_textureMutex;
 static std::unique_ptr<Texture2D_Vulkan>                          m_dummyTexture;
 
-Texture2D_Vulkan *CreateTexture()
+Texture2D_Vulkan* CreateTexture()
 {
     // find the empty slot
     for (int i = 0; i < m_textureCount; i++) {
@@ -53,7 +53,7 @@ uint32_t vkTexture::FindMemoryType(uint32_t type_filter, uint32_t properties)
     return findMemoryType(VulkanEngine::GetInstance()->_chosenGPU, type_filter, properties);
 }
 
-Texture2D_Vulkan *vkTexture::TexLoadImage(std::filesystem::path imagePath)
+Texture2D_Vulkan* vkTexture::TexLoadImage(std::filesystem::path imagePath)
 {
     std::fstream fs(imagePath, std::ios::binary | std::ios::in);
     if (!fs.is_open()) {
@@ -135,8 +135,8 @@ void InternalLoad(
     {
         VkSamplerCreateInfo samplerInfo = {};
         samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-        samplerInfo.magFilter = VK_FILTER_NEAREST;
-        samplerInfo.minFilter = VK_FILTER_NEAREST;
+        samplerInfo.magFilter = VK_FILTER_LINEAR;
+        samplerInfo.minFilter = VK_FILTER_LINEAR;
         samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -184,7 +184,7 @@ void InternalLoad(
     }
 
     {
-        void *map = NULL;
+        void* map = NULL;
         err = vkMapMemory(vulkan_driver->_device, tex_data->UploadBufferMemory, 0, image_size, 0, &map);
         if (err != VK_SUCCESS) {
             throw std::runtime_error("Vulkan: Failed to create mapped image memory");
@@ -240,17 +240,17 @@ void InternalLoad(
         use_barrier[0].subresourceRange.levelCount = 1;
         use_barrier[0].subresourceRange.layerCount = 1;
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, use_barrier);
-    });
+        });
 }
 
-Texture2D_Vulkan *vkTexture::TexLoadImage(void *buffer, size_t size)
+Texture2D_Vulkan* vkTexture::TexLoadImage(void* buffer, size_t size)
 {
     auto vulkan_driver = VulkanEngine::GetInstance();
     auto tex_data = CreateTexture();
     tex_data->Channels = 4;
 
-    unsigned char *image_data = stbi_load_from_memory(
-        (uint8_t *)buffer,
+    unsigned char* image_data = stbi_load_from_memory(
+        (uint8_t*)buffer,
         (int)size,
         &tex_data->Width,
         &tex_data->Height,
@@ -265,7 +265,7 @@ Texture2D_Vulkan *vkTexture::TexLoadImage(void *buffer, size_t size)
     return tex_data;
 }
 
-Texture2D_Vulkan *vkTexture::GetDummyImage()
+Texture2D_Vulkan* vkTexture::GetDummyImage()
 {
     if (m_dummyTexture) {
         return m_dummyTexture.get();
@@ -278,8 +278,8 @@ Texture2D_Vulkan *vkTexture::GetDummyImage()
         // Generate file 1 Pixel Bitmap Image, with header
         std::vector<uint8_t> buffer = ImageGenerator::GenerateImage(40, 40, { 255, 255, 255, 255 });
 
-        unsigned char *image_data = stbi_load_from_memory(
-            (uint8_t *)buffer.data(),
+        unsigned char* image_data = stbi_load_from_memory(
+            (uint8_t*)buffer.data(),
             (int)buffer.size(),
             &m_dummyTexture->Width,
             &m_dummyTexture->Height,
@@ -297,18 +297,18 @@ Texture2D_Vulkan *vkTexture::GetDummyImage()
     return m_dummyTexture.get();
 }
 
-VkDescriptorSet vkTexture::GetVkDescriptorSet(Texture2D_Vulkan *handle)
+VkDescriptorSet vkTexture::GetVkDescriptorSet(Texture2D_Vulkan* handle)
 {
     return handle->DS;
 }
 
-void vkTexture::QueryTexture(Texture2D_Vulkan *handle, int &outWidth, int &outHeight)
+void vkTexture::QueryTexture(Texture2D_Vulkan* handle, int& outWidth, int& outHeight)
 {
     outWidth = handle->Width;
     outHeight = handle->Height;
 }
 
-void vkTexture::ReleaseTexture(Texture2D_Vulkan *tex_data)
+void vkTexture::ReleaseTexture(Texture2D_Vulkan* tex_data)
 {
     if (tex_data == nullptr) {
         return;
@@ -326,14 +326,14 @@ void vkTexture::ReleaseTexture(Texture2D_Vulkan *tex_data)
 
         ImGui_ImplVulkan_RemoveTexture(tex_data->DS);
 
-        auto it = std::find_if(m_textures.begin(), m_textures.end(), [&](auto &pair) {
+        auto it = std::find_if(m_textures.begin(), m_textures.end(), [&](auto& pair) {
             return pair.second != nullptr && pair.second->Id == tex_data->Id;
-        });
+            });
 
         if (it != m_textures.end()) {
             it->second.reset();
         }
-    });
+        });
 }
 
 // This must be called from VulkanEngine!
@@ -344,7 +344,7 @@ void vkTexture::Cleanup()
 
     std::cout << "[Info] Cleaning up Vulkan textures: " << m_textures.size() << std::endl;
 
-    for (auto &[id, tex_data] : m_textures) {
+    for (auto& [id, tex_data] : m_textures) {
         if (tex_data == nullptr) {
             continue;
         }

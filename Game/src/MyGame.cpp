@@ -68,7 +68,7 @@ bool MyGame::Init()
         /* Overlays */
         SceneManager::AddOverlay(GameOverlay::SETTINGS, new SettingsOverlay());
 
-        std::string title = std::string(O2GAME_TITLE) + " " + std::string(O2GAME_VERSION);
+        std::string title = std::string(O2GAME_TITLE) + "" + ""/*std::string(O2GAME_VERSION)*/;
         m_window->SetWindowTitle(title);
 
         if (EnvironmentSetup::GetPath("FILE").empty()) {

@@ -75,6 +75,7 @@ struct AutoSample
 enum class Mod {
     MIRROR,
     RANDOM,
+    PANIC,
     REARRANGE
 };
 
@@ -85,6 +86,8 @@ public:
     Chart(Osu::Beatmap &beatmap);
     Chart(BMS::BMSFile &bmsfile);
     Chart(O2::OJN &ojnfile, int diffIndex = 2);
+    void CalculateBeat();
+    void SortTimings();
     ~Chart();
 
     void ApplyMod(Mod mod, void *data = NULL);

@@ -70,15 +70,22 @@ void GameplayScene::Update(double delta)
     }
 
     if (!m_starting) {
+        EnvironmentSetup::SetInt("FillStart", 1);
         m_starting = true;
         m_game->Start();
     }
 
     if (m_game->GetState() == GameState::PosGame && !m_ended) {
-        m_ended = true;
-        SceneManager::DisplayFade(100, [] {
-            SceneManager::ChangeScene(GameScene::RESULT);
-            });
+        m_counter += delta;
+        m_minuteNum->DrawNumber(0);
+        m_secondNum->DrawNumber(0);
+
+        if (m_counter > 10.0) {
+            m_ended = true;
+            SceneManager::DisplayFade(100, [] {
+                SceneManager::ChangeScene(GameScene::RESULT);
+                });
+        }
     }
 
     int difficulty = EnvironmentSetup::GetInt("Difficulty");
@@ -87,15 +94,22 @@ void GameplayScene::Update(double delta)
 
         if (health <= 0) {
             m_game->Stop();
-        }
+            EnvironmentSetup::SetInt("Failed", 1);
+        } 
     }
 
     if (m_doExit && !m_ended) {
         m_ended = true;
-
+        
         auto scores = m_game->GetScoreManager()->GetScore();
 
         if (std::get<1>(scores) != 0 || std::get<2>(scores) != 0 || std::get<3>(scores) != 0 || std::get<4>(scores) != 0) {
+            if (m_game->GetState() == GameState::PosGame) {
+                EnvironmentSetup::SetInt("Failed", 0);
+            }
+            else {
+                EnvironmentSetup::SetInt("Failed", 1);
+            }
             SceneManager::DisplayFade(100, [] {
                 SceneManager::ChangeScene(GameScene::RESULT);
                 });
@@ -127,6 +141,7 @@ void GameplayScene::Render(double delta)
     if (useSongBG) {
         auto songBG = (Texture2D*)EnvironmentSetup::GetObj("SongBackground");
         if (songBG) {
+            songBG->TintColor = Color3::FromRGB(128, 128, 128);
             songBG->Draw();
         }
     }
@@ -184,28 +199,55 @@ void GameplayScene::Render(double delta)
         m_pills[i]->Draw();
     }
 
-    auto curLifeTex = m_lifeBar->GetTexture(); // Move lifebar to here so it will not overlapping
-    curLifeTex->CalculateSize();
+    bool fillstart = EnvironmentSetup::GetInt("FillStart") == 1;
 
-    Rect rc = {};
-    rc.left = static_cast<int>(curLifeTex->AbsolutePosition.X);
-    rc.top = static_cast<int>(curLifeTex->AbsolutePosition.Y);
-    rc.right = static_cast<int>(rc.left + curLifeTex->AbsoluteSize.X);
-    rc.bottom = static_cast<int>(rc.top + curLifeTex->AbsoluteSize.Y + 10); // Add + value because of the wiggle effect
-    float alpha = (float)(kMaxLife - m_game->GetScoreManager()->GetLife()) / kMaxLife;
+    if (fillstart) {
+        lifeFillDuration += delta;
 
-    // Add wiggle effect
-    float yOffset = 0.0f;
-    // Wiggle effect after the first second
-    yOffset = sinf((float)m_game->GetElapsedTime() * 75.0f) * 10.0f;
+        float fillRatio = ((lifeFillDuration - 0.5) / 1.0 < 1.0f) ? static_cast<float>((lifeFillDuration - 0.5) / 1.0) : 1.0f;
+        float alpha = 1.0f - fillRatio;
 
-    int topCur = (int)::round((1.0f - alpha) * rc.top + alpha * rc.bottom);
-    rc.top = topCur + static_cast<int>(::round(yOffset));
-    if (rc.top >= rc.bottom) {
-        rc.top = rc.bottom - 1;
+        auto curLifeTex = m_lifeBar->GetTexture();
+        curLifeTex->CalculateSize();
+
+        Rect rc = {};
+        rc.left = static_cast<int>(curLifeTex->AbsolutePosition.X);
+        rc.top = static_cast<int>(curLifeTex->AbsolutePosition.Y + curLifeTex->AbsoluteSize.Y * (1.0f - fillRatio));
+        rc.right = static_cast<int>(rc.left + curLifeTex->AbsoluteSize.X);
+        rc.bottom = static_cast<int>(rc.top + curLifeTex->AbsoluteSize.Y);
+
+        m_lifeBar->Draw(delta, &rc);
+
+        if (lifeFillDuration > 1.5) {
+            EnvironmentSetup::SetInt("FillStart", 0);
+        }
     }
+    else {
+        lifeFillDuration = 0.0;
 
-    m_lifeBar->Draw(delta, &rc);
+        float alpha = (float)(kMaxLife - m_game->GetScoreManager()->GetLife()) / kMaxLife;
+
+        auto curLifeTex = m_lifeBar->GetTexture();
+        curLifeTex->CalculateSize();
+
+        float offset = 10.0f;
+
+        Rect rc = {};
+        rc.left = static_cast<int>(curLifeTex->AbsolutePosition.X);
+        rc.top = static_cast<int>(curLifeTex->AbsolutePosition.Y);
+        rc.right = static_cast<int>(rc.left + curLifeTex->AbsoluteSize.X);
+        rc.bottom = static_cast<int>(rc.top + curLifeTex->AbsoluteSize.Y + offset);
+
+        double wiggle = sinf(static_cast<float>(m_game->GetGameFrame()) * 60.0f) * offset;
+
+        int topCur = (int)::round((1.0f - alpha) * rc.top + alpha * rc.bottom);
+        rc.top = topCur + static_cast<int>(::round(wiggle));
+        if (rc.top >= rc.bottom) {
+            rc.top = rc.bottom - 1;
+        }
+
+        m_lifeBar->Draw(delta, &rc);
+    }
 
     if (m_drawJudge && m_judgement[m_judgeIndex] != nullptr) {
         m_judgement[m_judgeIndex]->Size = UDim2::fromScale(m_judgeSize, m_judgeSize);
@@ -325,9 +367,7 @@ void GameplayScene::Render(double delta)
     int currentMinutes = PlayTime / 60;
     int currentSeconds = PlayTime % 60;
 
-    m_minuteNum->SetValue(currentMinutes);
     m_minuteNum->DrawNumber(currentMinutes);
-    m_secondNum->SetValue(currentSeconds);
     m_secondNum->DrawNumber(currentSeconds);
 
     for (int i = 0; i < 7; i++) {
@@ -348,9 +388,9 @@ void GameplayScene::Render(double delta)
         m_autoText->Position = m_autoTextPos;
         m_autoText->Draw(AUTOPLAY_TEXT);
 
-        m_autoTextPos.X.Offset -= delta * 50.0;
-        if (m_autoTextPos.X.Offset < (-m_autoTextSize + 20)) {
-            m_autoTextPos = UDim2::fromOffset(GameWindow::GetInstance()->GetBufferWidth(), 50);
+        m_autoTextPos.X.Offset -= delta * 30.0;
+        if (m_autoTextPos.X.Offset < (-m_autoTextSize + 30)) {
+            m_autoTextPos = UDim2::fromOffset(GameWindow::GetInstance()->GetBufferWidth(), 60);
         }
     }
 
@@ -1098,12 +1138,6 @@ bool GameplayScene::Attach()
 
         m_game->GetScoreManager()->ListenLongNote(OnLongComboEvent);
 
-        if (arena != -1) {
-            auto obj = (Texture2D*)EnvironmentSetup::GetObj("SongBackground");
-            if (obj) {
-                obj->TintColor = Color3::FromRGB(128, 128, 128);
-            }
-        }
     }
 
     catch (SDLException& e) {
@@ -1187,12 +1221,10 @@ bool GameplayScene::Detach()
     m_title.reset();
     m_exitButtonFunc.reset();
 
-    int arena = EnvironmentSetup::GetInt("Arena");
-    if (arena) {
-        auto obj = (Texture2D*)EnvironmentSetup::GetObj("SongBackground");
-        if (obj) {
-            obj->TintColor = Color3::FromRGB(255, 255, 255);
-        }
+
+    auto songBG = (Texture2D*)EnvironmentSetup::GetObj("SongBackground");
+    if (songBG) {
+        songBG->TintColor = Color3::FromRGB(255, 255, 255);
     }
 
     SceneManager::GetInstance()->SetFrameLimitMode(FrameLimitMode::MENU);

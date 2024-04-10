@@ -154,25 +154,35 @@ bool ResultScene::Attach()
     SceneManager::DisplayFade(0, [] {});
     m_backButton = m_retryButton = false;
 
-    Audio *audio = AudioManager::GetInstance()->Get("FINISH");
-    if (!audio) {
-        auto BGMPath = SkinManager::GetInstance()->GetPath() / "Audio";
-        BGMPath /= "FINISH.ogg";
+    Audio* previousAudio = AudioManager::GetInstance()->Get("FINISH");
+    if (previousAudio) {
+        previousAudio->Stop();
+        AudioManager::GetInstance()->Remove("FINISH");
+    }
 
-        if (std::filesystem::exists(BGMPath)) {
-            AudioManager::GetInstance()->Create("FINISH", BGMPath, &audio);
+    Audio* audio = nullptr;
+    auto BGMPath = SkinManager::GetInstance()->GetPath() / "Audio";
+
+    bool failed = EnvironmentSetup::GetInt("Failed") == 1;
+    if (failed && std::filesystem::exists(BGMPath / "FAILED.ogg")) {
+        BGMPath /= "FAILED.ogg";
+    }
+    else {
+        BGMPath /= "FINISH.ogg";
+    }
+
+    if (std::filesystem::exists(BGMPath)) {
+        AudioManager::GetInstance()->Create("FINISH", BGMPath, &audio);
+        if (audio) {
+            audio->SetVolume(100);
+            audio->Play();
         }
     }
 
-    if (audio) {
-        audio->SetVolume(100);
-        audio->Play();
-    }
-
-    Chart *chart = (Chart *)EnvironmentSetup::GetObj("SONG");
+    Chart* chart = (Chart*)EnvironmentSetup::GetObj("SONG");
     EnvironmentSetup::SetObj("SONG", nullptr);
 
-    m_background = (Texture2D *)EnvironmentSetup::GetObj("SongBackground");
+    m_background = (Texture2D*)EnvironmentSetup::GetObj("SongBackground");
 
     delete chart;
 
@@ -181,14 +191,18 @@ bool ResultScene::Attach()
 
 bool ResultScene::Detach()
 {
-    Audio *audio = AudioManager::GetInstance()->Get("FINISH");
+    Audio* audio = AudioManager::GetInstance()->Get("FINISH");
     if (audio) {
         audio->Stop();
+        AudioManager::GetInstance()->Remove("FINISH");
     }
 
     if (!m_retryButton) {
         EnvironmentSetup::SetObj("SongBackground", nullptr);
     }
+
+    EnvironmentSetup::SetInt("Failed", 0);
+    EnvironmentSetup::SetInt("FillStart", 0);
 
     m_background = nullptr;
     return true;

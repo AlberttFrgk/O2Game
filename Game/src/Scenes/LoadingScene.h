@@ -26,5 +26,5 @@ private:
     std::u8string m_title;
 
     double     m_counter;
-    Texture2D* m_background;
+    Texture2D *m_background;
 };
