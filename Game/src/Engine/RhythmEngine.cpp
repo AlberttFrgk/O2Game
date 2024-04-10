@@ -318,7 +318,7 @@ void RhythmEngine::SetKeys(Keys *keys)
 
 bool RhythmEngine::Start()
 { // no, use update event instead
-    m_currentAudioPosition -= 3000;
+    m_currentAudioPosition -= 5000;
     m_state = GameState::Playing;
     //m_startClock = std::chrono::system_clock::now();
     return true;
@@ -579,7 +579,7 @@ double RhythmEngine::GetGameFrame() const
 
 int RhythmEngine::GetPlayTime() const
 {
-    return static_cast<int>(m_PlayTime - 3);
+    return static_cast<int>(m_PlayTime - 5);
 }
 
 int RhythmEngine::GetNoteImageIndex()

@@ -35,36 +35,28 @@ Texture2D::Texture2D()
     Size = UDim2::fromScale(1, 1);
 }
 
-Texture2D::Texture2D(std::string fileName) : Texture2D()
+
+Texture2D::Texture2D(std::string fileName) : Texture2D() 
 {
-    if (!std::filesystem::exists(fileName)) {
-        fileName = std::filesystem::current_path().string() + fileName;
+    std::filesystem::path filePath(fileName);
+    if (!std::filesystem::exists(filePath)) {
+        throw std::runtime_error(filePath.string() + " not found!");
     }
 
-    if (!std::filesystem::exists(fileName)) {
-        throw std::runtime_error(fileName + " not found!");
+    std::ifstream file(filePath, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) {
+        throw std::runtime_error(filePath.string() + " cannot be opened!");
     }
 
-    std::fstream fs(fileName, std::ios::binary | std::ios::in);
-    if (!fs.is_open()) {
-        throw std::runtime_error(fileName + " cannot opened!");
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    std::vector<uint8_t> buffer(size);
+    if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
+        throw std::runtime_error("Failed to read file: " + filePath.string());
     }
 
-    fs.seekg(0, std::ios::end);
-    size_t size = fs.tellg();
-    fs.seekg(0, std::ios::beg);
-
-    uint8_t *buffer = new uint8_t[size];
-    fs.read((char *)buffer, size);
-    fs.close();
-
-    Rotation = 0;
-    Transparency = 0.0f;
-    m_actualSize = { 0, 0, 0, 0 };
-    m_bDisposeTexture = true;
-    TintColor = { 1.0f, 1.0f, 1.0f };
-
-    LoadImageResources(buffer, size);
+    LoadImageResources(buffer.data(), buffer.size());
 }
 
 Texture2D::Texture2D(std::filesystem::path path) : Texture2D()
@@ -131,21 +123,17 @@ Texture2D::Texture2D(Texture2D_Vulkan *texture) : Texture2D()
     m_ready = true;
 }
 
-Texture2D::~Texture2D()
+Texture2D::~Texture2D() 
 {
     if (m_bDisposeTexture) {
         if (Renderer::GetInstance()->IsVulkan() && m_vk_tex) {
-            auto vk_tex = m_vk_tex;
-
-            vkTexture::ReleaseTexture(vk_tex);
-
+            vkTexture::ReleaseTexture(m_vk_tex);
             m_vk_tex = nullptr;
         } else {
             if (m_sdl_tex) {
                 SDL_DestroyTexture(m_sdl_tex);
                 m_sdl_tex = nullptr;
             }
-
             if (m_sdl_surface) {
                 SDL_FreeSurface(m_sdl_surface);
                 m_sdl_surface = nullptr;
@@ -415,44 +403,34 @@ Texture2D *Texture2D::FromPNG(std::string fileName)
     return nullptr;
 }
 
-void Texture2D::LoadImageResources(uint8_t *buffer, size_t size)
+void Texture2D::LoadImageResources(uint8_t* buffer, size_t size) 
 {
-    if (Renderer::GetInstance()->IsVulkan()) {
-        auto tex_data = vkTexture::TexLoadImage(buffer, size);
-
-        m_actualSize = { 0, 0, tex_data->Width, tex_data->Height };
-        m_vk_tex = tex_data;
-
-        m_bDisposeTexture = true;
-        m_ready = true;
-    } else {
-        SDL_RWops *rw = SDL_RWFromMem(buffer, (int)size);
-
-        // check if buffer magic is BMP
-        if (buffer[0] == 0x42 && buffer[1] == 0x4D) {
-            m_sdl_surface = SDL_LoadBMP_RW(rw, 1);
+    try {
+        if (Renderer::GetInstance()->IsVulkan()) {
+            auto tex_data = vkTexture::TexLoadImage(buffer, size);
+            m_actualSize = { 0, 0, tex_data->Width, tex_data->Height };
+            m_vk_tex = tex_data;
+            m_bDisposeTexture = true;
+            m_ready = true;
         } else {
-            m_sdl_surface = IMG_Load_RW(rw, 1);
+            SDL_RWops* rw = SDL_RWFromMem(buffer, static_cast<int>(size));
+            m_sdl_surface = (buffer[0] == 0x42 && buffer[1] == 0x4D) ?
+                SDL_LoadBMP_RW(rw, 1) : IMG_Load_RW(rw, 1);
+
+            if (!m_sdl_surface) throw SDLException();
+
+            m_sdl_tex = SDL_CreateTextureFromSurface(Renderer::GetInstance()->GetSDLRenderer(), m_sdl_surface);
+            if (!m_sdl_tex) throw SDLException();
+
+            int w, h;
+            SDL_QueryTexture(m_sdl_tex, nullptr, nullptr, &w, &h);
+            m_bDisposeTexture = true;
+            m_actualSize = { 0, 0, w, h };
+            m_ready = true;
         }
-
-        if (!m_sdl_surface) {
-            throw SDLException();
-        }
-
-        m_sdl_tex = SDL_CreateTextureFromSurface(Renderer::GetInstance()->GetSDLRenderer(), m_sdl_surface);
-        if (!m_sdl_tex) {
-            throw SDLException();
-        }
-
-        // sdl get texture resolution
-        int w, h;
-        SDL_QueryTexture(m_sdl_tex, nullptr, nullptr, &w, &h);
-
-        m_bDisposeTexture = true;
-        m_actualSize = { 0, 0, w, h };
-
-        m_ready = true;
+    } catch (...) {
+        delete[] buffer;
+        throw;
     }
-
     delete[] buffer;
 }

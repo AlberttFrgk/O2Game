@@ -372,7 +372,7 @@ void Game::Stop()
         m_running = false;
 
         {
-            std::lock_guard<std::mutex> lock(m_mutex); // TODO: Fix game does not properly exit while crash (if not just revert back to SDL_Delay Sleep)
+            std::lock_guard<std::mutex> lock(m_mutex);
             m_notify = true;
         }
         m_conditionVariable.notify_one();
