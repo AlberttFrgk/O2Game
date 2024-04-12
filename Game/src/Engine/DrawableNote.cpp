@@ -22,5 +22,5 @@ DrawableNote::DrawableNote(NoteImage* frame) : FrameTimer::FrameTimer()
 
     AnchorPoint = { 0.0, 1.0 };
 
-    SetFPS(0); // slighly fix stupid glitch
+    SetFPS(60.0); // slighly fix stupid glitch
 }

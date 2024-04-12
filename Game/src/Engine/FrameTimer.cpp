@@ -6,7 +6,7 @@ FrameTimer::FrameTimer()
 {
     Repeat = false;
     m_currentFrame = 0;
-    m_frameTime = 1.0f / 60.0f;
+    m_frameTime = 1.0 / 60.0;
     m_currentTime = 0;
     AlphaBlend = false;
     Size = UDim2::fromScale(1, 1);
@@ -72,9 +72,9 @@ void FrameTimer::Draw(double delta, Rect *clip)
         m_currentFrame++;
     }
 
-    if (Repeat && m_currentFrame >= m_frames.size()) {
-        m_currentFrame = 0;
-    }
+        if (Repeat && m_currentFrame >= m_frames.size()) {
+            m_currentFrame = 0;
+        }
 
     if (m_currentFrame < m_frames.size()) {
         CalculateSize();
@@ -91,9 +91,9 @@ void FrameTimer::Draw(double delta, Rect *clip)
     }
 }
 
-void FrameTimer::SetFPS(float fps)
+void FrameTimer::SetFPS(double fps)
 {
-    m_frameTime = 1.0f / fps;
+    m_frameTime = 1.0 / fps;
 }
 
 void FrameTimer::ResetIndex()

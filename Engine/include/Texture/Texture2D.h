@@ -51,7 +51,7 @@ public:
     Rect GetOriginalRECT();
     void SetOriginalRECT(Rect size);
 
-    static Texture2D *FromTexture2D(Texture2D *tex);
+    // static Texture2D *FromTexture2D(Texture2D *tex);
 
     static Texture2D *FromBMP(uint8_t *fileData, size_t size);
     static Texture2D *FromBMP(std::string fileName);

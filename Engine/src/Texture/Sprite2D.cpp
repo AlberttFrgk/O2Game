@@ -2,11 +2,11 @@
 #include "Rendering/Window.h"
 #include "Texture/Texture2D.h"
 
-Sprite2D::Sprite2D(std::vector<Texture2D *> textures, float delay) : Sprite2D::Sprite2D()
+Sprite2D::Sprite2D(std::vector<Texture2D *> textures, double delay) : Sprite2D::Sprite2D()
 {
     m_textures = textures;
     m_spritespeed = delay;
-    m_currentTime = 0.0f;
+    m_currentTime = 0.0;
     m_currentIndex = 0;
 
     Size = UDim2::fromScale(1, 1);
@@ -14,7 +14,7 @@ Sprite2D::Sprite2D(std::vector<Texture2D *> textures, float delay) : Sprite2D::S
     AnchorPoint = { 0, 0 };
 }
 
-Sprite2D::Sprite2D(std::vector<std::string> textures, float delay) : Sprite2D::Sprite2D()
+Sprite2D::Sprite2D(std::vector<std::string> textures, double delay) : Sprite2D::Sprite2D()
 {
     m_spritespeed = delay;
     Size = UDim2::fromScale(1, 1);
@@ -26,7 +26,7 @@ Sprite2D::Sprite2D(std::vector<std::string> textures, float delay) : Sprite2D::S
     }
 }
 
-Sprite2D::Sprite2D(std::vector<std::filesystem::path> textures, float delay) : Sprite2D::Sprite2D()
+Sprite2D::Sprite2D(std::vector<std::filesystem::path> textures, double delay) : Sprite2D::Sprite2D()
 {
     m_spritespeed = delay;
     Size = UDim2::fromScale(1, 1);
@@ -40,7 +40,7 @@ Sprite2D::Sprite2D(std::vector<std::filesystem::path> textures, float delay) : S
     }
 }
 
-Sprite2D::Sprite2D(std::vector<SDL_Texture *> textures, float delay) : Sprite2D::Sprite2D()
+Sprite2D::Sprite2D(std::vector<SDL_Texture *> textures, double delay) : Sprite2D::Sprite2D()
 {
     m_spritespeed = delay;
     Size = UDim2::fromScale(1, 1);
@@ -84,10 +84,10 @@ void Sprite2D::Draw(double delta, Rect *rect, bool manual) // Original code, pla
     tex->AnchorPoint = AnchorPoint;
     tex->Draw(rect, manual ? false : true);
 
-    if (m_spritespeed > 0.0f) {
+    if (m_spritespeed > 0.0) {
         m_currentTime += static_cast<float>(delta);
         if (m_currentTime >= m_spritespeed) {
-            m_currentTime = 0.0f;
+            m_currentTime = 0.0;
             m_currentIndex = (m_currentIndex + 1) % m_textures.size();
         }
     }
@@ -116,10 +116,10 @@ void Sprite2D::DrawOnce(double delta, bool manual) { // Play whole image sprite 
     tex->AnchorPoint = AnchorPoint;
     tex->Draw();
 
-    if (m_spritespeed > 0.0f) {
+    if (m_spritespeed > 0.0) {
         m_currentTime += static_cast<float>(delta);
         if (m_currentTime >= m_spritespeed) {
-            m_currentTime = 0.0f;
+            m_currentTime = 0.0;
             m_currentIndex++;
 
             if (m_currentIndex == m_textures.size() && m_drawOnce) {
@@ -152,10 +152,10 @@ void Sprite2D::DrawStop(double delta, bool manual) { // Play image sprite once a
     tex->AnchorPoint = AnchorPoint;
     tex->Draw();
 
-    if (m_spritespeed > 0.0f) {
+    if (m_spritespeed > 0.0) {
         m_currentTime += static_cast<float>(delta);
         if (m_currentTime >= m_spritespeed) {
-            m_currentTime = 0.0f;
+            m_currentTime = 0.0;
             m_currentIndex++;
 
             if (m_currentIndex == m_textures.size() && m_drawOnce) {
@@ -169,7 +169,7 @@ void Sprite2D::DrawStop(double delta, bool manual) { // Play image sprite once a
 void Sprite2D::Reset()
 {
     m_currentIndex = 0;
-    m_currentTime = 0.0f;
+    m_currentTime = 0.0;
 }
 
 Texture2D *Sprite2D::GetTexture()
@@ -182,7 +182,7 @@ Texture2D *Sprite2D::GetTexture()
     return tex;
 }
 
-void Sprite2D::SetFPS(float fps)
+void Sprite2D::SetFPS(double fps)
 {
     m_spritespeed = 1.0f / fps;
 }
