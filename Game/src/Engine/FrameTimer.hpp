@@ -36,7 +36,7 @@ public:
 
     void Draw(double delta);
     void Draw(double delta, Rect *clip);
-    void SetFPS(float fps);
+    void SetFPS(double fps);
     void ResetIndex();
     void LastIndex();
     void SetIndexAt(int idx);

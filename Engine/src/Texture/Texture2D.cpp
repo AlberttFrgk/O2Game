@@ -363,15 +363,15 @@ void Texture2D::SetOriginalRECT(Rect size)
     m_actualSize = size;
 }
 
-Texture2D *Texture2D::FromTexture2D(Texture2D *tex)
-{
-    auto copy = new Texture2D(tex->m_sdl_tex);
-    copy->m_actualSize = tex->m_actualSize;
-    copy->Position = tex->Position;
-    copy->Size = tex->Size;
-
-    return copy;
-}
+//Texture2D *Texture2D::FromTexture2D(Texture2D *tex)
+//{
+//    auto copy = new Texture2D(tex->m_sdl_tex);
+//    copy->m_actualSize = tex->m_actualSize;
+//    copy->Position = tex->Position;
+//    copy->Size = tex->Size;
+//
+//    return copy;
+//}
 
 Texture2D *Texture2D::FromBMP(uint8_t *fileData, size_t size)
 {
