@@ -89,5 +89,5 @@ private:
     GameThread mLocalThread;
 
     std::mutex m_mutex;
-    std::condition_variable m_conditionVariable;
+    std::condition_variable m_cv;
 };
