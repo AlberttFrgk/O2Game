@@ -3,7 +3,7 @@
 
 namespace {
     std::unordered_map<std::string, std::string>           m_stores;
-    std::unordered_map<std::string, void*>                m_storesPtr;
+    std::unordered_map<std::string, void*>                 m_storesPtr;
     std::unordered_map<std::string, std::filesystem::path> m_paths;
     std::unordered_map<std::string, int>                   m_ints;
 } // namespace

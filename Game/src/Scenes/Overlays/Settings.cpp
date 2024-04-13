@@ -45,6 +45,7 @@ static std::map<int, std::string> Graphics = {
 
 static std::array<std::string, 4>  LongNote = { "None", "Short", "Normal", "Long" };
 static std::array<std::string, 14> m_fps = { "30", "60", "75", "120", "144", "165", "180", "240", "360", "480", "600", "800", "1000", "Unlimited" };
+static std::array<std::string, 3>  SelectedBackground = { "Arena", "Song", "Black" };
 
 static std::vector<std::string> m_resolutions = {};
 
@@ -285,10 +286,10 @@ void SettingsOverlay::Render(double delta)
                         ImGui::Text("Guide Line Length");
 
                         for (int i = (int)LongNote.size() - 1; i >= 0; i--) {
-                            bool is_combo_selected = currentGuideLineIndex == i;
+                            bool selected = currentGuideLineIndex == i;
 
                             ImGui::PushItemWidth(50);
-                            if (ImGui::Checkbox(("###ComboCheck" + std::to_string(i)).c_str(), &is_combo_selected)) {
+                            if (ImGui::Checkbox(("###ComboCheck" + std::to_string(i)).c_str(), &selected)) {
                                 currentGuideLineIndex = i;
                             }
 
@@ -317,12 +318,53 @@ void SettingsOverlay::Render(double delta)
                             ImGui::SetTooltip("When Long note on hold, make the head position at hit position else keep going to bottom");
                         }
 
+                        ImGui::NewLine();
+
+                        ImGui::Text("Background");
+                        for (int i = 0; i < SelectedBackground.size(); ++i) {
+                            bool selected = (BackgroundIndex == i);
+
+                            std::string tooltipText;
+                            if (i == 0) {
+                                tooltipText = "Using arena image background inside Skin folder";
+                            }
+                            else if (i == 1) {
+                                tooltipText = "Using song image background inside O2Jam file / BMS folder / osu!mania beatmap folder";
+                            }
+                            else if (i == 2) {
+                                tooltipText = "Not using any background";
+                            }
+
+                            if (ImGui::Checkbox(SelectedBackground[i].c_str(), &selected)) {
+                                BackgroundIndex = i;
+                            }
+
+                            if (!tooltipText.empty() && ImGui::IsItemHovered()) {
+                                ImGui::SetTooltip("%s", tooltipText.c_str());
+                            }
+
+                            ImGui::SameLine();
+                        }
+
+                        if (BackgroundIndex == 0) {
+                            EnvironmentSetup::SetInt("Song Background", 0);
+                            EnvironmentSetup::SetInt("Black Background", 0);
+                        }
+                        else if (BackgroundIndex == 1) {
+                            EnvironmentSetup::SetInt("Song Background", 1);
+                            EnvironmentSetup::SetInt("Black Background", 0);
+                        }
+                        else if (BackgroundIndex == 2) {
+                            EnvironmentSetup::SetInt("Song Background", 0);
+                            EnvironmentSetup::SetInt("Black Background", 1);
+                        }
+
                         ImGui::EndTabItem();
                     }
 
                     if (ImGui::BeginTabItem("Skins")) {
                         ImGui::Text("Current selected skin: ");
-                        if (ImGui::BeginCombo("#SkinsComboBox", currentSkin.c_str())) {
+                        if (ImGui::BeginCombo("##SkinsComboBox", currentSkin.c_str())) {
                             for (int i = 0; i < skins.size(); i++) {
                                 bool isSelected = (currentSkin == skins[i]);
 
@@ -451,9 +493,28 @@ void SettingsOverlay::LoadConfiguration()
         currentGuideLineIndex = 2;
     }
 
+    try {
+        BackgroundIndex = std::stoi(Configuration::Load("Game", "Background").c_str());
+    } catch (const std::invalid_argument&) {
+        BackgroundIndex = 0;
+    }
+
+    if (BackgroundIndex == 0) { // HACK: Solution for issue background not applied even configuration already loaded
+        EnvironmentSetup::SetInt("Song Background", 0);
+        EnvironmentSetup::SetInt("Black Background", 0);
+    }
+    else if (BackgroundIndex == 1) {
+        EnvironmentSetup::SetInt("Song Background", 1);
+        EnvironmentSetup::SetInt("Black Background", 0);
+    }
+    else if (BackgroundIndex == 2) {
+        EnvironmentSetup::SetInt("Song Background", 0);
+        EnvironmentSetup::SetInt("Black Background", 1);
+    }
+
     auto fps = m_fps[currentFPSIndex];
     if (fps == *(m_fps.end() - 1)) {
-        fps = "-1";// Unlimited
+        fps = "9999" ;
     }
 
     SceneManager::GetInstance()->SetFrameLimit(std::atof(fps.c_str()));
@@ -468,6 +529,7 @@ void SettingsOverlay::SaveConfiguration()
     Configuration::Set("Game", "AutoSound", std::to_string(convertAutoSound ? 1 : 0));
     Configuration::Set("Game", "FrameLimit", m_fps[currentFPSIndex]);
     Configuration::Set("Game", "GuideLine", std::to_string(currentGuideLineIndex));
+    Configuration::Set("Game", "Background", std::to_string(BackgroundIndex));
 
     auto frame = m_fps[currentFPSIndex];
     if (frame == m_fps[13]) {

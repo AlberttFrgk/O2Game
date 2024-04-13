@@ -83,7 +83,7 @@ Game::~Game()
 
         if (m_notify) {
             std::unique_lock<std::mutex> lock(m_mutex);
-            m_conditionVariable.wait(lock, [this] { return !m_notify; });
+            m_cv.wait(lock, [this] { return !m_notify; });
         }
     }
 
@@ -369,13 +369,12 @@ void Game::CheckFont()
 void Game::Stop()
 {
     if (m_running) {
-        m_running = false;
-
         {
-            std::lock_guard<std::mutex> lock(m_mutex);
+            std::unique_lock<std::mutex> lock(m_mutex);
+            m_running = false;
             m_notify = true;
         }
-        m_conditionVariable.notify_one();
+        m_cv.notify_one();
     }
 }
 

@@ -26,6 +26,7 @@ private:
     int  currentGuideLineIndex = 0;
     bool LongNoteLighting = false;
     bool LongNoteOnHitPos = false;
+    int BackgroundIndex = 0;
     bool convertAutoSound = false;
 
     std::string              currentSkin = "";
