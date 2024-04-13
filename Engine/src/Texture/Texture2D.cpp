@@ -405,32 +405,27 @@ Texture2D *Texture2D::FromPNG(std::string fileName)
 
 void Texture2D::LoadImageResources(uint8_t* buffer, size_t size) 
 {
-    try {
-        if (Renderer::GetInstance()->IsVulkan()) {
-            auto tex_data = vkTexture::TexLoadImage(buffer, size);
-            m_actualSize = { 0, 0, tex_data->Width, tex_data->Height };
-            m_vk_tex = tex_data;
-            m_bDisposeTexture = true;
-            m_ready = true;
-        } else {
-            SDL_RWops* rw = SDL_RWFromMem(buffer, static_cast<int>(size));
-            m_sdl_surface = (buffer[0] == 0x42 && buffer[1] == 0x4D) ?
-                SDL_LoadBMP_RW(rw, 1) : IMG_Load_RW(rw, 1);
+    if (Renderer::GetInstance()->IsVulkan()) {
+        auto tex_data = vkTexture::TexLoadImage(buffer, size);
+        m_actualSize = { 0, 0, tex_data->Width, tex_data->Height };
+        m_vk_tex = tex_data;
+        m_bDisposeTexture = true;
+        m_ready = true;
+    } else {
+        SDL_RWops* rw = SDL_RWFromMem(buffer, static_cast<int>(size));
+        m_sdl_surface = (buffer[0] == 0x42 && buffer[1] == 0x4D) ?
+            SDL_LoadBMP_RW(rw, 1) : IMG_Load_RW(rw, 1);
 
-            if (!m_sdl_surface) throw SDLException();
+        if (!m_sdl_surface) throw SDLException();
 
-            m_sdl_tex = SDL_CreateTextureFromSurface(Renderer::GetInstance()->GetSDLRenderer(), m_sdl_surface);
-            if (!m_sdl_tex) throw SDLException();
+        m_sdl_tex = SDL_CreateTextureFromSurface(Renderer::GetInstance()->GetSDLRenderer(), m_sdl_surface);
+        if (!m_sdl_tex) throw SDLException();
 
-            int w, h;
-            SDL_QueryTexture(m_sdl_tex, nullptr, nullptr, &w, &h);
-            m_bDisposeTexture = true;
-            m_actualSize = { 0, 0, w, h };
-            m_ready = true;
-        }
-    } catch (...) {
-        delete[] buffer;
-        throw;
+        int w, h;
+        SDL_QueryTexture(m_sdl_tex, nullptr, nullptr, &w, &h);
+        m_bDisposeTexture = true;
+        m_actualSize = { 0, 0, w, h };
+        m_ready = true;
     }
     delete[] buffer;
 }
