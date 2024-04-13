@@ -35,75 +35,54 @@ Texture2D::Texture2D()
     Size = UDim2::fromScale(1, 1);
 }
 
-
-Texture2D::Texture2D(std::string fileName) : Texture2D() 
-{
-    std::filesystem::path filePath(fileName);
+Texture2D::Texture2D(const std::string& fileName) : Texture2D() {
+    std::string filePath = fileName;
     if (!std::filesystem::exists(filePath)) {
-        throw std::runtime_error(filePath.string() + " not found!");
+        filePath = std::filesystem::current_path().string() + fileName;
+    }
+
+    if (!std::filesystem::exists(filePath)) {
+        throw std::runtime_error(fileName + " not found!");
     }
 
     std::ifstream file(filePath, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
-        throw std::runtime_error(filePath.string() + " cannot be opened!");
+        throw std::runtime_error(fileName + " cannot be opened!");
     }
 
-    std::streamsize size = file.tellg();
+    size_t size = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    std::vector<uint8_t> buffer(size);
-    if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-        throw std::runtime_error("Failed to read file: " + filePath.string());
-    }
-
-    LoadImageResources(buffer.data(), buffer.size());
-}
-
-Texture2D::Texture2D(std::filesystem::path path) : Texture2D()
-{
-    if (!std::filesystem::exists(path)) {
-        throw std::runtime_error(path.string() + " not found!");
-    }
-
-    std::fstream fs(path, std::ios::binary | std::ios::in);
-    if (!fs.is_open()) {
-        throw std::runtime_error(path.string() + " cannot opened!");
-    }
-
-    fs.seekg(0, std::ios::end);
-    size_t size = fs.tellg();
-    fs.seekg(0, std::ios::beg);
-
-    uint8_t *buffer = new uint8_t[size];
-    fs.read((char *)buffer, size);
-    fs.close();
-
-    Rotation = 0;
-    Transparency = 0.0f;
-    m_actualSize = { 0, 0, 0, 0 };
-    m_bDisposeTexture = true;
-    TintColor = { 1.0f, 1.0f, 1.0f };
+    uint8_t* buffer = new uint8_t[size];
+    file.read(reinterpret_cast<char*>(buffer), size);
+    file.close();
 
     LoadImageResources(buffer, size);
 }
 
-// Do base constructor called before derived constructor?
-// https://stackoverflow.com/questions/120547/what-are-the-rules-for-calling-the-superclass-constructor
+Texture2D::Texture2D(const std::filesystem::path& path) : Texture2D() {
+    if (!std::filesystem::exists(path)) {
+        throw std::runtime_error(path.string() + " not found!");
+    }
 
-Texture2D::Texture2D(uint8_t *fileData, size_t size) : Texture2D()
-{
-    uint8_t *buffer = new uint8_t[size];
-    memcpy(buffer, fileData, size);
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) {
+        throw std::runtime_error(path.string() + " cannot be opened!");
+    }
 
-    Rotation = 0;
-    Transparency = 0.0f;
-    m_actualSize = { 0, 0, 0, 0 };
-    m_bDisposeTexture = true;
-    TintColor = { 1.0f, 1.0f, 1.0f };
+    size_t size = file.tellg();
+    file.seekg(0, std::ios::beg);
 
-    m_sdl_tex = nullptr;
-    m_vk_tex = nullptr;
+    uint8_t* buffer = new uint8_t[size];
+    file.read(reinterpret_cast<char*>(buffer), size);
+    file.close();
 
+    LoadImageResources(buffer, size);
+}
+
+Texture2D::Texture2D(const uint8_t* fileData, size_t size) : Texture2D() {
+    uint8_t* buffer = new uint8_t[size];
+    std::memcpy(buffer, fileData, size);
     LoadImageResources(buffer, size);
 }
 
@@ -411,21 +390,26 @@ void Texture2D::LoadImageResources(uint8_t* buffer, size_t size)
         m_vk_tex = tex_data;
         m_bDisposeTexture = true;
         m_ready = true;
-    } else {
+    }
+    else {
+        // Load compressed image data for SDL using ASTC compression
+        SDL_Surface* decompressed_surface = nullptr;
         SDL_RWops* rw = SDL_RWFromMem(buffer, static_cast<int>(size));
-        m_sdl_surface = (buffer[0] == 0x42 && buffer[1] == 0x4D) ?
-            SDL_LoadBMP_RW(rw, 1) : IMG_Load_RW(rw, 1);
+        decompressed_surface = IMG_LoadTyped_RW(rw, 1, "ASTC");
 
-        if (!m_sdl_surface) throw SDLException();
+        if (!decompressed_surface) throw SDLException();
 
-        m_sdl_tex = SDL_CreateTextureFromSurface(Renderer::GetInstance()->GetSDLRenderer(), m_sdl_surface);
-        if (!m_sdl_tex) throw SDLException();
+        m_sdl_tex = SDL_CreateTextureFromSurface(Renderer::GetInstance()->GetSDLRenderer(), decompressed_surface);
 
         int w, h;
         SDL_QueryTexture(m_sdl_tex, nullptr, nullptr, &w, &h);
-        m_bDisposeTexture = true;
+
         m_actualSize = { 0, 0, w, h };
+
+        m_bDisposeTexture = true;
         m_ready = true;
+
+        SDL_FreeSurface(decompressed_surface);
     }
     delete[] buffer;
 }
