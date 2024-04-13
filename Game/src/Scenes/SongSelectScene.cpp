@@ -543,7 +543,34 @@ void SongSelectScene::OnGameSelectMusic(double delta)
                         EnvironmentSetup::SetInt(Mods[2], 0); // Panic
                         EnvironmentSetup::SetInt(Mods[3], 0); // Rearrange
                         break;
-                        // Cases omitted for brevity
+                    case 1: // Random
+                        EnvironmentSetup::SetInt(Mods[0], 0); // Mirror
+                        EnvironmentSetup::SetInt(Mods[2], 0); // Panic
+                        EnvironmentSetup::SetInt(Mods[3], 0); // Rearrange
+                        break;
+                    case 2: // Panic
+                        EnvironmentSetup::SetInt(Mods[0], 0); // Mirror
+                        EnvironmentSetup::SetInt(Mods[1], 0); // Random
+                        EnvironmentSetup::SetInt(Mods[3], 0); // Rearrange
+                        break;
+                    case 3: // Rearrange
+                        EnvironmentSetup::SetInt(Mods[0], 0); // Mirror
+                        EnvironmentSetup::SetInt(Mods[1], 0); // Random
+                        EnvironmentSetup::SetInt(Mods[2], 0); // Panic
+                        bOpenRearrange = true; // Open Rearrange Window
+                        break;
+                    case 5: // Hidden
+                        EnvironmentSetup::SetInt(Mods[6], 0); // Flashlight
+                        EnvironmentSetup::SetInt(Mods[7], 0); // Sudden
+                        break;
+                    case 6: // Flashlight
+                        EnvironmentSetup::SetInt(Mods[5], 0); // Hidden
+                        EnvironmentSetup::SetInt(Mods[7], 0); // Sudden
+                        break;
+                    case 7: // Sudden
+                        EnvironmentSetup::SetInt(Mods[5], 0); // Hidden
+                        EnvironmentSetup::SetInt(Mods[6], 0); // Flashlight
+                        break;
                     }
                 }
 
