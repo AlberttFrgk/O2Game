@@ -17,9 +17,6 @@
 #include "Judgements/BeatBasedJudge.h"
 #include "Judgements/MsBasedJudge.h"
 
-//#include <chrono>
-//#include <codecvt>
-
 #define MAX_BUFFER_TXT_SIZE 256
 
 struct ManiaKeyState
@@ -354,13 +351,24 @@ void RhythmEngine::Update(double delta)
         // assert(false); // TODO: Handle this
     }
 
-    if (m_currentAudioPosition > m_audioLength + 2000) { // Avoid game ended too early
-        m_state = GameState::PosGame;
+    if (m_currentAudioPosition > m_audioLength + 3000) { // Avoid game ended too early
         GameAudioSampleCache::StopAll();
+        m_state = GameState::PosGame;
     }
 
-    if (static_cast<int>(m_currentAudioPosition) % 1000 == 0) {
+    //if (static_cast<int>(m_currentAudioPosition) % 1000 == 0) { // THIS CAUSING ISSUES NOTE FPS DOES NOT CORRECTLY APPLIED
+    //    m_noteImageIndex = (m_noteImageIndex + 1) % m_noteMaxImageIndex;
+    //}
+
+    // HACK: I had to use std chrono on this, otherwise it will not accurate and has weird inconsistent frame index
+    static std::chrono::steady_clock::time_point lastUpdateTime = std::chrono::steady_clock::now();
+    auto currentTime = std::chrono::steady_clock::now();
+    auto lastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - lastUpdateTime);
+
+    // Check if it's time to update the note image index
+    if (lastUpdate.count() >= 100) {
         m_noteImageIndex = (m_noteImageIndex + 1) % m_noteMaxImageIndex;
+        lastUpdateTime = currentTime;
     }
 
     UpdateVirtualResolution();

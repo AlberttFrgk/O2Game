@@ -48,6 +48,8 @@ GameplayScene::GameplayScene() : Scene::Scene()
     m_keyState = {};
     m_game = nullptr;
     m_drawJam = false;
+    m_counter = 0.0;
+    lifeFillDuration = 0.0;
 }
 
 void GameplayScene::Update(double delta)
@@ -313,7 +315,6 @@ void GameplayScene::Render(double delta)
             m_drawLN = false;
         }
     }
-
 
     float gaugeVal = (float)m_game->GetScoreManager()->GetJamGauge() / kMaxJamGauge;
     if (gaugeVal > 0) {
