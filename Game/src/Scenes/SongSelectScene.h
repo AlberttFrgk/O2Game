@@ -24,6 +24,7 @@ public:
     void OnMouseDown(const MouseState &state) override;
 
     bool Attach() override;
+    void RestartGame();
     bool Detach() override;
 
 protected:

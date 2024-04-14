@@ -76,6 +76,10 @@ int Run(int argc, wchar_t **argv)
             }
         }
 
+        if (argc > 1) { // Run game with opened file
+            EnvironmentSetup::SetPath("FILE", argv[1]);
+        }
+
         MyGame game;
         if (game.Init()) {
             game.Run();
