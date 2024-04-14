@@ -115,9 +115,9 @@ void SongSelectScene::Render(double delta)
                 bQuit = true;
             }
 
-            /*if (ImGui::Button("Open File", MathUtil::ScaleVec2(ImVec2(50, 0)))) {
+            if (ImGui::Button("Open File", MathUtil::ScaleVec2(ImVec2(50, 0)))) {
                 bOpenFile = true;
-            }*/ // FIXME: Plz Fix This
+            }
 
             if (ImGui::Button("Settings", MathUtil::ScaleVec2(ImVec2(50, 0)))) {
                 bOptionPopup = true;
@@ -352,20 +352,14 @@ void SongSelectScene::Render(double delta)
     }
 
     if (bOpenFile) {
-        std::wstring songfile = OpenFilePrompt();
+        std::wstring songfile = OpenFilePrompt(); //FIXME: Selected mods not applied or saved if using open file
         if (!songfile.empty()) {
-            EnvironmentSetup::SetPath("FILE", songfile);
             is_departing = true;
             SaveConfiguration();
+            EnvironmentSetup::SetPath("FILE", songfile);
 
-            if (m_songBackground) {
-                EnvironmentSetup::SetObj("SongBackground", m_songBackground.get());
-            }
-
-            nextAlpha = 0;
-            SceneManager::ExecuteAfter(600, [this]() {
-                SceneManager::ChangeScene(GameScene::LOADING);
-                });
+            // Restart the game
+            RestartGame();
         }
         else {
             MsgBox::Show("MustSelectFile", "Error", "You must select a file!", MsgBoxType::OK);
@@ -909,6 +903,19 @@ bool SongSelectScene::Attach()
 
     is_departing = false;
     return true;
+}
+
+void SongSelectScene::RestartGame() { // HACK: This is the only way to use Open File function by restart the game to use the file opened without path issues
+    wchar_t moduleFileName[MAX_PATH];
+    GetModuleFileNameW(NULL, moduleFileName, MAX_PATH);
+
+    std::wstring commandLine = std::wstring(moduleFileName) + L" \"" + std::wstring(EnvironmentSetup::GetPath("FILE")) + L"\"";
+
+    STARTUPINFOW si = { sizeof(si) };
+    PROCESS_INFORMATION pi;
+    CreateProcessW(NULL, const_cast<wchar_t*>(commandLine.c_str()), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+
+    ExitProcess(0);
 }
 
 bool SongSelectScene::Detach()
