@@ -33,6 +33,7 @@ protected:
 
 private:
     void SaveConfiguration();
+    void SaveModifiers();
     void LoadChartImage();
 
     int scene_index = 0;

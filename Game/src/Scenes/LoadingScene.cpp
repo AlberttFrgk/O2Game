@@ -18,7 +18,6 @@
 #include "../GameScenes.h"
 #include "../Resources/GameDatabase.h"
 
-// I don't know if this new changes causing memleak or not because i can't tell due my hardware limit
 LoadingScene::LoadingScene()
 {
     m_background = nullptr;
@@ -58,6 +57,10 @@ void LoadingScene::Update(double delta)
                 EnvironmentSetup::Set("SongRate", rate);
                 EnvironmentSetup::SetInt("Song BG", 1);
                 EnvironmentSetup::SetInt("Difficulty", 2); // Hard difficulty it's fun (fucked)
+
+                if (EnvironmentSetup::GetInt("FileOpen") == 1) {
+                    LoadModifiers();
+                }
             }
 
             const char *bmsfile[] = { ".bms", ".bme", ".bml", ".bmsc" };
@@ -171,6 +174,20 @@ void LoadingScene::Update(double delta)
             }
         }
     }
+}
+
+void LoadingScene::LoadModifiers() // For File Opened
+{
+    std::string selectedMods = Configuration::Load("Gameplay", "Modifiers");
+    std::istringstream iss(selectedMods);
+    std::string mod;
+    while (std::getline(iss, mod, ',')) {
+        EnvironmentSetup::SetInt(mod, 1);
+    }
+
+    // Load selected arena
+    std::string arenaValue = Configuration::Load("Gameplay", "Arena");
+    EnvironmentSetup::SetInt("Arena", std::stoi(arenaValue));
 }
 
 void LoadingScene::Render(double delta)

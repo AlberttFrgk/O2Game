@@ -352,10 +352,11 @@ void SongSelectScene::Render(double delta)
     }
 
     if (bOpenFile) {
+        SaveModifiers();
+        SaveConfiguration();
         std::wstring songfile = OpenFilePrompt(); //FIXME: Selected mods not applied or saved if using open file
         if (!songfile.empty()) {
             is_departing = true;
-            SaveConfiguration();
             EnvironmentSetup::SetPath("FILE", songfile);
 
             // Restart the game
@@ -940,6 +941,23 @@ void SongSelectScene::SaveConfiguration()
 {
     EnvironmentSetup::Set("SongRate", std::to_string(currentRate));
     Configuration::Set("Gameplay", "Notespeed", std::to_string(static_cast<int>(::round(currentSpeed * 100.0))));
+}
+
+void SongSelectScene::SaveModifiers()
+{
+    std::string selectedMods;
+    for (int i = 0; i < Mods.size(); i++) {
+        std::string mod = Mods[i];
+        int value = EnvironmentSetup::GetInt(mod);
+        if (value == 1) {
+            if (!selectedMods.empty()) selectedMods += ",";
+            selectedMods += mod;
+        }
+    }
+    Configuration::Set("Gameplay", "Modifiers", selectedMods);
+
+    int arenaValue = EnvironmentSetup::GetInt("Arena");
+    Configuration::Set("Gameplay", "Arena", std::to_string(arenaValue));
 }
 
 void SongSelectScene::LoadChartImage()
