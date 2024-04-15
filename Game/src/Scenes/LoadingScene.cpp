@@ -55,11 +55,12 @@ void LoadingScene::Update(double delta)
 
                 EnvironmentSetup::SetInt("Autoplay", autoplay);
                 EnvironmentSetup::Set("SongRate", rate);
-                EnvironmentSetup::SetInt("Song BG", 1);
-                EnvironmentSetup::SetInt("Difficulty", 2); // Hard difficulty it's fun (fucked)
 
                 if (EnvironmentSetup::GetInt("FileOpen") == 1) {
                     LoadModifiers();
+                }
+                else {
+                    EnvironmentSetup::SetInt("Song BG", 1);
                 }
             }
 
@@ -178,6 +179,20 @@ void LoadingScene::Update(double delta)
 
 void LoadingScene::LoadModifiers() // For File Opened
 {
+    std::string difficultyValue = Configuration::Load("Gameplay", "Difficulty");
+    int setDifficulty = std::stoi(difficultyValue);
+    switch (setDifficulty) {
+    case 0: // EZ
+        EnvironmentSetup::SetInt("Difficulty", 0);
+        break;
+    case 1: // NM
+        EnvironmentSetup::SetInt("Difficulty", 1);
+        break;
+    case 2: // HD
+        EnvironmentSetup::SetInt("Difficulty", 2);
+        break;
+    }
+
     std::string selectedMods = Configuration::Load("Gameplay", "Modifiers");
     std::istringstream iss(selectedMods);
     std::string mod;
@@ -185,7 +200,6 @@ void LoadingScene::LoadModifiers() // For File Opened
         EnvironmentSetup::SetInt(mod, 1);
     }
 
-    // Load selected arena
     std::string arenaValue = Configuration::Load("Gameplay", "Arena");
     EnvironmentSetup::SetInt("Arena", std::stoi(arenaValue));
 }

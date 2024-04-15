@@ -43,5 +43,6 @@ std::string defaultConfiguration = "[game]\n"
 
 	"[gameplay]\n"
 	"notespeed = 250\n"
+	"difficulty = \n"
 	"modifiers =\n"
 	"arena =\n";

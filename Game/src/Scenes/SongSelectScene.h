@@ -44,6 +44,9 @@ private:
     bool  isScrolled = false;
     float waitTime = 0;
 
+    int  currentDifficulty;
+    int  difficulty;
+
     float currentSpeed = 2.25;
     float currentRate = 1.0;
 
