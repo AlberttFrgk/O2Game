@@ -10,6 +10,7 @@ public:
     ~LoadingScene();
 
     void Update(double delta) override;
+    void LoadModifiers();
     void Render(double delta) override;
 
     bool Attach() override;

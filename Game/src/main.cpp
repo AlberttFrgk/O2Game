@@ -71,7 +71,7 @@ int Run(int argc, wchar_t **argv)
 
             if (std::filesystem::exists(argv[i]) && EnvironmentSetup::GetPath("FILE").empty()) {
                 std::filesystem::path path = argv[i];
-
+                EnvironmentSetup::SetInt("FileOpen", 1);
                 EnvironmentSetup::SetPath("FILE", path);
             }
         }
