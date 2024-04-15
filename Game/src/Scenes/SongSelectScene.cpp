@@ -425,7 +425,7 @@ void SongSelectScene::OnGameSelectMusic(double delta)
     auto music = GameDatabase::GetInstance();
     auto window = GameWindow::GetInstance();
     auto windowNextSz = ImVec2((float)window->GetBufferWidth(), (float)window->GetBufferHeight());
-    int  currentDifficulty = EnvironmentSetup::GetInt("Difficulty");
+    currentDifficulty = EnvironmentSetup::GetInt("Difficulty");
 
     // create child window
     if (ImGui::BeginChild("#Container1", MathUtil::ScaleVec2(ImVec2(200, 500)))) {
@@ -458,7 +458,7 @@ void SongSelectScene::OnGameSelectMusic(double delta)
 
             ImGui::Text("Total Notes\r");
 
-            int difficulty = EnvironmentSetup::GetInt("Difficulty");
+            difficulty = EnvironmentSetup::GetInt("Difficulty");
             int count = item.Id == -1 ? 0 : item.MaxNotes[difficulty];
             imgui_extends::TextBackground(color, MathUtil::ScaleVec2(340, 0), "%d", count);
 
@@ -945,6 +945,8 @@ void SongSelectScene::SaveConfiguration()
 
 void SongSelectScene::SaveModifiers()
 {
+    Configuration::Set("Gameplay", "Difficulty", std::to_string(currentDifficulty));
+
     std::string selectedMods;
     for (int i = 0; i < Mods.size(); i++) {
         std::string mod = Mods[i];
