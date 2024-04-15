@@ -45,7 +45,7 @@ static std::map<int, std::string> Graphics = {
 
 static std::array<std::string, 4>  LongNote = { "None", "Short", "Normal", "Long" };
 static std::array<std::string, 14> m_fps = { "30", "60", "75", "120", "144", "165", "180", "240", "360", "480", "600", "800", "1000", "Unlimited" };
-static std::array<std::string, 3>  SelectedBackground = { "Arena", "Song", "Black" };
+static std::array<std::string, 3>  SelectedBackground = { "Arena", "Song", "Disable" };
 
 static std::vector<std::string> m_resolutions = {};
 
