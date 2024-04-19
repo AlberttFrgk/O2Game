@@ -84,6 +84,7 @@ void GameplayScene::Update(double delta)
 
         if (m_counter > 10.0) {
             m_ended = true;
+            m_counter = 0.0; // Reset
             SceneManager::DisplayFade(100, [] {
                 SceneManager::ChangeScene(GameScene::RESULT);
                 });

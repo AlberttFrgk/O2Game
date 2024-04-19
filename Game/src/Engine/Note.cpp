@@ -248,7 +248,9 @@ void Note::Render(double delta)
         m_body->SetIndexAt(m_engine->GetNoteImageIndex());
         m_body->Draw(delta, &playRect);
 
-        if (isTailVisible) {
+        bool NoteTail = EnvironmentSetup::GetInt("NoteTail") == 1;
+
+        if (isTailVisible && NoteTail) {
             m_tail->Position = UDim2::fromOffset(m_laneOffset, tailPosY);
             m_tail->SetIndexAt(m_engine->GetNoteImageIndex());
             m_tail->Draw(delta, &playRect);
