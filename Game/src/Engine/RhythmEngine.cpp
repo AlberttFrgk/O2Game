@@ -418,7 +418,11 @@ void RhythmEngine::Render(double delta)
     if (m_state == GameState::NotGame || m_state == GameState::PosGame)
         return;
 
-    m_timingLineManager->Render(delta);
+    bool MeasureLine = EnvironmentSetup::GetInt("MeasureLine") == 1;
+
+    if (MeasureLine) {
+        m_timingLineManager->Render(delta);
+    }
 
     for (auto &it : m_tracks) {
         it->Render(delta);

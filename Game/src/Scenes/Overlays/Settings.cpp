@@ -308,14 +308,38 @@ void SettingsOverlay::Render(double delta)
                         ImGui::NewLine();
 
                         ImGui::Text("Gameplay-Related Configuration");
+
                         ImGui::Checkbox("Long Note Lighting###SetCheckbox1", &LongNoteLighting);
                         if (ImGui::IsItemHovered()) {
                             ImGui::SetTooltip("When Long note on hold, change the lighting brightness to 100%% else 90%% brightness");
                         }
 
+                        ImGui::SameLine();
+
+                        ImGui::Checkbox("Disable Note Tail###SetCheckbox3", &NoteTail);
+                        if (ImGui::IsItemHovered()) {
+                            ImGui::SetTooltip("Why this called No Percy? Lol");
+                        }
+                        if (NoteTail) {
+                            EnvironmentSetup::SetInt("NoteTail", 0);
+                        }
+                        else {
+                            EnvironmentSetup::SetInt("NoteTail", 1);
+                        }
+
                         ImGui::Checkbox("Long Note Head Position at HitPos###SetCheckbox2", &LongNoteOnHitPos);
                         if (ImGui::IsItemHovered()) {
                             ImGui::SetTooltip("When Long note on hold, make the head position at hit position else keep going to bottom");
+                        }
+
+                        ImGui::SameLine();
+
+                        ImGui::Checkbox("Disable Measure Line###SetCheckbox4", &MeasureLine);
+                        if (MeasureLine) {
+                            EnvironmentSetup::SetInt("MeasureLine", 0);
+                        }
+                        else {
+                            EnvironmentSetup::SetInt("MeasureLine", 1);
                         }
 
                         ImGui::NewLine();
@@ -512,6 +536,36 @@ void SettingsOverlay::LoadConfiguration()
         EnvironmentSetup::SetInt("Black Background", 1);
     }
 
+    try {
+        int noteTailValue = std::stoi(Configuration::Load("Game", "NoteTail"));
+        NoteTail = (noteTailValue == 1);
+    }
+    catch (const std::invalid_argument&) {
+        NoteTail = true;
+    }
+
+    if (NoteTail) { // HACK: Same workaround like Background :troll:
+        EnvironmentSetup::SetInt("NoteTail", 0);
+    }
+    else {
+        EnvironmentSetup::SetInt("NoteTail", 1);
+    }
+
+    try {
+        int measureLineValue = std::stoi(Configuration::Load("Game", "MeasureLine"));
+        MeasureLine = (measureLineValue == 1);
+    }
+    catch (const std::invalid_argument&) {
+        MeasureLine = true;
+    }
+
+    if (MeasureLine) { // HACK: Same workaround like Background :troll:
+        EnvironmentSetup::SetInt("MeasureLine", 0);
+    }
+    else {
+        EnvironmentSetup::SetInt("MeasureLine", 1);
+    }
+
     auto fps = m_fps[currentFPSIndex];
     if (fps == *(m_fps.end() - 1)) {
         fps = "9999" ;
@@ -530,6 +584,8 @@ void SettingsOverlay::SaveConfiguration()
     Configuration::Set("Game", "FrameLimit", m_fps[currentFPSIndex]);
     Configuration::Set("Game", "GuideLine", std::to_string(currentGuideLineIndex));
     Configuration::Set("Game", "Background", std::to_string(BackgroundIndex));
+    Configuration::Set("Game", "MeasureLine", std::to_string(MeasureLine ? 1 : 0));
+    Configuration::Set("Game", "NoteTail", std::to_string(NoteTail ? 1 : 0));
 
     auto frame = m_fps[currentFPSIndex];
     if (frame == m_fps[13]) {

@@ -26,6 +26,8 @@ private:
     int  currentGuideLineIndex = 0;
     bool LongNoteLighting = false;
     bool LongNoteOnHitPos = false;
+    bool MeasureLine = false;
+    bool NoteTail = false;
     int BackgroundIndex = 0;
     bool convertAutoSound = false;
 
