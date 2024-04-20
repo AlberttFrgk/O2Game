@@ -274,13 +274,22 @@ void GameplayScene::Render(double delta)
         }
     }
 
-    if (m_drawCombo && std::get<7>(scores) > 0) { // This should be O2Jam Replication
+    if (m_drawCombo && std::get<7>(scores) > 0) { // O2Jam Combo Animation 1:1
         const double positionStart = 30.0;
+        const double increment = 6.0;
         const double decrement = 6.0;
-        double animationSpeed = 60.0;
+        double animationSpeed = 72.0;
 
-        double targetposition = positionStart - decrement * m_comboTimer * animationSpeed;
-        double currentposition = (targetposition > 0.0) ? targetposition : 0.0;
+        double targetPosition = positionStart - decrement * m_comboTimer * animationSpeed;
+        double currentposition = (targetPosition > 0.0) ? targetPosition : 0.0;
+
+        // If moving down, limit the wiggle to between 30px and 36px
+        if (currentposition > positionStart) {
+            double wiggleAmount = currentposition - positionStart;
+            if (wiggleAmount > increment) {
+                currentposition = positionStart + increment;
+            }
+        }
 
         m_comboLogo->Position2 = UDim2::fromOffset(0, currentposition / 3.0);
         m_comboNum->Position2 = UDim2::fromOffset(0, currentposition);
