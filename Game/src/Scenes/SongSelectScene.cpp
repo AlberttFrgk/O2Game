@@ -910,13 +910,17 @@ void SongSelectScene::RestartGame() { // HACK: This is the only way to use Open 
     wchar_t moduleFileName[MAX_PATH];
     GetModuleFileNameW(NULL, moduleFileName, MAX_PATH);
 
-    std::wstring commandLine = std::wstring(moduleFileName) + L" \"" + std::wstring(EnvironmentSetup::GetPath("FILE")) + L"\"";
+    std::wstring filePath = EnvironmentSetup::GetPath("FILE");
 
+    std::wstring commandLine = std::wstring(moduleFileName) + L" \"" + filePath + L"\"";
     STARTUPINFOW si = { sizeof(si) };
     PROCESS_INFORMATION pi;
-    CreateProcessW(NULL, const_cast<wchar_t*>(commandLine.c_str()), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
 
-    ExitProcess(0);
+    if (CreateProcessW(NULL, const_cast<wchar_t*>(commandLine.c_str()), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) { // Fix antivirus false detection 
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+        ExitProcess(0);
+    }
 }
 
 bool SongSelectScene::Detach()
