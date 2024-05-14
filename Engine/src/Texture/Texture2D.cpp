@@ -157,10 +157,10 @@ void Texture2D::Draw(Rect *clipRect, bool manualDraw)
         scissor.extent.height = window->GetHeight();
 
         if (clipRect) {
-            scissor.offset.x = clipRect->left;
-            scissor.offset.y = clipRect->top;
-            scissor.extent.width = clipRect->right - clipRect->left;
-            scissor.extent.height = clipRect->bottom - clipRect->top;
+            scissor.offset.x = static_cast<int32_t>(clipRect->left * window->GetWidthScale());
+            scissor.offset.y = static_cast<int32_t>(clipRect->top * window->GetHeightScale());
+            scissor.extent.width = static_cast<uint32_t>((clipRect->right - clipRect->left) * window->GetWidthScale());
+            scissor.extent.height = static_cast<uint32_t>((clipRect->bottom - clipRect->top) * window->GetHeightScale());
         }
 
         VkDescriptorSet imageId = m_vk_tex->DS;
@@ -240,10 +240,10 @@ void Texture2D::Draw(Rect *clipRect, bool manualDraw)
     } else {
         SDL_FRect destRect = { m_calculatedSizeF.left, m_calculatedSizeF.top, m_calculatedSizeF.right, m_calculatedSizeF.bottom };
         if (scaleOutput) {
-            destRect.x = destRect.x * window->GetWidthScale();
-            destRect.y = destRect.y * window->GetHeightScale();
-            destRect.w = destRect.w * window->GetWidthScale();
-            destRect.h = destRect.h * window->GetHeightScale();
+            destRect.x = std::round(destRect.x * window->GetWidthScale());
+            destRect.y = std::round(destRect.y * window->GetHeightScale());
+            destRect.w = std::round(destRect.w * window->GetWidthScale());
+            destRect.h = std::round(destRect.h * window->GetHeightScale());
         }
 
         SDL_Rect      originClip = {};

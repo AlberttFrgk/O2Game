@@ -78,6 +78,7 @@ void LoadingScene::Update(double delta)
                 }
 
                 chart = new Chart(beatmap);
+                EnvironmentSetup::SetInt("SongType", 0);
             } else if (file.extension() == ojnfile) {
                 O2::OJN o2jamFile;
                 o2jamFile.Load(file);
@@ -91,8 +92,9 @@ void LoadingScene::Update(double delta)
                 }
 
                 chart = new Chart(o2jamFile, diffIndex);
-
+                EnvironmentSetup::SetInt("SongType", 1);
                 IsO2Jam = true;
+
             } else {
                 Osu::Beatmap beatmap(file);
 
@@ -103,6 +105,7 @@ void LoadingScene::Update(double delta)
                 }
 
                 chart = new Chart(beatmap);
+                EnvironmentSetup::SetInt("SongType", 2);
             }
 
             EnvironmentSetup::SetObj("SONG", chart);

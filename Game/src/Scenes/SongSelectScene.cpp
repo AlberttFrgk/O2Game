@@ -354,7 +354,7 @@ void SongSelectScene::Render(double delta)
     if (bOpenFile) {
         SaveModifiers();
         SaveConfiguration();
-        std::wstring songfile = OpenFilePrompt(); //FIXME: Selected mods not applied or saved if using open file
+        std::wstring songfile = OpenFilePrompt();
         if (!songfile.empty()) {
             is_departing = true;
             EnvironmentSetup::SetPath("FILE", songfile);

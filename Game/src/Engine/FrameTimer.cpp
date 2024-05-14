@@ -2,50 +2,46 @@
 #include "Rendering/Renderer.h"
 #include "Texture/Texture2D.h"
 
-FrameTimer::FrameTimer()
+FrameTimer::FrameTimer() :
+    Repeat(false),
+    m_currentFrame(0),
+    m_frameTime(1.0 / 60.0),
+    m_currentTime(0),
+    AlphaBlend(false),
+    Size(UDim2::fromScale(1, 1)),
+    TintColor({1.0f, 1.0f, 1.0f})
 {
-    Repeat = false;
-    m_currentFrame = 0;
-    m_frameTime = 1.0 / 60.0;
-    m_currentTime = 0;
-    AlphaBlend = false;
-    Size = UDim2::fromScale(1, 1);
-    TintColor = { 1.0f, 1.0f, 1.0f };
 }
 
-FrameTimer::FrameTimer(std::vector<Texture2D *> frames) : FrameTimer::FrameTimer()
+FrameTimer::FrameTimer(std::vector<Texture2D *> frames) : FrameTimer()
 {
-    m_frames = frames;
+    m_frames = std::move(frames);
 }
 
-FrameTimer::FrameTimer(std::vector<std::string> frames) : FrameTimer::FrameTimer()
+FrameTimer::FrameTimer(std::vector<std::string> frames) : FrameTimer()
 {
-    m_frames = std::vector<Texture2D *>();
-    for (auto frame : frames) {
+    for (const auto &frame : frames) {
         m_frames.emplace_back(new Texture2D(frame));
     }
 }
 
-FrameTimer::FrameTimer(std::vector<std::filesystem::path> frames) : FrameTimer::FrameTimer()
+FrameTimer::FrameTimer(std::vector<std::filesystem::path> frames) : FrameTimer()
 {
-    m_frames = std::vector<Texture2D *>();
-    for (auto frame : frames) {
+    for (const auto &frame : frames) {
         m_frames.emplace_back(new Texture2D(frame));
     }
 }
 
-FrameTimer::FrameTimer(std::vector<SDL_Texture *> frames) : FrameTimer::FrameTimer()
+FrameTimer::FrameTimer(std::vector<SDL_Texture *> frames) : FrameTimer()
 {
-    m_frames = std::vector<Texture2D *>();
-    for (auto frame : frames) {
+    for (const auto &frame : frames) {
         m_frames.emplace_back(new Texture2D(frame));
     }
 }
 
-FrameTimer::FrameTimer(std::vector<Texture2D_Vulkan *> frames) : FrameTimer::FrameTimer()
+FrameTimer::FrameTimer(std::vector<Texture2D_Vulkan *> frames) : FrameTimer()
 {
-    m_frames = std::vector<Texture2D *>();
-    for (auto frame : frames) {
+    for (const auto &frame : frames) {
         m_frames.emplace_back(new Texture2D(frame));
     }
 }
@@ -68,26 +64,26 @@ void FrameTimer::Draw(double delta, Rect *clip)
 
     if (m_currentTime >= m_frameTime) {
         m_currentTime -= m_frameTime;
-
         m_currentFrame++;
     }
 
-        if (Repeat && m_currentFrame >= m_frames.size()) {
-            m_currentFrame = 0;
-        }
+    if (Repeat && m_currentFrame >= m_frames.size()) {
+        m_currentFrame = 0;
+    }
 
     if (m_currentFrame < m_frames.size()) {
         CalculateSize();
 
-        m_frames[m_currentFrame]->AlphaBlend = AlphaBlend;
-        m_frames[m_currentFrame]->TintColor = TintColor;
+        auto currentFrame = m_frames[m_currentFrame];
+        currentFrame->AlphaBlend = AlphaBlend;
+        currentFrame->TintColor = TintColor;
         if (m_currentFrame != 0) {
-            m_frames[m_currentFrame]->Position = UDim2::fromOffset(AbsolutePosition.X, AbsolutePosition.Y);
-            m_frames[m_currentFrame]->Size = UDim2::fromOffset(AbsoluteSize.X, AbsoluteSize.Y);
-            m_frames[m_currentFrame]->AnchorPoint = { 0, 0 };
+            currentFrame->Position = UDim2::fromOffset(AbsolutePosition.X, AbsolutePosition.Y);
+            currentFrame->Size = UDim2::fromOffset(AbsoluteSize.X, AbsoluteSize.Y);
+            currentFrame->AnchorPoint = {0, 0};
         }
 
-        m_frames[m_currentFrame]->Draw(clip);
+        currentFrame->Draw(clip);
     }
 }
 
@@ -103,7 +99,7 @@ void FrameTimer::ResetIndex()
 
 void FrameTimer::LastIndex()
 {
-    m_currentFrame = (int)m_frames.size() - 1;
+    m_currentFrame = static_cast<int>(m_frames.size()) - 1;
 }
 
 void FrameTimer::SetIndexAt(int idx)
@@ -113,11 +109,12 @@ void FrameTimer::SetIndexAt(int idx)
 
 void FrameTimer::CalculateSize()
 {
-    m_frames[0]->AnchorPoint = AnchorPoint;
-    m_frames[0]->Size = Size;
-    m_frames[0]->Position = Position;
-    m_frames[0]->CalculateSize();
+    auto &firstFrame = *m_frames[0];
+    firstFrame.AnchorPoint = AnchorPoint;
+    firstFrame.Size = Size;
+    firstFrame.Position = Position;
+    firstFrame.CalculateSize();
 
-    AbsoluteSize = m_frames[0]->AbsoluteSize;
-    AbsolutePosition = m_frames[0]->AbsolutePosition;
+    AbsoluteSize = firstFrame.AbsoluteSize;
+    AbsolutePosition = firstFrame.AbsolutePosition;
 }

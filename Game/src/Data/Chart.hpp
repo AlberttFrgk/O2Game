@@ -105,6 +105,7 @@ public:
     std::vector<char>     m_backgroundBuffer;
     std::u8string         m_title;
     std::u8string         m_artist;
+    std::u8string         m_difname;
     std::string           m_audio;
     std::filesystem::path m_beatmapDirectory;
 
