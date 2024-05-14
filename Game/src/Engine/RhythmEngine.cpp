@@ -1,4 +1,4 @@
-#include "RhythmEngine.hpp"
+﻿#include "RhythmEngine.hpp"
 #include <Logs.h>
 #include <filesystem>
 #include <numeric>
@@ -221,9 +221,20 @@ bool RhythmEngine::Load(Chart *chart)
         m_rate = std::clamp(m_rate, 0.5, 2.0);
     }
 
-    m_title = chart->m_title;
     char buffer[MAX_BUFFER_TXT_SIZE];
-    sprintf(buffer, "Lv.%d %s", chart->m_level, (const char *)chart->m_title.c_str());
+
+    if (EnvironmentSetup::GetInt("SongType") == 1) {
+        m_title = chart->m_title;
+        sprintf(buffer, "Lv.%d %s", chart->m_level, (const char*)chart->m_title.c_str());
+    }
+    else if (EnvironmentSetup::GetInt("SongType") == 2) {
+        m_title = chart->m_title;
+        sprintf(buffer, "[%s] %s", chart->m_difname, (const char*)chart->m_title.c_str());
+    }
+    else {
+        m_title = chart->m_title;
+        //sprintf(buffer, "%d %s", chart->m_level, (const char*)chart->m_title.c_str());
+    }
 
     m_title = std::u8string(buffer, buffer + strlen(buffer));
     if (m_rate != 1.0) {

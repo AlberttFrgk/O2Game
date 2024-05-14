@@ -98,12 +98,12 @@ void GameplayScene::Update(double delta)
         if (health <= 0) {
             m_game->Stop();
             EnvironmentSetup::SetInt("Failed", 1);
-        } 
+        }
     }
 
     if (m_doExit && !m_ended) {
         m_ended = true;
-        
+
         auto scores = m_game->GetScoreManager()->GetScore();
 
         if (std::get<1>(scores) != 0 || std::get<2>(scores) != 0 || std::get<3>(scores) != 0 || std::get<4>(scores) != 0) {

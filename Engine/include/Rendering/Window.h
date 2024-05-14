@@ -26,7 +26,7 @@ public:
     float       GetHeightScale();
 
     void SetScaleOutput(bool value);
-    bool IsScaleOutput();
+    bool IsScaleOutput() const;
 
     void SetWindowTitle(std::string &title);
     void SetWindowSubTitle(std::string &subTitle);

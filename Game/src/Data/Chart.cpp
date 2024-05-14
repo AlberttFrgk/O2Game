@@ -51,6 +51,7 @@ Chart::Chart(Osu::Beatmap &beatmap)
     m_title = std::u8string(beatmap.Title.begin(), beatmap.Title.end());
     m_keyCount = (int)beatmap.CircleSize;
     m_artist = std::u8string(beatmap.Artist.begin(), beatmap.Artist.end());
+    m_difname = std::u8string(beatmap.Version.begin(), beatmap.Version.end());
     m_beatmapDirectory = beatmap.CurrentDir;
 
     for (auto &event : beatmap.Events) {
@@ -379,7 +380,7 @@ Chart::Chart(O2::OJN &file, int diffIndex)
 
 
 
-void Chart::CalculateBeat() 
+void Chart::CalculateBeat()
 {
     m_bpms[0].Beat = 0;
     for (size_t  i = 1; i < m_bpms.size(); i++) {
@@ -387,7 +388,7 @@ void Chart::CalculateBeat()
     }
 }
 
-void Chart::SortTimings() 
+void Chart::SortTimings()
 {
     std::sort(m_autoSamples.begin(), m_autoSamples.end(), [](const AutoSample& a, const AutoSample& b) {
         return a.StartTime < b.StartTime;
