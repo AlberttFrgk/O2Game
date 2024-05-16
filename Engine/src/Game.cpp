@@ -35,24 +35,30 @@ namespace {
         IMG_Quit();
     }
 
-    thread_local double curTick = 0.0;
-    thread_local double lastTick = 0.0;
+    thread_local Uint64 curTick = SDL_GetPerformanceCounter();
+    thread_local Uint64 lastTick = 0;
 
     double FrameLimit(double MaxFrameRate)
     {
-        const double targetFrameTime = 1000.0 / MaxFrameRate;
+        const double targetFrameTime = 1.0 / MaxFrameRate;
+        const Uint64 targetFrameTicks = static_cast<Uint64>(targetFrameTime * SDL_GetPerformanceFrequency());
 
-        double newTick = SDL_GetTicks();
-        double frameTime = newTick - curTick;
+        Uint64 newTick = SDL_GetPerformanceCounter();
+        Uint64 frameTicks = newTick - curTick;
 
-        if (frameTime < targetFrameTime)
+        if (frameTicks < targetFrameTicks)
         {
-            double delayTime = targetFrameTime - frameTime;
-            SDL_Delay(static_cast<Uint32>(delayTime));
-            newTick += delayTime;
+            Uint64 delayTicks = targetFrameTicks - frameTicks;
+            if (delayTicks > 0)
+            {
+                Uint64 delayTime = delayTicks * 1000 / SDL_GetPerformanceFrequency();
+                SDL_Delay(static_cast<Uint32>(delayTime));
+                newTick = SDL_GetPerformanceCounter();
+                frameTicks = newTick - curTick;
+            }
         }
 
-        double delta = (newTick - curTick) / 1000.0;
+        double delta = static_cast<double>(frameTicks) / SDL_GetPerformanceFrequency();
 
         lastTick = curTick;
         curTick = newTick;
