@@ -382,7 +382,7 @@ Texture2D *Texture2D::FromPNG(std::string fileName)
     return nullptr;
 }
 
-void Texture2D::LoadImageResources(uint8_t* buffer, size_t size) 
+void Texture2D::LoadImageResources(uint8_t* buffer, size_t size)
 {
     if (Renderer::GetInstance()->IsVulkan()) {
         auto tex_data = vkTexture::TexLoadImage(buffer, size);
@@ -399,7 +399,13 @@ void Texture2D::LoadImageResources(uint8_t* buffer, size_t size)
 
         if (!decompressed_surface) throw SDLException();
 
-        m_sdl_tex = SDL_CreateTextureFromSurface(Renderer::GetInstance()->GetSDLRenderer(), decompressed_surface);
+        // Fix Half White Line
+        SDL_Rect bounds;
+        SDL_GetClipRect(decompressed_surface, &bounds);
+        SDL_Surface* extended_surface = SDL_CreateRGBSurfaceWithFormat(0, bounds.w + 1, bounds.h + 1, decompressed_surface->format->BitsPerPixel, decompressed_surface->format->format);
+        SDL_BlitSurface(decompressed_surface, &bounds, extended_surface, nullptr);
+
+        m_sdl_tex = SDL_CreateTextureFromSurface(Renderer::GetInstance()->GetSDLRenderer(), extended_surface);
 
         int w, h;
         SDL_QueryTexture(m_sdl_tex, nullptr, nullptr, &w, &h);
@@ -409,6 +415,7 @@ void Texture2D::LoadImageResources(uint8_t* buffer, size_t size)
         m_bDisposeTexture = true;
         m_ready = true;
 
+        SDL_FreeSurface(extended_surface);
         SDL_FreeSurface(decompressed_surface);
     }
     delete[] buffer;
