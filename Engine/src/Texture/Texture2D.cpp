@@ -402,7 +402,7 @@ void Texture2D::LoadImageResources(uint8_t* buffer, size_t size)
         // Fix Half White Line
         SDL_Rect bounds;
         SDL_GetClipRect(decompressed_surface, &bounds);
-        SDL_Surface* extended_surface = SDL_CreateRGBSurfaceWithFormat(0, bounds.w + 1, bounds.h + 1, decompressed_surface->format->BitsPerPixel, decompressed_surface->format->format);
+        SDL_Surface* extended_surface = SDL_CreateRGBSurfaceWithFormat(0, bounds.w , bounds.h, decompressed_surface->format->BitsPerPixel, decompressed_surface->format->format);
         SDL_BlitSurface(decompressed_surface, &bounds, extended_surface, nullptr);
 
         m_sdl_tex = SDL_CreateTextureFromSurface(Renderer::GetInstance()->GetSDLRenderer(), extended_surface);
