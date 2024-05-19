@@ -399,7 +399,7 @@ void Texture2D::LoadImageResources(uint8_t* buffer, size_t size)
 
         if (!decompressed_surface) throw SDLException();
 
-        // Fix Half White Line, Slighly Black Pixel on outside but seems not problem
+        // Fix Half White Line
         SDL_Rect bounds;
         SDL_GetClipRect(decompressed_surface, &bounds);
         SDL_Surface* extended_surface = SDL_CreateRGBSurfaceWithFormat(0, bounds.w , bounds.h, decompressed_surface->format->BitsPerPixel, decompressed_surface->format->format);
