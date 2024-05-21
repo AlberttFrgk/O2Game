@@ -206,6 +206,9 @@ void Note::Update(double delta)
             }
         }
     }
+    if (IsPassed()) {
+        m_state = NoteState::DO_REMOVE;
+    }
 }
 
 void Note::Render(double delta) // Code more cleared than before
@@ -242,7 +245,7 @@ void Note::Render(double delta) // Code more cleared than before
             transparency = 1.0f;
         }
 
-        else if (m_state == NoteState::HOLD_MISSED_ACTIVE) {
+        else if (m_hitResult >= NoteResult::MISS && m_state == NoteState::HOLD_MISSED_ACTIVE) {
             transparency = 0.7f;
         }
 
