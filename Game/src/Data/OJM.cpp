@@ -182,7 +182,7 @@ void OJM::LoadM30Data(std::fstream &fs)
 
     fs.read((char *)&Header, sizeof(M30Header));
 
-    for (int i = 0; i < Header.sampleSize; i++) {
+    for (int i = 0; i < Header.sampleCount; i++) {
         struct M30SampleHeader
         {
             char  sampleName[32];
@@ -203,31 +203,37 @@ void OJM::LoadM30Data(std::fstream &fs)
         uint8_t *buffer = new uint8_t[SampleHeader.sampleSize];
         fs.read((char *)buffer, SampleHeader.sampleSize);
 
-        switch (Header.encryptionFlag) {
-            case 0:
-                break;
-            case 16:
-            {
-                M30Xor((char *)buffer, SampleHeader.sampleSize, MASK_NAMI);
-                break;
-            }
-            case 32:
-            {
-                M30Xor((char *)buffer, SampleHeader.sampleSize, MASK_0412);
-                break;
-            }
+        // Handle unencoded audio data
+        if (Header.encryptionFlag == 0) {
+            O2Sample sample = {};
+            sample.RefValue = SampleHeader.ValueRef;
+            sample.AudioData.insert(sample.AudioData.end(), buffer, buffer + SampleHeader.sampleSize);
+            Samples.push_back(sample);
         }
+        // Handle encoded audio data
+        else {
+            switch (Header.encryptionFlag) {
+                case 16:
+                    M30Xor((char *)buffer, SampleHeader.sampleSize, MASK_NAMI);
+                    break;
+                case 32:
+                    M30Xor((char *)buffer, SampleHeader.sampleSize, MASK_0412);
+                    break;
+                default:
+                    break;
+            }
 
         // OGG Sample
         if (SampleHeader.codecCode == 0) {
             SampleHeader.ValueRef += 1000;
         }
 
-        O2Sample sample = {};
-        sample.RefValue = SampleHeader.ValueRef;
-        sample.AudioData.insert(sample.AudioData.end(), buffer, buffer + SampleHeader.sampleSize);
+            O2Sample sample = {};
+            sample.RefValue = SampleHeader.ValueRef;
+            sample.AudioData.insert(sample.AudioData.end(), buffer, buffer + SampleHeader.sampleSize);
+            Samples.push_back(sample);
+        }
 
-        Samples.push_back(sample);
         delete[] buffer;
     }
 }
