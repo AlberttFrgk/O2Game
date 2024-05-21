@@ -27,6 +27,7 @@
 #include "../GameScenes.h"
 
 #define AUTOPLAY_TEXT u8"Game currently on autoplay!"
+#define GAMEINFO_TEXT u8"O2Clone Build Date: " __DATE__ " " __TIME__
 
 struct MissInfo
 {
@@ -395,6 +396,9 @@ void GameplayScene::Render(double delta)
 
     m_title->Draw(m_game->GetTitle());
 
+    m_gameInfo->Position = m_gameInfoPos;
+    m_gameInfo->Draw(GAMEINFO_TEXT);
+
     if (m_autoPlay) {
         m_autoText->Position = m_autoTextPos;
         m_autoText->Draw(AUTOPLAY_TEXT);
@@ -507,10 +511,13 @@ bool GameplayScene::Attach()
         m_title->AnchorPoint = { TitlePos[0].AnchorPointX, TitlePos[0].AnchorPointY };
         m_title->Clip = { RectPos[0].X, RectPos[0].Y, RectPos[0].Width, RectPos[0].Height };
 
-        m_autoText = std::make_unique<Text>(13);
+        m_autoText = std::make_unique<Text>(12);
         m_autoTextSize = m_autoText->CalculateSize(AUTOPLAY_TEXT);
-
         m_autoTextPos = UDim2::fromOffset(GameWindow::GetInstance()->GetBufferWidth(), 50);
+
+        m_gameInfo = std::make_unique<Text>(8);
+        m_gameInfoSize = m_gameInfo->CalculateSize(GAMEINFO_TEXT);
+        m_gameInfoPos = UDim2::fromOffset(/*GameWindow::GetInstance()->GetBufferWidth()*/ 0, GameWindow::GetInstance()->GetBufferHeight() - 10);
 
         m_PlayBG = std::make_unique<Texture2D>(arenaPath / ("PlayingBG.png"));
         auto PlayBGPos = manager->Arena_GetPosition("PlayingBG"); // arena_conf.GetPosition("PlayingBG");

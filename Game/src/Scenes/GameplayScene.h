@@ -72,6 +72,7 @@ private:
 
     std::unique_ptr<Text> m_title;
     std::unique_ptr<Text> m_autoText;
+    std::unique_ptr<Text> m_gameInfo;
 
     std::unique_ptr<Texture2D> m_laneHideImage;
 
@@ -114,4 +115,8 @@ private:
     bool  m_autoPlay;
     int   m_autoTextSize;
     UDim2 m_autoTextPos;
+
+    /* game info */
+    int m_gameInfoSize;
+    UDim2 m_gameInfoPos;
 };
