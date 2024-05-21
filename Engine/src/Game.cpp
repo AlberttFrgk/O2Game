@@ -16,7 +16,7 @@
 
 constexpr auto kInputDefaultRate = 1000.0;
 constexpr auto kMenuDefaultRate = 60.0;
-constexpr auto kAudioDefaultRate = 24.0;
+constexpr auto kAudioDefaultRate = 60.0;
 
 namespace {
 
