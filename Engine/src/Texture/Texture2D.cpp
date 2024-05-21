@@ -15,6 +15,28 @@
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/glm.hpp>
 
+namespace {
+    SDL_Surface* PremultiplyAlpha(SDL_Surface* surface) { // Fix half white line
+        if (surface->format->BytesPerPixel != 4) return surface;
+
+        Uint32* pixels = (Uint32*)surface->pixels;
+        for (int y = 0; y < surface->h; ++y) {
+            for (int x = 0; x < surface->w; ++x) {
+                Uint32 pixel = pixels[y * surface->w + x];
+                Uint8 r, g, b, a;
+                SDL_GetRGBA(pixel, surface->format, &r, &g, &b, &a);
+
+                r = r * a / 255;
+                g = g * a / 255;
+                b = b * a / 255;
+
+                pixels[y * surface->w + x] = SDL_MapRGBA(surface->format, r, g, b, a);
+            }
+        }
+        return surface;
+    }
+}
+
 Texture2D::Texture2D()
 {
     TintColor = { 1.0f, 1.0f, 1.0f };
@@ -392,20 +414,15 @@ void Texture2D::LoadImageResources(uint8_t* buffer, size_t size)
         m_ready = true;
     }
     else {
-        // Load compressed image data for SDL using ASTC compression
         SDL_Surface* decompressed_surface = nullptr;
         SDL_RWops* rw = SDL_RWFromMem(buffer, static_cast<int>(size));
         decompressed_surface = IMG_LoadTyped_RW(rw, 1, "ASTC");
 
         if (!decompressed_surface) throw SDLException();
 
-        // Fix Half White Line
-        SDL_Rect bounds;
-        SDL_GetClipRect(decompressed_surface, &bounds);
-        SDL_Surface* extended_surface = SDL_CreateRGBSurfaceWithFormat(0, bounds.w , bounds.h, decompressed_surface->format->BitsPerPixel, decompressed_surface->format->format);
-        SDL_BlitSurface(decompressed_surface, &bounds, extended_surface, nullptr);
+        decompressed_surface = PremultiplyAlpha(decompressed_surface);
 
-        m_sdl_tex = SDL_CreateTextureFromSurface(Renderer::GetInstance()->GetSDLRenderer(), extended_surface);
+        m_sdl_tex = SDL_CreateTextureFromSurface(Renderer::GetInstance()->GetSDLRenderer(), decompressed_surface);
 
         int w, h;
         SDL_QueryTexture(m_sdl_tex, nullptr, nullptr, &w, &h);
@@ -415,7 +432,6 @@ void Texture2D::LoadImageResources(uint8_t* buffer, size_t size)
         m_bDisposeTexture = true;
         m_ready = true;
 
-        SDL_FreeSurface(extended_surface);
         SDL_FreeSurface(decompressed_surface);
     }
     delete[] buffer;

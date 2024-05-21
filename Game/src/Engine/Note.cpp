@@ -206,9 +206,6 @@ void Note::Update(double delta)
             }
         }
     }
-    if (IsPassed()) {
-        m_state = NoteState::DO_REMOVE;
-    }
 }
 
 void Note::Render(double delta) // Code more cleared than before
@@ -244,6 +241,11 @@ void Note::Render(double delta) // Code more cleared than before
         if (m_hitResult >= NoteResult::GOOD && m_state == NoteState::HOLD_ON_HOLDING) {
             transparency = 1.0f;
         }
+
+        else if (m_state == NoteState::HOLD_MISSED_ACTIVE) {
+            transparency = 0.7f;
+        }
+
         m_body->TintColor = { transparency, transparency, transparency };
         m_body->SetIndexAt(m_engine->GetNoteImageIndex());
         m_body->Draw(delta, &playRect);
@@ -451,7 +453,7 @@ void Note::OnRelease(NoteResult result)
 
             if (result == NoteResult::MISS) {
                 //GameAudioSampleCache::Stop(m_keysoundIndex);
-                m_state = NoteState::DO_REMOVE;
+                m_state = NoteState::HOLD_MISSED_ACTIVE;
 
                 m_track->HandleHoldScore(HoldResult::HoldBreak);
                 m_track->HandleScore({ result,
@@ -495,14 +497,14 @@ bool Note::IsDrawable()
     return m_drawAble;
 }
 
+bool Note::IsPassed()
+{
+    return m_state == NoteState::NORMAL_NOTE_PASSED || m_state == NoteState::HOLD_PASSED || m_state == NoteState::DO_REMOVE;
+}
+
 bool Note::IsRemoveable()
 {
     return m_state == NoteState::DO_REMOVE;
-}
-
-bool Note::IsPassed()
-{
-    return m_state == NoteState::NORMAL_NOTE_PASSED || m_state == NoteState::HOLD_PASSED || IsRemoveable();
 }
 
 bool Note::IsHeadHit()
