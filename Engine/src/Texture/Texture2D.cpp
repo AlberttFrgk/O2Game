@@ -30,9 +30,9 @@ namespace {
                 Uint8 r, g, b, a;
                 SDL_GetRGBA(pixel, surface->format, &r, &g, &b, &a);
 
-                r = (r * a + 127) / 255;
-                g = (g * a + 127) / 255;
-                b = (b * a + 127) / 255;
+                r = (r * a) / 255;
+                g = (g * a) / 255;
+                b = (b * a) / 255;
 
                 pixels[y * surface->w + x] = SDL_MapRGBA(surface->format, r, g, b, a);
             }
