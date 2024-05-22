@@ -13,7 +13,7 @@ FrameTimer::FrameTimer() :
 {
 }
 
-FrameTimer::FrameTimer(std::vector<Texture2D *> frames) : FrameTimer()
+FrameTimer::FrameTimer(std::vector<std::shared_ptr<Texture2D>> frames) : FrameTimer()
 {
     m_frames = std::move(frames);
 }
@@ -21,36 +21,34 @@ FrameTimer::FrameTimer(std::vector<Texture2D *> frames) : FrameTimer()
 FrameTimer::FrameTimer(std::vector<std::string> frames) : FrameTimer()
 {
     for (const auto &frame : frames) {
-        m_frames.emplace_back(new Texture2D(frame));
+        m_frames.emplace_back(std::make_shared<Texture2D>(frame));
     }
 }
 
 FrameTimer::FrameTimer(std::vector<std::filesystem::path> frames) : FrameTimer()
 {
     for (const auto &frame : frames) {
-        m_frames.emplace_back(new Texture2D(frame));
+        m_frames.emplace_back(std::make_shared<Texture2D>(frame));
     }
 }
 
 FrameTimer::FrameTimer(std::vector<SDL_Texture *> frames) : FrameTimer()
 {
     for (const auto &frame : frames) {
-        m_frames.emplace_back(new Texture2D(frame));
+        m_frames.emplace_back(std::make_shared<Texture2D>(frame));
     }
 }
 
 FrameTimer::FrameTimer(std::vector<Texture2D_Vulkan *> frames) : FrameTimer()
 {
     for (const auto &frame : frames) {
-        m_frames.emplace_back(new Texture2D(frame));
+        m_frames.emplace_back(std::make_shared<Texture2D>(frame));
     }
 }
 
 FrameTimer::~FrameTimer()
 {
-    for (auto &f : m_frames) {
-        delete f;
-    }
+    // The destructor is empty because using shared_ptr
 }
 
 void FrameTimer::Draw(double delta)
@@ -109,12 +107,14 @@ void FrameTimer::SetIndexAt(int idx)
 
 void FrameTimer::CalculateSize()
 {
-    auto &firstFrame = *m_frames[0];
-    firstFrame.AnchorPoint = AnchorPoint;
-    firstFrame.Size = Size;
-    firstFrame.Position = Position;
-    firstFrame.CalculateSize();
+    if (!m_frames.empty()) {
+        auto &firstFrame = *m_frames[0];
+        firstFrame.AnchorPoint = AnchorPoint;
+        firstFrame.Size = Size;
+        firstFrame.Position = Position;
+        firstFrame.CalculateSize();
 
-    AbsoluteSize = firstFrame.AbsoluteSize;
-    AbsolutePosition = firstFrame.AbsolutePosition;
+        AbsoluteSize = firstFrame.AbsoluteSize;
+        AbsolutePosition = firstFrame.AbsolutePosition;
+    }
 }
