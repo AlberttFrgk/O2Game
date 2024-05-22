@@ -204,7 +204,7 @@ void OJM::LoadM30Data(std::fstream &fs)
         fs.read((char *)buffer, SampleHeader.sampleSize);
 
         // Handle unencoded audio data
-        if (Header.encryptionFlag == 0) {
+        if (Header.encryptionFlag == 0) { // Skip if not encrypted just processing straight
             O2Sample sample = {};
             sample.RefValue = SampleHeader.ValueRef;
             sample.AudioData.insert(sample.AudioData.end(), buffer, buffer + SampleHeader.sampleSize);
@@ -228,7 +228,7 @@ void OJM::LoadM30Data(std::fstream &fs)
             SampleHeader.ValueRef += 1000;
         }
 
-            O2Sample sample = {};
+            O2Sample sample = {}; // Process data that decrypted
             sample.RefValue = SampleHeader.ValueRef;
             sample.AudioData.insert(sample.AudioData.end(), buffer, buffer + SampleHeader.sampleSize);
             Samples.push_back(sample);
