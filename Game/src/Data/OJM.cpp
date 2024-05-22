@@ -182,7 +182,7 @@ void OJM::LoadM30Data(std::fstream &fs)
 
     fs.read((char *)&Header, sizeof(M30Header));
 
-    for (int i = 0; i < Header.sampleSize; i++) {
+    for (int i = 0; i < Header.sampleCount; i++) { // This fix no sound in few OJM
         struct M30SampleHeader
         {
             char  sampleName[32];
