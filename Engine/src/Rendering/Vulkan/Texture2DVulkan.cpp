@@ -82,9 +82,9 @@ void InternalLoad(
     // Premultiply alpha
     for (size_t i = 0; i < image_size; i += tex_data->Channels) { // Fix white line issue
         float alpha = image_data[i + 3] / 255.0f;
-        image_data[i] *= alpha;
-        image_data[i + 1] *= alpha;
-        image_data[i + 2] *= alpha;
+        image_data[i] = static_cast<unsigned char>(image_data[i] * alpha);
+        image_data[i + 1] = static_cast<unsigned char>(image_data[i + 1] * alpha);
+        image_data[i + 2] = static_cast<unsigned char>(image_data[i + 2] * alpha);
     }
 
     VkResult err;

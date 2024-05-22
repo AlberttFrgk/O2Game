@@ -238,7 +238,7 @@ void Note::Render(double delta) // Code more cleared than before
         double bodyPosY = (headPosY + tailPosY) / 2.0;
         double bodyHeight = std::abs(headPosY - tailPosY);
         m_body->Position = UDim2::fromOffset(m_laneOffset, bodyPosY);
-        m_body->Size = { 1, 0, 0, bodyHeight + 2 }; // IDK this cause 1px gap between body and tail, so i had to add more height
+        m_body->Size = { 1, 0, 0, bodyHeight };
 
         float transparency = 0.9f;
         if (m_hitResult >= NoteResult::GOOD && m_state == NoteState::HOLD_ON_HOLDING) {
