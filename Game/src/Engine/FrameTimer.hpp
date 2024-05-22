@@ -16,12 +16,12 @@ class FrameTimer
 {
 public:
     FrameTimer();
-    FrameTimer(std::vector<Texture2D *> frames);
+    FrameTimer(std::vector<std::shared_ptr<Texture2D>> frames);
     FrameTimer(std::vector<std::string> frames);
     FrameTimer(std::vector<std::filesystem::path> frames);
     FrameTimer(std::vector<SDL_Texture *> frames);
     FrameTimer(std::vector<Texture2D_Vulkan *> frames);
-    ~FrameTimer();
+    virtual ~FrameTimer();
 
     bool   Repeat;
     bool   AlphaBlend;
@@ -35,7 +35,7 @@ public:
     Vector2 AbsoluteSize;
 
     void Draw(double delta);
-    void Draw(double delta, Rect *clip);
+    void Draw(double delta, Rect* clip);
     void SetFPS(double fps);
     void ResetIndex();
     void LastIndex();
@@ -43,10 +43,10 @@ public:
 
     void CalculateSize();
 
-    std::vector<Texture2D*> m_frames;
+    std::vector<std::shared_ptr<Texture2D>> m_frames;
 
 protected:
-    int                      m_currentFrame;
-    double                   m_frameTime;
-    double                   m_currentTime;
+    size_t m_currentFrame;
+    double m_frameTime;
+    double m_currentTime;
 };
