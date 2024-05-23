@@ -80,6 +80,8 @@ void GameplayScene::Update(double delta)
 
     if (m_game->GetState() == GameState::PosGame && !m_ended) {
         m_counter += delta;
+        m_drawExitButton = false;
+        m_doExit = false;
         m_minuteNum->DrawNumber(0);
         m_secondNum->DrawNumber(0);
 
@@ -97,6 +99,8 @@ void GameplayScene::Update(double delta)
         float health = m_game->GetScoreManager()->GetLife();
 
         if (health <= 0) {
+            m_drawExitButton = false;
+            m_doExit = false;
             m_game->Stop();
             EnvironmentSetup::SetInt("Failed", 1);
         }

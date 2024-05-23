@@ -169,7 +169,6 @@ void Note::Update(double delta)
                 m_hitPos = m_startTime + m_hitTime;
                 OnHit(NoteResult::MISS);
             }
-
             m_state = NoteState::DO_REMOVE;
         }
     } else {
@@ -201,13 +200,8 @@ void Note::Update(double delta)
                         OnRelease(NoteResult::MISS);
                     }
                 }
-
-                m_state = NoteState::DO_REMOVE;
             }
         }
-    }
-    if (IsPassed()) {
-        m_state = NoteState::DO_REMOVE;
     }
 }
 
@@ -502,7 +496,7 @@ bool Note::IsDrawable()
 
 bool Note::IsPassed()
 {
-    return m_state == NoteState::NORMAL_NOTE_PASSED || m_state == NoteState::HOLD_PASSED || m_state == NoteState::DO_REMOVE;
+    return m_state == NoteState::NORMAL_NOTE_PASSED || m_state == NoteState::HOLD_PASSED;
 }
 
 bool Note::IsRemoveable()
