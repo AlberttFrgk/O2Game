@@ -9,16 +9,20 @@ constexpr int kM30Signature = 0x0030334D;
 constexpr int kOMCSignature = 0x00434D4F;
 constexpr int kOJMSignature = 0x004D4A4F;
 
+const char MASK_SCRAMBLE1[] = { 0x73, 0x63, 0x72, 0x61, 0x6D, 0x62, 0x6C, 0x65, 0x31 };
+const char MASK_SCRAMBLE2[] = { 0x73, 0x63, 0x72, 0x61, 0x6D, 0x62, 0x6C, 0x65, 0x32 };
+const char MASK_DECODE[] = { 0x64, 0x65, 0x63, 0x6F, 0x64, 0x65 };
+const char MASK_DECRYPT[] = { 0x64, 0x65, 0x63, 0x72, 0x79, 0x70, 0x74 };
 const char MASK_NAMI[] = { 0x6E, 0x61, 0x6D, 0x69 };
 const char MASK_0412[] = { 0x30, 0x34, 0x31, 0x32 };
 
 void M30Xor(char *data, size_t sz, const char *xorKey)
 {
     for (int i = 0; i + 3 < sz; i += 4) {
-        data[i] ^= xorKey[0];
-        data[i + 1] ^= xorKey[1];
-        data[i + 2] ^= xorKey[2];
-        data[i + 3] ^= xorKey[3];
+        data[i] ^= xorKey[i % 4];
+        data[i + 1] ^= xorKey[(i + 1) % 4];
+        data[i + 2] ^= xorKey[(i + 2) % 4];
+        data[i + 3] ^= xorKey[(i + 3) % 4];
     }
 }
 
@@ -182,7 +186,7 @@ void OJM::LoadM30Data(std::fstream &fs)
 
     fs.read((char *)&Header, sizeof(M30Header));
 
-    for (int i = 0; i < Header.sampleSize; i++) {
+    for (int i = 0; i < Header.sampleCount; i++) { // This fix no sound in few OJM
         struct M30SampleHeader
         {
             char  sampleName[32];
@@ -203,37 +207,39 @@ void OJM::LoadM30Data(std::fstream &fs)
         uint8_t *buffer = new uint8_t[SampleHeader.sampleSize];
         fs.read((char *)buffer, SampleHeader.sampleSize);
 
-        // Handle unencoded audio data
-        if (Header.encryptionFlag == 0) { // Skip if not encrypted just processing straight
-            O2Sample sample = {};
-            sample.RefValue = SampleHeader.ValueRef;
-            sample.AudioData.insert(sample.AudioData.end(), buffer, buffer + SampleHeader.sampleSize);
-            Samples.push_back(sample);
+        switch (Header.encryptionFlag) {
+        case 0:
+            break;
+        case 1:
+            M30Xor((char*)buffer, SampleHeader.sampleSize, MASK_SCRAMBLE1);
+            break;
+        case 2:
+            M30Xor((char*)buffer, SampleHeader.sampleSize, MASK_SCRAMBLE2);
+            break;
+        case 4:
+            M30Xor((char*)buffer, SampleHeader.sampleSize, MASK_DECODE);
+            break;
+        case 8:
+            M30Xor((char*)buffer, SampleHeader.sampleSize, MASK_DECRYPT);
+            break;
+        case 16:
+            M30Xor((char*)buffer, SampleHeader.sampleSize, MASK_NAMI);
+            break;
+        case 32:
+            M30Xor((char*)buffer, SampleHeader.sampleSize, MASK_0412);
+            break;
         }
-        // Handle encoded audio data
-        else {
-            switch (Header.encryptionFlag) {
-                case 16:
-                    M30Xor((char *)buffer, SampleHeader.sampleSize, MASK_NAMI);
-                    break;
-                case 32:
-                    M30Xor((char *)buffer, SampleHeader.sampleSize, MASK_0412);
-                    break;
-                default:
-                    break;
-            }
 
         // OGG Sample
         if (SampleHeader.codecCode == 0) {
             SampleHeader.ValueRef += 1000;
         }
 
-            O2Sample sample = {}; // Process data that decrypted
-            sample.RefValue = SampleHeader.ValueRef;
-            sample.AudioData.insert(sample.AudioData.end(), buffer, buffer + SampleHeader.sampleSize);
-            Samples.push_back(sample);
-        }
+        O2Sample sample = {};
+        sample.RefValue = SampleHeader.ValueRef;
+        sample.AudioData.insert(sample.AudioData.end(), buffer, buffer + SampleHeader.sampleSize);
 
+        Samples.push_back(sample);
         delete[] buffer;
     }
 }
