@@ -116,7 +116,11 @@ void Sprite2D::DrawOnce(double delta, bool manual)
 
 void Sprite2D::DrawStop(double delta, bool manual)
 {
-    DrawInternal(delta, true, nullptr, manual); // Play once
+    DrawInternal(delta, true, nullptr, manual);
+
+    if (m_currentIndex == m_textures.size()) { // Play the stop on last frame
+        m_currentIndex = m_textures.size() - 1;
+    }
 }
 
 
