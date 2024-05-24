@@ -16,12 +16,12 @@ class FrameTimer
 {
 public:
     FrameTimer();
-    FrameTimer(std::vector<std::shared_ptr<Texture2D>> frames);
+    FrameTimer(std::vector<Texture2D*> frames);
     FrameTimer(std::vector<std::string> frames);
     FrameTimer(std::vector<std::filesystem::path> frames);
-    FrameTimer(std::vector<SDL_Texture *> frames);
-    FrameTimer(std::vector<Texture2D_Vulkan *> frames);
-    virtual ~FrameTimer();
+    FrameTimer(std::vector<SDL_Texture*> frames);
+    FrameTimer(std::vector<Texture2D_Vulkan*> frames);
+    ~FrameTimer();
 
     bool   Repeat;
     bool   AlphaBlend;
@@ -43,10 +43,10 @@ public:
 
     void CalculateSize();
 
-    std::vector<std::shared_ptr<Texture2D>> m_frames;
+    std::vector<Texture2D*> m_frames;
 
 protected:
-    size_t m_currentFrame;
-    double m_frameTime;
-    double m_currentTime;
+    int                      m_currentFrame;
+    double                   m_frameTime;
+    double                   m_currentTime;
 };

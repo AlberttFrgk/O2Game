@@ -169,6 +169,7 @@ void Note::Update(double delta)
                 m_hitPos = m_startTime + m_hitTime;
                 OnHit(NoteResult::MISS);
             }
+
             m_state = NoteState::DO_REMOVE;
         }
     } else {
@@ -200,6 +201,8 @@ void Note::Update(double delta)
                         OnRelease(NoteResult::MISS);
                     }
                 }
+
+                m_state = NoteState::DO_REMOVE;
             }
         }
     }
@@ -207,8 +210,12 @@ void Note::Update(double delta)
 
 void Note::Render(double delta) // Code more cleared than before
 {
-    if (IsRemoveable() || !m_drawAble)
+    if (IsRemoveable()) {
         return;
+    }
+    if (!m_drawAble) {
+        return;
+    }
 
     auto resolution = m_engine->GetResolution();
     auto hitPos = m_engine->GetHitPosition();
@@ -494,14 +501,14 @@ bool Note::IsDrawable()
     return m_drawAble;
 }
 
-bool Note::IsPassed()
-{
-    return m_state == NoteState::NORMAL_NOTE_PASSED || m_state == NoteState::HOLD_PASSED;
-}
-
 bool Note::IsRemoveable()
 {
     return m_state == NoteState::DO_REMOVE;
+}
+
+bool Note::IsPassed()
+{
+    return m_state == NoteState::NORMAL_NOTE_PASSED || m_state == NoteState::HOLD_PASSED || IsRemoveable();
 }
 
 bool Note::IsHeadHit()

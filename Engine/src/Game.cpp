@@ -35,30 +35,27 @@ namespace {
         IMG_Quit();
     }
 
-    thread_local Uint64 curTick = SDL_GetPerformanceCounter();
-    thread_local Uint64 lastTick = 0;
+    using namespace std::chrono;
+
+    thread_local high_resolution_clock::time_point curTick = high_resolution_clock::now();
+    thread_local high_resolution_clock::time_point lastTick = high_resolution_clock::now();
 
     double FrameLimit(double MaxFrameRate)
     {
-        const double targetFrameTime = 1.0 / MaxFrameRate;
-        const Uint64 targetFrameTicks = static_cast<Uint64>(targetFrameTime * SDL_GetPerformanceFrequency());
+        const double targetFrameTime = 1000.0 / MaxFrameRate;
 
-        Uint64 newTick = SDL_GetPerformanceCounter();
-        Uint64 frameTicks = newTick - curTick;
 
-        if (frameTicks < targetFrameTicks)
+        auto newTick = high_resolution_clock::now();
+        auto frameTime = duration_cast<microseconds>(newTick - curTick).count() / 1000.0;
+
+        if (frameTime < targetFrameTime)
         {
-            Uint64 delayTicks = targetFrameTicks - frameTicks;
-            if (delayTicks > 0)
-            {
-                Uint64 delayTime = delayTicks * 1000 / SDL_GetPerformanceFrequency();
-                SDL_Delay(static_cast<Uint32>(delayTime));
-                newTick = SDL_GetPerformanceCounter();
-                frameTicks = newTick - curTick;
-            }
+            auto delayTime = duration<double, std::milli>(targetFrameTime - frameTime);
+            std::this_thread::sleep_for(delayTime);
+            newTick += duration_cast<high_resolution_clock::duration>(delayTime);
         }
 
-        double delta = static_cast<double>(frameTicks) / SDL_GetPerformanceFrequency();
+        double delta = duration_cast<microseconds>(newTick - curTick).count() / 1000000.0;
 
         lastTick = curTick;
         curTick = newTick;

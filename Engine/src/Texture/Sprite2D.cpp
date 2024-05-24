@@ -64,10 +64,17 @@ void Sprite2D::Draw(double delta, bool manual)
     Draw(delta, nullptr, manual);
 }
 
-void Sprite2D::Draw(double delta, Rect *rect, bool manual) // Original code, play image sprite loop
+void Sprite2D::DrawInternal(double delta, bool playOnce, Rect* rect, bool manual)
 {
-    auto        tex = m_textures[m_currentIndex];
-    GameWindow *window = GameWindow::GetInstance();
+    if (m_currentIndex >= m_textures.size()) {
+        if (playOnce) {
+            return; // Stop if playing once and reached end
+        }
+        m_currentIndex = 0; // Reset index if looping
+    }
+
+    auto tex = m_textures[m_currentIndex];
+    GameWindow* window = GameWindow::GetInstance();
 
     double xPos = (window->GetBufferWidth() * Position.X.Scale) + (Position.X.Offset);
     double yPos = (window->GetBufferHeight() * Position.Y.Scale) + (Position.Y.Offset);
@@ -88,81 +95,28 @@ void Sprite2D::Draw(double delta, Rect *rect, bool manual) // Original code, pla
         m_currentTime += static_cast<float>(delta);
         if (m_currentTime >= m_spritespeed) {
             m_currentTime = 0.0;
-            m_currentIndex = (m_currentIndex + 1) % m_textures.size();
-        }
-    }
-}
-
-void Sprite2D::DrawOnce(double delta, bool manual) { // Play whole image sprite once
-    if (m_currentIndex >= m_textures.size()) {
-        return;
-    }
-
-    auto tex = m_textures[m_currentIndex];
-    GameWindow* window = GameWindow::GetInstance();
-
-    double xPos = (window->GetBufferWidth() * Position.X.Scale) + (Position.X.Offset);
-    double yPos = (window->GetBufferHeight() * Position.Y.Scale) + (Position.Y.Offset);
-
-    double xMPos = (window->GetBufferWidth() * Position2.X.Scale) + (Position2.X.Offset);
-    double yMPos = (window->GetBufferHeight() * Position2.Y.Scale) + (Position2.Y.Offset);
-
-    xPos += xMPos;
-    yPos += yMPos;
-
-    tex->Position = UDim2::fromOffset(xPos, yPos);
-    tex->AlphaBlend = AlphaBlend;
-    tex->Size = Size;
-    tex->AnchorPoint = AnchorPoint;
-    tex->Draw();
-
-    if (m_spritespeed > 0.0) {
-        m_currentTime += static_cast<float>(delta);
-        if (m_currentTime >= m_spritespeed) {
-            m_currentTime = 0.0;
             m_currentIndex++;
 
-            if (m_currentIndex == m_textures.size() && m_drawOnce) {
-                return;
+            if (playOnce && m_currentIndex == m_textures.size()) {
+                return; // Stop if playing once and reached end
             }
         }
     }
 }
 
-void Sprite2D::DrawStop(double delta, bool manual) { // Play image sprite once and stop on last frame
-    if (m_currentIndex >= m_textures.size()) {
-        m_currentIndex = static_cast<int>(m_textures.size()) - 1;
-    }
+void Sprite2D::Draw(double delta, Rect* rect, bool manual)
+{
+    DrawInternal(delta, false, rect, manual); // Play loop
+}
 
-    auto tex = m_textures[m_currentIndex];
-    GameWindow* window = GameWindow::GetInstance();
+void Sprite2D::DrawOnce(double delta, bool manual)
+{
+    DrawInternal(delta, true, nullptr, manual); // Play once
+}
 
-    double xPos = (window->GetBufferWidth() * Position.X.Scale) + (Position.X.Offset);
-    double yPos = (window->GetBufferHeight() * Position.Y.Scale) + (Position.Y.Offset);
-
-    double xMPos = (window->GetBufferWidth() * Position2.X.Scale) + (Position2.X.Offset);
-    double yMPos = (window->GetBufferHeight() * Position2.Y.Scale) + (Position2.Y.Offset);
-
-    xPos += xMPos;
-    yPos += yMPos;
-
-    tex->Position = UDim2::fromOffset(xPos, yPos);
-    tex->AlphaBlend = AlphaBlend;
-    tex->Size = Size;
-    tex->AnchorPoint = AnchorPoint;
-    tex->Draw();
-
-    if (m_spritespeed > 0.0) {
-        m_currentTime += static_cast<float>(delta);
-        if (m_currentTime >= m_spritespeed) {
-            m_currentTime = 0.0;
-            m_currentIndex++;
-
-            if (m_currentIndex == m_textures.size() && m_drawOnce) {
-                return;
-            }
-        }
-    }
+void Sprite2D::DrawStop(double delta, bool manual)
+{
+    DrawInternal(delta, true, nullptr, manual); // Play once
 }
 
 
