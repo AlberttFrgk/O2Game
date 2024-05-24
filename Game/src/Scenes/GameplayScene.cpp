@@ -386,11 +386,13 @@ void GameplayScene::Render(double delta)
     m_minuteNum->DrawNumber(currentMinutes);
     m_secondNum->DrawNumber(currentSeconds);
 
-    for (int i = 0; i < 7; i++) {
-        m_hitEffect[i]->Draw(delta);
+    if (EnvironmentSetup::GetInt("NowPlaying") == 1) {
+        for (int i = 0; i < 7; i++) {
+            m_hitEffect[i]->Draw(delta);
 
-        if (m_drawHold[i]) {
-            m_holdEffect[i]->Draw(delta);
+            if (m_drawHold[i]) {
+                m_holdEffect[i]->Draw(delta);
+            }
         }
     }
 
