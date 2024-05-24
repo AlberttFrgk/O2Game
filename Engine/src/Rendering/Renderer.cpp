@@ -52,11 +52,11 @@ bool Renderer::Create(RendererMode mode, GameWindow *window, bool failed)
                 break;
             }
 
-            case RendererMode::DIRECTX11:
+            /*case RendererMode::DIRECTX11:
             {
                 rendererName = "direct3d11";
                 break;
-            }
+            }*/
 
             case RendererMode::DIRECTX12:
             {

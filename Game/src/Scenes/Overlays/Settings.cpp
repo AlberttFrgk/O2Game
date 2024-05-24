@@ -35,13 +35,22 @@ static std::map<int, std::string> Graphics = {
     { 1, "Vulkan" },
 #if _WIN32
     { 2, "DirectX-9" },
-    { 3, "DirectX-11" },
-    { 4, "DirectX-12" },
+    { 3, "DirectX-12" },
 #endif
 #if __APPLE__
-    { 5, "Metal" },
+    { 4, "Metal" },
 #endif
 };
+
+//#if _WIN32
+//{ 2, "DirectX-9" },
+//{ 3, "DirectX-11" },
+//{ 4, "DirectX-12" },
+//#endif
+//#if __APPLE__
+//{ 5, "Metal" },
+//#endif
+//};
 
 static std::array<std::string, 4>  LongNote = { "None", "Short", "Normal", "Long" };
 static std::array<std::string, 14> m_fps = { "30", "60", "75", "120", "144", "165", "180", "240", "360", "480", "600", "800", "1000", "Unlimited" };
