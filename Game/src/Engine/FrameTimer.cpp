@@ -9,46 +9,48 @@ FrameTimer::FrameTimer() :
     m_currentTime(0),
     AlphaBlend(false),
     Size(UDim2::fromScale(1, 1)),
-    TintColor({1.0f, 1.0f, 1.0f})
+    TintColor({ 1.0f, 1.0f, 1.0f })
 {
 }
 
-FrameTimer::FrameTimer(std::vector<std::shared_ptr<Texture2D>> frames) : FrameTimer()
+FrameTimer::FrameTimer(std::vector<Texture2D*> frames) : FrameTimer()
 {
     m_frames = std::move(frames);
 }
 
 FrameTimer::FrameTimer(std::vector<std::string> frames) : FrameTimer()
 {
-    for (const auto &frame : frames) {
-        m_frames.emplace_back(std::make_shared<Texture2D>(frame));
+    for (const auto& frame : frames) {
+        m_frames.emplace_back(new Texture2D(frame));
     }
 }
 
 FrameTimer::FrameTimer(std::vector<std::filesystem::path> frames) : FrameTimer()
 {
-    for (const auto &frame : frames) {
-        m_frames.emplace_back(std::make_shared<Texture2D>(frame));
+    for (const auto& frame : frames) {
+        m_frames.emplace_back(new Texture2D(frame));
     }
 }
 
-FrameTimer::FrameTimer(std::vector<SDL_Texture *> frames) : FrameTimer()
+FrameTimer::FrameTimer(std::vector<SDL_Texture*> frames) : FrameTimer()
 {
-    for (const auto &frame : frames) {
-        m_frames.emplace_back(std::make_shared<Texture2D>(frame));
+    for (const auto& frame : frames) {
+        m_frames.emplace_back(new Texture2D(frame));
     }
 }
 
-FrameTimer::FrameTimer(std::vector<Texture2D_Vulkan *> frames) : FrameTimer()
+FrameTimer::FrameTimer(std::vector<Texture2D_Vulkan*> frames) : FrameTimer()
 {
-    for (const auto &frame : frames) {
-        m_frames.emplace_back(std::make_shared<Texture2D>(frame));
+    for (const auto& frame : frames) {
+        m_frames.emplace_back(new Texture2D(frame));
     }
 }
 
 FrameTimer::~FrameTimer()
 {
-    // The destructor is empty because using shared_ptr
+    for (auto& f : m_frames) {
+        delete f;
+    }
 }
 
 void FrameTimer::Draw(double delta)
@@ -56,7 +58,7 @@ void FrameTimer::Draw(double delta)
     Draw(delta, nullptr);
 }
 
-void FrameTimer::Draw(double delta, Rect *clip)
+void FrameTimer::Draw(double delta, Rect* clip)
 {
     m_currentTime += delta;
 
@@ -78,7 +80,7 @@ void FrameTimer::Draw(double delta, Rect *clip)
         if (m_currentFrame != 0) {
             currentFrame->Position = UDim2::fromOffset(AbsolutePosition.X, AbsolutePosition.Y);
             currentFrame->Size = UDim2::fromOffset(AbsoluteSize.X, AbsoluteSize.Y);
-            currentFrame->AnchorPoint = {0, 0};
+            currentFrame->AnchorPoint = { 0, 0 };
         }
 
         currentFrame->Draw(clip);
@@ -107,14 +109,12 @@ void FrameTimer::SetIndexAt(int idx)
 
 void FrameTimer::CalculateSize()
 {
-    if (!m_frames.empty()) {
-        auto &firstFrame = *m_frames[0];
-        firstFrame.AnchorPoint = AnchorPoint;
-        firstFrame.Size = Size;
-        firstFrame.Position = Position;
-        firstFrame.CalculateSize();
+    auto& firstFrame = *m_frames[0];
+    firstFrame.AnchorPoint = AnchorPoint;
+    firstFrame.Size = Size;
+    firstFrame.Position = Position;
+    firstFrame.CalculateSize();
 
-        AbsoluteSize = firstFrame.AbsoluteSize;
-        AbsolutePosition = firstFrame.AbsolutePosition;
-    }
+    AbsoluteSize = firstFrame.AbsoluteSize;
+    AbsolutePosition = firstFrame.AbsolutePosition;
 }

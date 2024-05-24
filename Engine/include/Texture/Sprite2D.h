@@ -49,4 +49,6 @@ private:
     bool m_drawOnce = false;
 
     std::vector<Texture2D *> m_textures;
+
+    void DrawInternal(double delta, bool playOnce, Rect* rect, bool manual);
 };
