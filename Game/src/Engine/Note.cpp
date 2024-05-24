@@ -365,7 +365,6 @@ std::tuple<bool, NoteResult> Note::CheckHit()
         }
 
         return result;
-        m_state = NoteState::DO_REMOVE;
     }
     else {
         if (m_state == NoteState::HOLD_PRE) {
