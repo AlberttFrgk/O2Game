@@ -34,6 +34,11 @@ ScoreManager::~ScoreManager()
 
 void ScoreManager::OnHit(NoteHitInfo info) // Fuck it just leave it max HP 100 and divided that by 10
 {
+    bool IsPlaying = EnvironmentSetup::GetInt("NowPlaying") == 1;
+    if (!IsPlaying) {
+        return;
+    }
+
     int difficulty = EnvironmentSetup::GetInt("Difficulty");
     switch (difficulty) {
     case 0: // Easy
@@ -208,6 +213,11 @@ void ScoreManager::OnHit(NoteHitInfo info) // Fuck it just leave it max HP 100 a
 
 void ScoreManager::OnLongNoteHold(HoldResult result)
 {
+    bool IsPlaying = EnvironmentSetup::GetInt("NowPlaying") == 1;
+    if (!IsPlaying) {
+        return;
+    }
+
     switch (result) {
         case HoldResult::HoldBreak:
         {

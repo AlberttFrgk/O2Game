@@ -326,6 +326,7 @@ void RhythmEngine::SetKeys(Keys *keys)
 
 bool RhythmEngine::Start()
 { // no, use update event instead
+    EnvironmentSetup::SetInt("NowPlaying", 1);
     m_currentAudioPosition -= 5000;
     m_state = GameState::Playing;
     //m_startClock = std::chrono::system_clock::now();
@@ -334,10 +335,11 @@ bool RhythmEngine::Start()
 
 bool RhythmEngine::Stop()
 {
+    EnvironmentSetup::SetInt("NowPlaying", 0);
     m_state = GameState::PosGame;
     GameAudioSampleCache::StopAll();
-    return true;
     m_PlayTime = 0.0;
+    return true;
 }
 
 bool RhythmEngine::Ready()
@@ -442,13 +444,13 @@ void RhythmEngine::Render(double delta)
 
 void RhythmEngine::Input(double delta)
 {
-    if (m_state == GameState::NotGame || m_state == GameState::PosGame)
+    if (m_state == GameState::NotGame)
         return;
 }
 
 void RhythmEngine::OnKeyDown(const KeyState &state)
 {
-    if (m_state == GameState::NotGame || m_state == GameState::PosGame)
+    if (m_state == GameState::NotGame)
         return;
 
     if (state.key == Keys::F3) {
@@ -472,7 +474,7 @@ void RhythmEngine::OnKeyDown(const KeyState &state)
 
 void RhythmEngine::OnKeyUp(const KeyState &state)
 {
-    if (m_state == GameState::NotGame || m_state == GameState::PosGame)
+    if (m_state == GameState::NotGame)
         return;
 
     if (!m_is_autoplay) {

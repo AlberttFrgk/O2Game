@@ -356,26 +356,38 @@ std::tuple<bool, NoteResult> Note::CheckHit()
 
     if (m_type == NoteType::NORMAL) {
         double time_to_end = m_engine->GetGameAudioPosition() - m_startTime;
-        auto   result = judge->CalculateResult(this);
+        auto result = judge->CalculateResult(this);
         if (std::get<bool>(result)) {
             m_ignore = false;
         }
+        else if (time_to_end) {
+            m_ignore = true;
+        }
 
         return result;
-    } else {
+        m_state = NoteState::DO_REMOVE;
+    }
+    else {
         if (m_state == NoteState::HOLD_PRE) {
             double time_to_end = m_engine->GetGameAudioPosition() - m_startTime;
-            auto   result = judge->CalculateResult(this);
+            auto result = judge->CalculateResult(this);
             if (std::get<bool>(result)) {
                 m_ignore = false;
             }
+            else if (time_to_end) {
+                m_ignore = true;
+            }
 
             return result;
-        } else if (m_state == NoteState::HOLD_MISSED_ACTIVE) {
+        }
+        else if (m_state == NoteState::HOLD_MISSED_ACTIVE) {
             double time_to_end = m_engine->GetGameAudioPosition() - m_endTime;
-            auto   result = judge->CalculateResult(this);
+            auto result = judge->CalculateResult(this);
             if (std::get<bool>(result)) {
                 m_ignore = false;
+            }
+            else if (time_to_end) {
+                m_ignore = true;
             }
 
             return result;
@@ -388,7 +400,7 @@ std::tuple<bool, NoteResult> Note::CheckHit()
 std::tuple<bool, NoteResult> Note::CheckRelease()
 {
     if (m_type == NoteType::HOLD) {
-        double     time_to_end = m_engine->GetGameAudioPosition() - m_endTime;
+        double time_to_end = m_engine->GetGameAudioPosition() - m_endTime;
         JudgeBase *judge = m_engine->GetJudge();
 
         if (m_state == NoteState::HOLD_ON_HOLDING || m_state == NoteState::HOLD_MISSED_ACTIVE) {
@@ -396,6 +408,7 @@ std::tuple<bool, NoteResult> Note::CheckRelease()
 
             if (std::get<bool>(result)) {
                 if (m_state == NoteState::HOLD_MISSED_ACTIVE) {
+                    m_ignore = false;
                     return { true, NoteResult::BAD };
                 }
 
@@ -403,8 +416,15 @@ std::tuple<bool, NoteResult> Note::CheckRelease()
             }
 
             if (m_state == NoteState::HOLD_ON_HOLDING) {
+                if (time_to_end) {
+                    m_ignore = true;
+                }
                 return { true, NoteResult::MISS };
-            } else {
+            }
+            else {
+                if (time_to_end) {
+                    m_ignore = true;
+                }
                 return { false, NoteResult::MISS };
             }
         }
