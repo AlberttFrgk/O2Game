@@ -35,27 +35,25 @@ namespace {
         IMG_Quit();
     }
 
-    using namespace std::chrono;
-
-    thread_local high_resolution_clock::time_point curTick = high_resolution_clock::now();
-    thread_local high_resolution_clock::time_point lastTick = high_resolution_clock::now();
+    thread_local double curTick = 0.0;
+    thread_local double lastTick = 0.0;
 
     double FrameLimit(double MaxFrameRate)
     {
         const double targetFrameTime = 1000.0 / MaxFrameRate;
 
-
-        auto newTick = high_resolution_clock::now();
-        auto frameTime = duration_cast<microseconds>(newTick - curTick).count() / 1000.0;
+        double newTick = static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+        double frameTime = newTick - curTick;
 
         if (frameTime < targetFrameTime)
         {
-            auto delayTime = duration<double, std::milli>(targetFrameTime - frameTime);
-            std::this_thread::sleep_for(delayTime);
-            newTick += duration_cast<high_resolution_clock::duration>(delayTime);
+            std::this_thread::yield();
+            double delayTime = targetFrameTime - frameTime;
+            std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<long long>(delayTime)));
+            newTick += delayTime;
         }
 
-        double delta = duration_cast<microseconds>(newTick - curTick).count() / 1000000.0;
+        double delta = (newTick - curTick) / 1000.0;
 
         lastTick = curTick;
         curTick = newTick;
