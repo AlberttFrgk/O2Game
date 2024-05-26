@@ -53,10 +53,35 @@ static std::map<int, std::string> Graphics = {
 //};
 
 static std::array<std::string, 4>  LongNote = { "None", "Short", "Normal", "Long" };
-static std::array<std::string, 14> m_fps = { "30", "60", "75", "120", "144", "165", "180", "240", "360", "480", "600", "800", "1000", "Unlimited" };
+//static std::array<std::string, 14> m_fps = { "30", "60", "75", "120", "144", "165", "180", "240", "360", "480", "600", "800", "1000", "Unlimited" };
 static std::array<std::string, 3>  SelectedBackground = { "Arena", "Song", "Disable" };
 
 static std::vector<std::string> m_resolutions = {};
+
+int currentFPSIndex = 0;
+int customFPS = 0;
+
+namespace {
+    int GetScreenRefreshRate() {
+        SDL_DisplayMode displayMode;
+        if (SDL_GetCurrentDisplayMode(0, &displayMode) != 0) {
+            return 60; // Default to 60 if SDL can't catch refresh rate (pc issues)
+        }
+        return displayMode.refresh_rate;
+    }
+
+    std::vector<std::string> GetFpsOptions() {
+        int refreshRate = GetScreenRefreshRate();
+        std::vector<int> multipliers = { 1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16, 20 };
+        std::vector<std::string> fpsOptions;
+
+        for (int multiplier : multipliers) {
+            fpsOptions.push_back(std::to_string(refreshRate * multiplier));
+        }
+        fpsOptions.push_back("Unlimited");
+        return fpsOptions;
+    }
+}
 
 void SettingsOverlay::Render(double delta)
 {
@@ -197,7 +222,8 @@ void SettingsOverlay::Render(double delta)
                         int nextGraphicsIndex = -1;
                         try {
                             GraphicsIndex = std::stoi(Configuration::Load("Game", "Renderer").c_str());
-                        } catch (const std::invalid_argument &) {
+                        }
+                        catch (const std::invalid_argument&) {
                         }
 
                         ImGui::Text("Graphics");
@@ -253,25 +279,34 @@ void SettingsOverlay::Render(double delta)
 
                         ImGui::NewLine();
 
+                        std::vector<std::string> fpsOptions = GetFpsOptions();
                         ImGui::Text("FPS");
-                        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Warning: setting unlimited FPS can cause PC to unstable!");
-                        if (ImGui::BeginCombo("###ComboBox2", m_fps[currentFPSIndex].c_str())) {
-                            for (int i = 0; i < m_fps.size(); i++) {
+                        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Warning: setting unlimited FPS can cause PC to become unstable!");
+                        if (ImGui::BeginCombo("###ComboBox2", fpsOptions[currentFPSIndex].c_str())) {
+                            for (int i = 0; i < fpsOptions.size(); i++) {
                                 bool isSelected = (currentFPSIndex == i);
 
-                                if (ImGui::Selectable(m_fps[i].c_str(), &isSelected)) {
+                                if (ImGui::Selectable(fpsOptions[i].c_str(), &isSelected)) {
                                     currentFPSIndex = i;
+                                    if (fpsOptions[i] == "Unlimited") {
+                                        customFPS = 9999;
+                                        Configuration::Set("Game", "FrameLimit", std::to_string(customFPS));
+                                    }
+                                    else {
+                                        customFPS = 0;
+                                        Configuration::Set("Game", "FrameLimit", fpsOptions[i]);
+                                    }
                                 }
 
                                 if (isSelected) {
                                     ImGui::SetItemDefaultFocus();
                                 }
                             }
-
                             ImGui::EndCombo();
                         }
 
                         ImGui::EndTabItem();
+
                     }
 
                     if (ImGui::BeginTabItem("Audio")) {
@@ -509,16 +544,23 @@ void SettingsOverlay::LoadConfiguration()
     }
 
     try {
-        auto value = Configuration::Load("Game", "FrameLimit");
-        auto it = std::find(m_fps.begin(), m_fps.end(), value);
-        if (it == m_fps.end()) {
-            currentFPSIndex = 4;
-        } else {
-            currentFPSIndex = (int)(it - m_fps.begin());
+        std::string frameLimit = Configuration::Load("Game", "FrameLimit");
+        auto fpsOptions = GetFpsOptions();
+        auto it = std::find(fpsOptions.begin(), fpsOptions.end(), frameLimit);
+        if (it != fpsOptions.end()) {
+            currentFPSIndex = std::distance(fpsOptions.begin(), it);
+            customFPS = 0;
         }
-    } catch (const std::invalid_argument &) {
-        currentFPSIndex = 4;
+        else {
+            currentFPSIndex = fpsOptions.size() - 1;
+            customFPS = 9999;
+        }
     }
+    catch (const std::invalid_argument&) {
+        customFPS = 9999;
+    }
+
+    SceneManager::GetInstance()->SetFrameLimit(std::atof(Configuration::Load("Game", "FrameLimit").c_str()));
 
     try {
         currentGuideLineIndex = std::stoi(Configuration::Load("Game", "GuideLine").c_str());
@@ -575,12 +617,6 @@ void SettingsOverlay::LoadConfiguration()
         EnvironmentSetup::SetInt("MeasureLine", 1);
     }
 
-    auto fps = m_fps[currentFPSIndex];
-    if (fps == *(m_fps.end() - 1)) {
-        fps = "9999" ;
-    }
-
-    SceneManager::GetInstance()->SetFrameLimit(std::atof(fps.c_str()));
     currentSkin = Configuration::Load("Game", "Skin");
     PreloadSkin();
 }
@@ -590,18 +626,19 @@ void SettingsOverlay::SaveConfiguration()
     Configuration::Set("Game", "AudioOffset", std::to_string(currentOffset));
     Configuration::Set("Game", "AudioVolume", std::to_string(currentVolume));
     Configuration::Set("Game", "AutoSound", std::to_string(convertAutoSound ? 1 : 0));
-    Configuration::Set("Game", "FrameLimit", m_fps[currentFPSIndex]);
     Configuration::Set("Game", "GuideLine", std::to_string(currentGuideLineIndex));
     Configuration::Set("Game", "Background", std::to_string(BackgroundIndex));
     Configuration::Set("Game", "MeasureLine", std::to_string(MeasureLine ? 1 : 0));
     Configuration::Set("Game", "NoteTail", std::to_string(NoteTail ? 1 : 0));
 
-    auto frame = m_fps[currentFPSIndex];
-    if (frame == m_fps[13]) {
-        frame = "9999";
+    if (currentFPSIndex == GetFpsOptions().size() - 1 && customFPS > 0) {
+        Configuration::Set("Game", "FrameLimit", std::to_string(customFPS));
+    }
+    else {
+        Configuration::Set("Game", "FrameLimit", GetFpsOptions()[currentFPSIndex]);
     }
 
-    SceneManager::GetInstance()->SetFrameLimit(std::atof(frame.c_str()));
+    SceneManager::GetInstance()->SetFrameLimit(std::atof(Configuration::Load("Game", "FrameLimit").c_str()));
 
     if (currentSkin.empty()) {
         throw std::runtime_error("SKIN_NAME Undefined!");
