@@ -47,9 +47,9 @@ namespace {
 
         if (frameTime < targetFrameTime)
         {
-            std::this_thread::yield();
             double delayTime = targetFrameTime - frameTime;
             std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<long long>(delayTime)));
+            std::this_thread::yield();
             newTick += delayTime;
         }
 
