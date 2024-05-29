@@ -66,6 +66,8 @@ void Sprite2D::Draw(double delta, bool manual)
 
 void Sprite2D::DrawInternal(double delta, bool playOnce, Rect* rect, bool manual)
 {
+    if (m_textures.empty()) return; // Safety check to ensure m_textures is not empty
+
     if (m_currentIndex >= m_textures.size()) {
         if (playOnce) {
             return; // Stop if playing once and reached end
@@ -97,8 +99,13 @@ void Sprite2D::DrawInternal(double delta, bool playOnce, Rect* rect, bool manual
             m_currentTime = 0.0;
             m_currentIndex++;
 
-            if (playOnce && m_currentIndex == m_textures.size()) {
-                return; // Stop if playing once and reached end
+            if (m_currentIndex >= m_textures.size()) {
+                if (playOnce) {
+                    m_currentIndex = m_textures.size() - 1; // Stop at the last frame if playing once
+                    return;
+                } else {
+                    m_currentIndex = 0; // Loop back to the first frame
+                }
             }
         }
     }
@@ -118,11 +125,10 @@ void Sprite2D::DrawStop(double delta, bool manual)
 {
     DrawInternal(delta, true, nullptr, manual);
 
-    if (m_currentIndex == m_textures.size()) { // Play the stop on last frame
+    if (m_currentIndex >= m_textures.size()) { // Play the stop on last frame
         m_currentIndex = m_textures.size() - 1;
     }
 }
-
 
 void Sprite2D::Reset()
 {
@@ -132,6 +138,8 @@ void Sprite2D::Reset()
 
 Texture2D *Sprite2D::GetTexture()
 {
+    if (m_textures.empty()) return nullptr; // Safety check to ensure m_textures is not empty
+
     auto tex = m_textures[m_currentIndex];
     tex->Position = Position;
     tex->Size = Size;
