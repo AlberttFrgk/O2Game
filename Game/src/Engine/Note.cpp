@@ -260,6 +260,30 @@ void Note::Render(double delta) // Code more cleared than before
             m_tail->Position = UDim2::fromOffset(m_laneOffset, tailPosY);
             m_tail->SetIndexAt(m_engine->GetNoteImageIndex());
             m_tail->Draw(delta, &playRect);
+
+            if (guideLineLength > 0) {
+                m_trail_down->Position = m_tail->Position;
+                m_trail_down->Size = UDim2::fromOffset(1, guideLineLength);
+                m_trail_down->AnchorPoint = { 0, 0 };
+                m_trail_down->AlphaBlend = true;
+                m_trail_down->Draw(delta, &playRect);
+
+                m_trail_down->Position = m_tail->Position + UDim2::fromOffset(m_tail->AbsoluteSize.X, 0);
+                m_trail_down->AnchorPoint = { 1, 0 };
+                m_trail_down->AlphaBlend = true;
+                m_trail_down->Draw(delta, &playRect);
+
+                m_trail_up->Position = m_tail->Position + UDim2::fromOffset(0, -m_tail->AbsoluteSize.Y);
+                m_trail_up->Size = UDim2::fromOffset(1, guideLineLength);
+                m_trail_up->AnchorPoint = { 0, 1 };
+                m_trail_up->AlphaBlend = true;
+                m_trail_up->Draw(delta, &playRect);
+
+                m_trail_up->Position = m_tail->Position + UDim2::fromOffset(m_tail->AbsoluteSize.X, -m_tail->AbsoluteSize.Y);
+                m_trail_up->AnchorPoint = { 1, 1 };
+                m_trail_up->AlphaBlend = true;
+                m_trail_up->Draw(delta, &playRect);
+            }
         }
     }
 
@@ -567,124 +591,3 @@ void Note::Release()
         m_head = nullptr;
     }
 }
-
-// Old code
-//void Note::Render(double delta)
-//{
-//    if (IsRemoveable())
-//        return;
-//    if (!m_drawAble)
-//        return;
-//
-//    auto   resolution = m_engine->GetResolution();
-//    auto   hitPos = m_engine->GetHitPosition();
-//    double trackPosition = m_engine->GetTrackPosition();
-//
-//    int  min = -100, max = hitPos + 25;
-//    auto playRect = m_engine->GetPlayRectangle();
-//
-//    int guideLineIndex = m_engine->GetGuideLineIndex();
-//
-//    int guideLineLength = 24 * length_multiplier[guideLineIndex];
-//
-//    if (m_type == NoteType::HOLD) {
-//        double y1 = CalculateNotePosition(trackPosition, m_initialTrackPosition, 1000.0, m_engine->GetNotespeed(), false) / 1000.0;
-//        double y2 = CalculateNotePosition(trackPosition, m_endTrackPosition, 1000.0, m_engine->GetNotespeed(), false) / 1000.0;
-//
-//        m_head->Position = UDim2::fromOffset(m_laneOffset, lerp(0.0, (double)hitPos, (float)y1));
-//        m_tail->Position = UDim2::fromOffset(m_laneOffset, lerp(0.0, (double)hitPos, (float)y2));
-//
-//        float Transparency = 0.9f;
-//
-//        if (m_hitResult >= NoteResult::GOOD && m_state == NoteState::HOLD_ON_HOLDING) {
-//            // m_head->Position.Y.Offset = hitPos;
-//            Transparency = 1.0f;
-//        }
-//
-//        m_head->CalculateSize();
-//        m_tail->CalculateSize();
-//
-//        double headPos = m_head->AbsolutePosition.Y + (m_head->AbsoluteSize.Y / 2.0);
-//        double tailPos = m_tail->AbsolutePosition.Y + (m_tail->AbsoluteSize.Y / 2.0);
-//
-//        double height = headPos - tailPos;
-//        double position = (height / 2.0) + tailPos;
-//
-//        m_body->Position = UDim2::fromOffset(m_laneOffset, position);
-//        m_body->Size = { 1, 0, 0, height };
-//
-//        m_body->TintColor = { Transparency, Transparency, Transparency };
-//
-//        bool b1 = isWithinRange(m_head->Position.Y.Offset, min, max);
-//        bool b2 = isWithinRange(m_tail->Position.Y.Offset, min, max);
-//
-//        if (isCollision(m_tail->Position.Y.Offset, m_head->Position.Y.Offset, min, max)) {
-//            m_body->SetIndexAt(m_engine->GetNoteImageIndex());
-//            m_body->Draw(delta, &playRect);
-//        }
-//
-//        if (b1) {
-//            if (guideLineLength > 0) {
-//                m_trail_down->Position = m_head->Position;
-//                m_trail_down->Size = UDim2::fromOffset(1, guideLineLength);
-//                m_trail_down->AnchorPoint = { 0, 0 };
-//                m_trail_down->Draw(delta, &playRect);
-//
-//                m_trail_down->Position = m_head->Position + UDim2::fromOffset(m_head->AbsoluteSize.X, 0);
-//                m_trail_down->AnchorPoint = { 1, 0 };
-//                m_trail_down->Draw(delta, &playRect);
-//            }
-//
-//            m_head->SetIndexAt(m_engine->GetNoteImageIndex());
-//            m_head->Draw(delta, &playRect);
-//        }
-//
-//        if (b2) {
-//            if (guideLineLength > 0) {
-//                m_trail_up->Position = m_tail->Position + UDim2::fromOffset(0, -m_tail->AbsoluteSize.Y);
-//                m_trail_up->Size = UDim2::fromOffset(1, guideLineLength);
-//                m_trail_up->AnchorPoint = { 0, 1 };
-//                m_trail_up->Draw(delta, &playRect);
-//
-//                m_trail_up->Position = m_tail->Position + UDim2::fromOffset(m_tail->AbsoluteSize.X, -m_tail->AbsoluteSize.Y);
-//                m_trail_up->AnchorPoint = { 1, 1 };
-//                m_trail_up->Draw(delta, &playRect);
-//            }
-//
-//            m_tail->SetIndexAt(m_engine->GetNoteImageIndex());
-//            m_tail->Draw(delta, &playRect);
-//        }
-//    }
-//    else {
-//        double y1 = CalculateNotePosition(trackPosition, m_initialTrackPosition, 1000.0, m_engine->GetNotespeed(), false) / 1000.0;
-//        m_head->Position = UDim2::fromOffset(m_laneOffset, lerp(0.0, (double)hitPos, (float)y1));
-//        m_head->CalculateSize();
-//
-//        bool b1 = isWithinRange(m_head->Position.Y.Offset, min, max);
-//
-//        if (b1) {
-//            if (guideLineLength > 0) {
-//                m_trail_down->Position = m_head->Position;
-//                m_trail_down->Size = UDim2::fromOffset(1, guideLineLength);
-//                m_trail_down->AnchorPoint = { 0, 0 };
-//                m_trail_down->Draw(delta, &playRect);
-//
-//                m_trail_down->Position = m_head->Position + UDim2::fromOffset(m_head->AbsoluteSize.X, 0);
-//                m_trail_down->AnchorPoint = { 1, 0 };
-//                m_trail_down->Draw(delta, &playRect);
-//
-//                m_trail_up->Position = m_head->Position + UDim2::fromOffset(0, -m_head->AbsoluteSize.Y);
-//                m_trail_up->Size = UDim2::fromOffset(1, guideLineLength);
-//                m_trail_up->AnchorPoint = { 0, 1 };
-//                m_trail_up->Draw(delta, &playRect);
-//
-//                m_trail_up->Position = m_head->Position + UDim2::fromOffset(m_head->AbsoluteSize.X, -m_head->AbsoluteSize.Y);
-//                m_trail_up->AnchorPoint = { 1, 1 };
-//                m_trail_up->Draw(delta, &playRect);
-//            }
-//
-//            m_head->SetIndexAt(m_engine->GetNoteImageIndex());
-//            m_head->Draw(delta, &playRect);
-//        }
-//    }
-//}
