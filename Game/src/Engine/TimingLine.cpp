@@ -66,6 +66,7 @@ void TimingLine::Render(double delta)
     m_line->Position = UDim2::fromOffset(m_imagePos, pos_y); //+ start.Lerp(end, alpha);
 
     if (m_line->Position.Y.Offset >= 0 && m_line->Position.Y.Offset < hitPos + 10) {
+        m_line->TintColor = { 0.7f, 0.7f, 0.7f };
         m_line->Draw(&playRect);
     }
 }
