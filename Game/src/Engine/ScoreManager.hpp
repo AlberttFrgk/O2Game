@@ -5,6 +5,13 @@
 constexpr float kMaxJamGauge = 100;
 constexpr float kMaxLife = 100;
 
+struct HealthDifficulty {
+    float cool;
+    float good;
+    float bad;
+    float miss;
+};
+
 struct NoteHitInfo
 {
     NoteResult Result;
@@ -21,6 +28,7 @@ public:
     ~ScoreManager();
 
     void OnHit(NoteHitInfo info);
+    void HandleHit(NoteHitInfo& info, const HealthDifficulty& health);
     void OnLongNoteHold(HoldResult result);
     void ListenHit(std::function<void(NoteHitInfo)>);
     void ListenJam(std::function<void(int)>);

@@ -85,7 +85,7 @@ void GameplayScene::Update(double delta)
         m_minuteNum->DrawNumber(0);
         m_secondNum->DrawNumber(0);
 
-        if (m_counter > 10.0) {
+        if (m_counter > 5.0) {
             m_ended = true;
             m_counter = 0.0; // Reset
             SceneManager::DisplayFade(100, [] {
@@ -94,14 +94,32 @@ void GameplayScene::Update(double delta)
         }
     }
 
-    int difficulty = EnvironmentSetup::GetInt("Difficulty");
-    if (difficulty >= 1 && m_starting) {
-        float health = m_game->GetScoreManager()->GetLife();
+    if (m_game->GetState() == GameState::PosGame && !m_ended) {
+        m_drawExitButton = false;
+        m_doExit = false;
+        m_minuteNum->DrawNumber(0);
+        m_secondNum->DrawNumber(0);
 
+        m_ended = true;
+        m_counter = 0.0; // Reset
+        SceneManager::DisplayFade(100, [] {
+            SceneManager::ChangeScene(GameScene::RESULT);
+            });
+    }
+
+    int difficulty = EnvironmentSetup::GetInt("Difficulty");
+    float health = m_game->GetScoreManager()->GetLife();
+    if (difficulty >= 1 && m_starting) {
         if (health <= 0) {
             m_drawExitButton = false;
             m_doExit = false;
             m_game->Stop();
+            EnvironmentSetup::SetInt("NowPlaying", 0);
+            EnvironmentSetup::SetInt("Failed", 1);
+        }
+    }
+    else {
+        if (health <= 0) {
             EnvironmentSetup::SetInt("Failed", 1);
         }
     }
