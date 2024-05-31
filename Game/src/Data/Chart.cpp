@@ -46,7 +46,7 @@ Chart::Chart()
     m_keyCount = 7;
 }
 
-Chart::Chart(Osu::Beatmap& beatmap)
+Chart::Chart(Osu::Beatmap& beatmap) // Refactor
 {
     if (!beatmap.IsValid()) {
         throw std::invalid_argument("Invalid osu beatmap!");
@@ -57,7 +57,7 @@ Chart::Chart(Osu::Beatmap& beatmap)
     }
 
     if (beatmap.CircleSize < 1 || beatmap.CircleSize > 7) {
-        throw std::invalid_argument("osu beatmap's Mania key must be 7");
+        throw std::invalid_argument("osu beatmap's Mania key must be between 1 and 7");
     }
 
     m_title = std::u8string(beatmap.Title.begin(), beatmap.Title.end());
@@ -66,7 +66,7 @@ Chart::Chart(Osu::Beatmap& beatmap)
     m_difname = std::u8string(beatmap.Version.begin(), beatmap.Version.end());
     m_beatmapDirectory = beatmap.CurrentDir;
 
-    for (auto& event : beatmap.Events) { // Fix some background not load properly
+    for (auto& event : beatmap.Events) {
         if (event.Type == Osu::OsuEventType::Background) {
             std::string fileName = event.params[0];
             fileName.erase(std::remove(fileName.begin(), fileName.end(), '\"'), fileName.end());
@@ -105,8 +105,7 @@ Chart::Chart(Osu::Beatmap& beatmap)
                 sample.Volume = 1;
                 sample.Pan = 0;
                 m_autoSamples.push_back(sample);
-            }
-            else {
+            } else {
                 Logs::Puts("[Chart] Custom sample file not found: %s", fileName.c_str());
             }
         }
@@ -115,7 +114,7 @@ Chart::Chart(Osu::Beatmap& beatmap)
     AutoSample autoSample = {};
     autoSample.StartTime = beatmap.AudioLeadIn == 0 ? -1 : beatmap.AudioLeadIn;
     autoSample.Index = beatmap.GetCustomSampleIndex(beatmap.AudioFilename);
-    autoSample.Volume = 1;
+    autoSample.Volume = 1.0f;
     autoSample.Pan = 0;
     m_autoSamples.push_back(autoSample);
 
@@ -125,7 +124,7 @@ Chart::Chart(Osu::Beatmap& beatmap)
         info.Type = NoteType::NORMAL;
         info.Keysound = note.KeysoundIndex;
         info.LaneIndex = static_cast<int>(float_floor(note.X * static_cast<float>(beatmap.CircleSize) / 512.0f));
-        info.Volume = 1.0f; // static_cast<float>(note.Volume) / 100.0f causing no audio
+        info.Volume = note.Volume > 0 ? static_cast<float>(note.Volume) / 100.0f : 1.0f;
         info.Pan = 0;
 
         if (note.Type == 128) {
@@ -143,8 +142,7 @@ Chart::Chart(Osu::Beatmap& beatmap)
             info.Value = std::clamp(-100.0f / timing.BeatLength, 0.1f, 10.0f);
             info.Type = TimingType::SV;
             m_svs.push_back(info);
-        }
-        else {
+        } else {
             TimingInfo info = {};
             info.StartTime = timing.Offset;
             info.Value = 60000.0f / timing.BeatLength;
@@ -154,14 +152,15 @@ Chart::Chart(Osu::Beatmap& beatmap)
         }
     }
 
-    for (auto& note : m_notes) {
-        if (m_keyCount == 4 && note.LaneIndex >= 2) {
-            note.LaneIndex += 3;
-        }
-        else if (m_keyCount == 5 && (note.LaneIndex == 3 || note.LaneIndex >= 4)) {
-            note.LaneIndex += 2;
-        }
-    }
+    // TODO: This thing causing game crash, weird, NEED to be fixed
+    //for (auto& note : m_notes) {
+    //    if (m_keyCount == 4 && note.LaneIndex >= 2) {
+    //        note.LaneIndex += 3;
+    //    }
+    //    else if (m_keyCount == 5 && (note.LaneIndex == 3 || note.LaneIndex >= 4)) {
+    //        note.LaneIndex += 2;
+    //    }
+    //}
 
     for (int i = 0; i < beatmap.HitSamples.size(); i++) {
         auto& keysound = beatmap.HitSamples[i];
@@ -176,9 +175,9 @@ Chart::Chart(Osu::Beatmap& beatmap)
     CalculateBeat();
     SortTimings();
     NormalizeTimings();
+    ComputeKeyCount();
     ComputeHash();
 }
-
 
 Chart::Chart(BMS::BMSFile &file)
 {
@@ -222,7 +221,7 @@ Chart::Chart(BMS::BMSFile &file)
                 AutoSample sm = {};
                 sm.StartTime = note.StartTime;
                 sm.Index = note.SampleIndex;
-                sm.Volume = 1;
+                sm.Volume = 1.0f;
                 sm.Pan = 0;
 
                 m_autoSamples.push_back(sm);
@@ -266,7 +265,7 @@ Chart::Chart(BMS::BMSFile &file)
         AutoSample sm = {};
         sm.StartTime = autoSample.StartTime;
         sm.Index = autoSample.SampleIndex;
-        sm.Volume = 1;
+        sm.Volume = 1.0f;
         sm.Pan = 0;
 
         m_autoSamples.push_back(sm);
@@ -734,7 +733,7 @@ void Chart::ComputeKeyCount()
 
     // BMS-O2 4K is: X X - - - X X
     // BMS-O2 5K is: X X - X - X X
-    // BMS-O2 6K is: X X X X X X -
+    // BMS-O2 6K is: X X X - X X X
     // BMS-O2 7K is: X X X X X X X
 
     // Check for 7K first since it has the highest priority
@@ -742,7 +741,7 @@ void Chart::ComputeKeyCount()
         m_keyCount = 7;
     }
     // Check for 6K
-    else if (Lanes[0] && Lanes[1] && Lanes[2] && Lanes[3] && Lanes[4] && Lanes[5] && !Lanes[6]) {
+    else if (Lanes[0] && Lanes[1] && Lanes[2] && !Lanes[3] && Lanes[4] && Lanes[5] && Lanes[6]) {
         m_keyCount = 6;
     }
     // Check for 5K
