@@ -18,6 +18,19 @@ float float_floor(float value)
 #endif
 }
 
+namespace {
+    std::string getFileExtension(const std::string& filename) {
+        size_t dotPos = filename.find_last_of('.');
+        if (dotPos != std::string::npos) {
+            std::string ext = filename.substr(dotPos + 1);
+            // Convert extension to lowercase
+            std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
+            return ext;
+        }
+        return ""; // No extension found
+    }
+}
+
 double TimingInfo::CalculateBeat(double offset)
 {
     if (Type == TimingType::SV) {
@@ -33,7 +46,7 @@ Chart::Chart()
     m_keyCount = 7;
 }
 
-Chart::Chart(Osu::Beatmap &beatmap)
+Chart::Chart(Osu::Beatmap& beatmap)
 {
     if (!beatmap.IsValid()) {
         throw std::invalid_argument("Invalid osu beatmap!");
@@ -47,67 +60,72 @@ Chart::Chart(Osu::Beatmap &beatmap)
         throw std::invalid_argument("osu beatmap's Mania key must be 7");
     }
 
-    // m_audio = beatmap.AudioFilename;
     m_title = std::u8string(beatmap.Title.begin(), beatmap.Title.end());
     m_keyCount = (int)beatmap.CircleSize;
     m_artist = std::u8string(beatmap.Artist.begin(), beatmap.Artist.end());
     m_difname = std::u8string(beatmap.Version.begin(), beatmap.Version.end());
     m_beatmapDirectory = beatmap.CurrentDir;
 
-    for (auto &event : beatmap.Events) {
-        switch (event.Type) {
-            case Osu::OsuEventType::Background:
-            {
-                std::string fileName = event.params[0];
-                fileName.erase(std::remove(fileName.begin(), fileName.end(), '\"'), fileName.end());
+    for (auto& event : beatmap.Events) { // Fix some background not load properly
+        if (event.Type == Osu::OsuEventType::Background) {
+            std::string fileName = event.params[0];
+            fileName.erase(std::remove(fileName.begin(), fileName.end(), '\"'), fileName.end());
+            m_backgroundFile = fileName;
+            break;
+        }
+    }
 
-                m_backgroundFile = fileName;
-                break;
+    for (auto& event : beatmap.Events) {
+        if (event.Type == Osu::OsuEventType::Sample) {
+            std::string fileName = event.params[1];
+            if (fileName.front() == '\"' && fileName.back() == '\"') {
+                fileName = fileName.substr(1, fileName.size() - 2);
             }
 
-            case Osu::OsuEventType::Sample:
-            {
-                std::string fileName = event.params[1];
-                fileName.erase(std::remove(fileName.begin(), fileName.end(), '\"'), fileName.end());
-
-                auto path = beatmap.CurrentDir / fileName;
-                if (std::filesystem::exists(path)) {
-                    AutoSample sample = {};
-                    sample.StartTime = event.StartTime;
-                    sample.Index = beatmap.GetCustomSampleIndex(fileName);
-                    sample.Volume = 1;
-                    sample.Pan = 0;
-
-                    m_autoSamples.push_back(sample);
+            auto path = beatmap.CurrentDir / fileName;
+            if (!std::filesystem::exists(path)) {
+                std::string extension = getFileExtension(fileName);
+                if (!extension.empty()) {
+                    std::vector<std::string> extensionsToTry = { ".ogg", ".wav", ".mp3" };
+                    for (const auto& ext : extensionsToTry) {
+                        std::string newFileName = fileName.substr(0, fileName.find_last_of('.')) + ext;
+                        path = beatmap.CurrentDir / newFileName;
+                        if (std::filesystem::exists(path)) {
+                            fileName = newFileName;
+                            break;
+                        }
+                    }
                 }
+            }
 
-                break;
+            if (std::filesystem::exists(path)) {
+                AutoSample sample = {};
+                sample.StartTime = event.StartTime;
+                sample.Index = beatmap.GetCustomSampleIndex(fileName);
+                sample.Volume = 1;
+                sample.Pan = 0;
+                m_autoSamples.push_back(sample);
+            }
+            else {
+                Logs::Puts("[Chart] Custom sample file not found: %s", fileName.c_str());
             }
         }
     }
 
-    {
-        AutoSample sample = {};
-        if (beatmap.AudioLeadIn = 0) {
-            sample.StartTime = beatmap.AudioLeadIn - 1; // Handle if offset 0 that causing audio delay
-        }
-        else {
-            sample.StartTime = beatmap.AudioLeadIn;
-        }
-        sample.Index = beatmap.GetCustomSampleIndex(beatmap.AudioFilename);
-        sample.Volume = 1;
-        sample.Pan = 0;
+    AutoSample autoSample = {};
+    autoSample.StartTime = beatmap.AudioLeadIn == 0 ? -1 : beatmap.AudioLeadIn;
+    autoSample.Index = beatmap.GetCustomSampleIndex(beatmap.AudioFilename);
+    autoSample.Volume = 1;
+    autoSample.Pan = 0;
+    m_autoSamples.push_back(autoSample);
 
-        m_autoSamples.push_back(sample);
-    }
-
-    for (auto &note : beatmap.HitObjects) {
+    for (auto& note : beatmap.HitObjects) {
         NoteInfo info = {};
         info.StartTime = note.StartTime;
         info.Type = NoteType::NORMAL;
         info.Keysound = note.KeysoundIndex;
         info.LaneIndex = static_cast<int>(float_floor(note.X * static_cast<float>(beatmap.CircleSize) / 512.0f));
-        info.Volume = static_cast<float>(note.Volume) / 100.0f;
+        info.Volume = 1.0f; // static_cast<float>(note.Volume) / 100.0f causing no audio
         info.Pan = 0;
 
         if (note.Type == 128) {
@@ -118,68 +136,49 @@ Chart::Chart(Osu::Beatmap &beatmap)
         m_notes.push_back(info);
     }
 
-    for (auto &timing : beatmap.TimingPoints) {
-        bool IsSV = timing.Inherited == 0 || timing.BeatLength < 0;
-
-        if (IsSV) {
+    for (auto& timing : beatmap.TimingPoints) {
+        if (timing.Inherited == 0 || timing.BeatLength < 0) {
             TimingInfo info = {};
             info.StartTime = timing.Offset;
             info.Value = std::clamp(-100.0f / timing.BeatLength, 0.1f, 10.0f);
             info.Type = TimingType::SV;
-
             m_svs.push_back(info);
-        } else {
+        }
+        else {
             TimingInfo info = {};
             info.StartTime = timing.Offset;
             info.Value = 60000.0f / timing.BeatLength;
             info.TimeSignature = timing.TimeSignature;
             info.Type = TimingType::BPM;
-
             m_bpms.push_back(info);
         }
     }
 
-    for (int i = 0; i < beatmap.HitSamples.size(); i++) {
-        auto &keysound = beatmap.HitSamples[i];
+    for (auto& note : m_notes) {
+        if (m_keyCount == 4 && note.LaneIndex >= 2) {
+            note.LaneIndex += 3;
+        }
+        else if (m_keyCount == 5 && (note.LaneIndex == 3 || note.LaneIndex >= 4)) {
+            note.LaneIndex += 2;
+        }
+    }
 
+    for (int i = 0; i < beatmap.HitSamples.size(); i++) {
+        auto& keysound = beatmap.HitSamples[i];
         auto path = beatmap.CurrentDir / keysound;
 
         Sample sm = {};
         sm.FileName = path;
         sm.Index = i;
-
         m_samples.push_back(sm);
     }
 
-    for (auto &note : m_notes) {
-        switch (m_keyCount) {
-            case 4:
-            {
-                if (note.LaneIndex >= 2) {
-                    note.LaneIndex += 3;
-                }
-                break;
-            }
-
-            case 5:
-            {
-                if (note.LaneIndex == 3) {
-                    note.LaneIndex += 1;
-                } else if (note.LaneIndex >= 4) {
-                    note.LaneIndex += 2;
-                }
-                break;
-            }
-        }
-    }
-
     CalculateBeat();
-
     SortTimings();
-
     NormalizeTimings();
     ComputeHash();
 }
+
 
 Chart::Chart(BMS::BMSFile &file)
 {
@@ -207,7 +206,7 @@ Chart::Chart(BMS::BMSFile &file)
         info.Type = NoteType::NORMAL;
         info.LaneIndex = note.Lane;
         info.Keysound = note.SampleIndex;
-        info.Volume = 1;
+        info.Volume = 1.0f;
         info.Pan = 0;
 
         if (note.EndTime != -1) {
