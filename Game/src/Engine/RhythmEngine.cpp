@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <numeric>
 #include <unordered_map>
+#include <cstdio> 
 
 #include "../EnvironmentSetup.hpp"
 #include "Configuration.h"
@@ -225,21 +226,26 @@ bool RhythmEngine::Load(Chart *chart)
 
     if (EnvironmentSetup::GetInt("SongType") == 1) {
         m_title = chart->m_title;
-        sprintf(buffer, "Lv.%d %s", chart->m_level, (const char*)chart->m_title.c_str());
+        std::string titleStr = std::string(chart->m_title.begin(), chart->m_title.end());
+        std::snprintf(buffer, MAX_BUFFER_TXT_SIZE, "Lv.%d %s", chart->m_level, titleStr.c_str());
     }
     else if (EnvironmentSetup::GetInt("SongType") == 2) {
         m_title = chart->m_title;
-        sprintf(buffer, "[%s] %s", chart->m_difname, (const char*)chart->m_title.c_str());
+        std::string difnameStr = std::string(chart->m_difname.begin(), chart->m_difname.end());
+        std::string titleStr = std::string(chart->m_title.begin(), chart->m_title.end());
+        std::snprintf(buffer, MAX_BUFFER_TXT_SIZE, "[%s] %s", difnameStr.c_str(), titleStr.c_str());
     }
     else {
         m_title = chart->m_title;
-        //sprintf(buffer, "%d %s", chart->m_level, (const char*)chart->m_title.c_str());
+        std::string titleStr = std::string(chart->m_title.begin(), chart->m_title.end());
+        std::snprintf(buffer, MAX_BUFFER_TXT_SIZE, "%d %s", chart->m_level, titleStr.c_str());
     }
 
-    m_title = std::u8string(buffer, buffer + strlen(buffer));
+    // Reset the u8string with the result of snprintf
+    m_title = std::u8string(buffer, buffer + std::strlen(buffer));
     if (m_rate != 1.0) {
         memset(buffer, 0, MAX_BUFFER_TXT_SIZE);
-        sprintf(buffer, "[%.2fx] %s", m_rate, (const char *)m_title.c_str());
+        sprintf(buffer, "[%.2fx] %s", m_rate, (const char*)m_title.c_str());
 
         m_title = std::u8string(buffer, buffer + strlen(buffer));
     }
