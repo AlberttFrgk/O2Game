@@ -100,6 +100,34 @@ void FontResources::PreloadFontCaches()
     auto krFont = fontPath / "kr.ttf";
     auto chFont = fontPath / "ch.ttf";
 
+    static const ImWchar glyphRanges[] = { // Add whole fucking glyph ranges so nothing missing
+        0x0020, 0x00FF,  // Basic Latin + Latin Supplement
+        0x0100, 0x017F,  // Latin Extended-A
+        0x0180, 0x024F,  // Latin Extended-B
+        0x0370, 0x03FF,  // Greek and Coptic
+        0x0400, 0x04FF,  // Cyrillic
+        0x0500, 0x052F,  // Cyrillic Supplement
+        0x2000, 0x206F,  // General Punctuation
+        0x20A0, 0x20CF,  // Currency Symbols
+        0x2100, 0x214F,  // Letterlike Symbols
+        0x2190, 0x21FF,  // Arrows
+        0x2200, 0x22FF,  // Mathematical Operators
+        0x2300, 0x23FF,  // Miscellaneous Technical
+        0x2500, 0x257F,  // Box Drawing
+        0x25A0, 0x25FF,  // Geometric Shapes
+        0x2600, 0x26FF,  // Miscellaneous Symbols
+        0x2E80, 0x2EFF,  // CJK Radicals Supplement
+        0x2F00, 0x2FDF,  // Kangxi Radicals
+        0x3000, 0x303F,  // CJK Symbols and Punctuation
+        0x3040, 0x309F,  // Hiragana
+        0x30A0, 0x30FF,  // Katakana
+        0x31F0, 0x31FF,  // Katakana Phonetic Extensions
+        0x4E00, 0x9FFF,  // CJK Unified Ideographs
+        0xAC00, 0xD7AF,  // Hangul Syllables
+        0xFF00, 0xFFEF,  // Halfwidth and Fullwidth Forms
+        0x0000, 0x0000   // End of list
+    };
+
     {
         float originScale = (wnd->GetBufferWidth() + wnd->GetBufferHeight()) / 15.6f;
         float targetScale = (wnd->GetWidth() + wnd->GetHeight()) / 15.6f;
@@ -118,9 +146,9 @@ void FontResources::PreloadFontCaches()
 
         {
             if (std::filesystem::exists(normalfont)) {
-                Font.Font = io.Fonts->AddFontFromFileTTF((const char *)normalfont.u8string().c_str(), fontSize, &conf);
+                Font.Font = io.Fonts->AddFontFromFileTTF((const char *)normalfont.u8string().c_str(), fontSize, &conf, glyphRanges); // glyphRanges, fixing missing fonts
             } else {
-                Font.Font = io.Fonts->AddFontFromMemoryTTF((void *)get_arial_font_data(), get_arial_font_size(), fontSize, &conf);
+                Font.Font = io.Fonts->AddFontFromMemoryTTF((void *)get_arial_font_data(), get_arial_font_size(), fontSize, &conf, glyphRanges);
             }
         }
 
@@ -151,7 +179,7 @@ void FontResources::PreloadFontCaches()
                         case TextRegion::Chinese:
                         {
                             if (std::filesystem::exists(chFont)) {
-                                io.Fonts->AddFontFromFileTTF((const char *)chFont.u8string().c_str(), fontSize, &conf, io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+                                io.Fonts->AddFontFromFileTTF((const char *)chFont.u8string().c_str(), fontSize, &conf, io.Fonts->GetGlyphRangesChineseFull());
                             }
 
                             break;

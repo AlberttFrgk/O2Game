@@ -130,51 +130,47 @@ void flipArray(uint8_t *arr, size_t size)
     }
 }
 
-std::u8string CodepageToUtf8(const char *string, size_t str_len, const char *encoding)
-{
-    std::u8string result;
-    iconv_t       conv = iconv_open("UTF-8", encoding);
+std::u8string CodepageToUtf8(const char* string, size_t str_len, const char* encoding) {
+    // Open iconv conversion descriptor
+    iconv_t conv = iconv_open("UTF-8", encoding);
     if (conv == (iconv_t)-1) {
         return u8"<encoding error>";
     }
 
-    // size_t inbytesleft = str_len;
-    // size_t outbytesleft = str_len * 4;
-    // char* inbuf = (char*)string;
-    // char* outbuf = (char*)malloc(outbytesleft);
-    // char* outbufptr = outbuf;
+    std::u8string result;
+    size_t inbytesleft = str_len;
+    const char* inbuf = string;
+    size_t outbufsize = str_len * 4; // Initial output buffer size
+    std::vector<char> outbuf(outbufsize);
 
-    // if (iconv(conv, &inbuf, &inbytesleft, &outbufptr, &outbytesleft) == (size_t)-1) {
-    // 	free(outbuf);
-    // 	iconv_close(conv);
-    // 	return std::u8string((const char8_t*)strerror(errno));
-    // }
+    while (true) {
+        char* outbufptr = outbuf.data();
+        size_t outbytesleft = outbuf.size();
 
-    // result = std::u8string((char8_t*)outbuf, str_len * 4 - outbytesleft);
-    // free(outbuf);
-    // iconv_close(conv);
-    // return result;
+        // Reset errno to check for errors after iconv call
+        errno = 0;
 
-    size_t            inbytesleft = str_len;
-    size_t            outbytesleft = str_len * 4;
-    char             *inbuf = (char *)string;
-    std::vector<char> outbuf;
-    outbuf.resize(outbytesleft, 0);
-
-    char *outbufptr = outbuf.data();
-
-    if (iconv(conv, &inbuf, &inbytesleft, &outbufptr, &outbytesleft) == (size_t)-1) {
-        iconv_close(conv);
-
-        // return whatever we have left, even if it's not valid
-        size_t        len = strlen(outbuf.data());
-        std::u8string remaining = std::u8string((const char8_t *)outbuf.data(), len);
-
-        return remaining;
+        size_t ret = iconv(conv, (char**)&inbuf, &inbytesleft, &outbufptr, &outbytesleft);
+        if (ret != (size_t)-1 || errno == E2BIG) {
+            // Successfully converted or need more space
+            if (ret != (size_t)-1) {
+                result.assign((const char8_t*)outbuf.data(), outbuf.size() - outbytesleft);
+                break;
+            }
+            // Resize buffer and retry if buffer was too small
+            size_t processed = outbuf.size() - outbytesleft;
+            outbufsize *= 2;
+            outbuf.resize(outbufsize);
+            inbuf = string + (str_len - inbytesleft);
+            std::fill(outbuf.begin() + processed, outbuf.end(), 0);
+        }
+        else {
+            // Return whatever we have left, even if it's not valid
+            result.assign((const char8_t*)outbuf.data());
+            break;
+        }
     }
 
-    result = std::u8string((char8_t *)outbuf.data(), str_len * 4 - outbytesleft);
     iconv_close(conv);
-
     return result;
 }
