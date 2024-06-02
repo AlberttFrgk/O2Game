@@ -113,7 +113,12 @@ Chart::Chart(Osu::Beatmap& beatmap) // Refactor
     }
 
     AutoSample autoSample = {};
-    autoSample.StartTime = beatmap.AudioLeadIn == 0 ? -1 : beatmap.AudioLeadIn;
+    if (beatmap.AudioLeadIn = 0) {
+        autoSample.StartTime = beatmap.AudioLeadIn - 1; // Handle if offset 0 that causing audio delay
+    }
+    else {
+        autoSample.StartTime = beatmap.AudioLeadIn;
+    }
     autoSample.Index = beatmap.GetCustomSampleIndex(beatmap.AudioFilename);
     autoSample.Volume = 1.0f;
     autoSample.Pan = 0;
@@ -461,48 +466,74 @@ void Chart::ApplyMod(Mod mod, void *data)
 
         case Mod::PANIC:
         {
-            std::unordered_map<int, std::vector<int>> measureLane; // Store randomized lanes for each measure
-            std::unordered_map<int, float> measureBPM; // Store BPM for each measure
+            std::vector<int> lanes(m_keyCount);
+            for (int i = 0; i < m_keyCount; i++) {
+                lanes[i] = i;
+            }
 
-            // Populate measureBPM with BPM values for each measure
+            auto rng = std::default_random_engine{};
+            rng.seed((uint32_t)time(NULL));
+
+            std::unordered_map<int, std::vector<int>> measureLane;
+
+            // Keep track of BPM changes
+            std::unordered_map<int, float> measureBPM;
             for (const auto& bpm : m_bpms) {
                 int measure = static_cast<int>(bpm.StartTime / bpm.TimeSignature);
                 measureBPM[measure] = bpm.Value;
             }
 
-            // Randomize note lanes while preventing overlaps
             for (auto& note : m_notes) {
-                int measure = static_cast<int>(note.StartTime / m_bpms[0].TimeSignature); // Calculate measure of the note
-
-                // If the measure doesn't have randomized lanes yet, generate them
-                if (measureLane.find(measure) == measureLane.end()) {
-                    std::vector<int> lanes(m_keyCount);
-                    std::iota(lanes.begin(), lanes.end(), 0); // Fill lanes with 0 to keyCount-1
-                    std::shuffle(lanes.begin(), lanes.end(), std::default_random_engine{}); // Shuffle lanes
-                    measureLane[measure] = lanes; // Store randomized lanes for the measure
+                int measure = -1;
+                for (size_t i = 0; i < m_bpms.size(); i++) {
+                    if (m_bpms[i].StartTime > note.StartTime) {
+                        measure = static_cast<int>(m_bpms[i - 1].CalculateBeat(note.StartTime) / m_bpms[i - 1].TimeSignature);
+                        break;
+                    }
                 }
 
-                // Apply randomized lane to the note
+                if (measure == -1) {
+                    measure = static_cast<int>(m_bpms.back().CalculateBeat(note.StartTime) / m_bpms.back().TimeSignature);
+                }
+
+                for (int i = measure; i > 0; i--) {
+                    if (measureBPM.find(i) == measureBPM.end()) {
+                        measureBPM[i] = measureBPM[i - 1];
+                    }
+                }
+
+                if (measureLane.find(measure) == measureLane.end()) {
+                    std::shuffle(std::begin(lanes), std::end(lanes), rng);
+                    measureLane[measure] = lanes;
+                }
+
                 note.LaneIndex = measureLane[measure][note.LaneIndex];
 
-                // Check if the note overlaps with the next measure
                 int nextMeasure = measure + 1;
                 if (note.EndTime > nextMeasure * measureBPM[nextMeasure]) {
-                    // If the next measure doesn't have randomized lanes yet, copy from the current measure
                     if (measureLane.find(nextMeasure) == measureLane.end()) {
                         measureLane[nextMeasure] = measureLane[measure];
                     }
                 }
             }
 
-            // Optional: Log the randomization pattern for each measure
-            /*for (const auto& [measure, randomizedLane] : measureLane) {
-                std::stringstream pattern;
-                for (int lane : randomizedLane) {
-                    pattern << lane;
-                }
-                Logs::Puts("[Chart] Randomized Lane for Measure %d: %s", measure, pattern.str().c_str());
-            }*/
+            // Log the randomization pattern for each measure
+            //int prevMeasure = -1;
+            //std::vector<int> prevPattern;
+            //for (const auto& [measure, randomizedLane] : measureLane) {
+            //    if (prevMeasure != -1 && prevPattern == randomizedLane) {
+            //        continue; // Skip logging if the pattern is the same as the previous measure
+            //    }
+            //    std::stringstream pattern;
+            //    for (int lane : randomizedLane) {
+            //        pattern << lane;
+            //    }
+            //    int startMeasure = prevMeasure == -1 ? 0 : prevMeasure + 1;
+            //    int endMeasure = measure;
+            //    Logs::Puts("[Chart] Randomized Lane from Measure %d to %d with pattern: %s", startMeasure, endMeasure, pattern.str().c_str());
+            //    prevMeasure = measure;
+            //    prevPattern = randomizedLane;
+            //}
 
             break;
         }

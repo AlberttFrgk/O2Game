@@ -341,8 +341,16 @@ bool RhythmEngine::Start()
 
 bool RhythmEngine::Stop()
 {
-    EnvironmentSetup::SetInt("NowPlaying", 0);
     m_state = GameState::PosGame;
+    GameAudioSampleCache::StopAll();
+    m_PlayTime = 0.0;
+    return true;
+}
+
+
+bool RhythmEngine::Fail()
+{
+    m_state = GameState::Fail;
     GameAudioSampleCache::StopAll();
     m_PlayTime = 0.0;
     return true;
