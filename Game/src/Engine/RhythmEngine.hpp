@@ -16,6 +16,7 @@ enum class GameState {
     NotGame,
     PreGame,
     Playing,
+    Fail,
     PosGame
 };
 
@@ -36,6 +37,7 @@ public:
 
     bool Start();
     bool Stop();
+    bool Fail();
     bool Ready();
 
     void Update(double delta);
