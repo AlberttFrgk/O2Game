@@ -10,7 +10,10 @@ std::string defaultConfiguration = "[game]\n"
 	"autosound = 1\n"
 	"resolution = 1280x720\n" // Fix for most monitor
 	"renderer = 0\n"
-	"guideline = 1\n\n"
+	"guideline = 1\n"
+	"background = 0\n"
+	"notetail = 0\n"
+	"measureline = 0\n\n"
 
 	"[keymapping]\n"
 	"lane1 = A\n"
@@ -46,3 +49,4 @@ std::string defaultConfiguration = "[game]\n"
 	"difficulty = \n"
 	"modifiers =\n"
 	"arena =\n";
+
