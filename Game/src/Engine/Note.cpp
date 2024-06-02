@@ -256,10 +256,13 @@ void Note::Render(double delta) // Code more cleared than before
 
         bool NoteTail = EnvironmentSetup::GetInt("NoteTail") == 1;
 
-        if (isTailVisible && NoteTail) {
+        if (isTailVisible) {
             m_tail->Position = UDim2::fromOffset(m_laneOffset, tailPosY);
             m_tail->SetIndexAt(m_engine->GetNoteImageIndex());
-            m_tail->Draw(delta, &playRect);
+
+            if (NoteTail) {
+                m_tail->Draw(delta, &playRect);
+            }
 
             if (guideLineLength > 0) {
                 m_trail_down->Position = m_tail->Position;
