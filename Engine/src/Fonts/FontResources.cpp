@@ -1,4 +1,4 @@
-#pragma warning(disable : 4838) // Goddamit
+﻿#pragma warning(disable : 4838) // Goddamit
 #pragma warning(disable : 4309)
 
 #include <Misc/md5.h>
@@ -25,9 +25,9 @@
 // BEGIN FONT FALLBACK
 
 #include "FallbackFonts/arial.ttf.h"
-#include "FallbackFonts/ch.ttf.h"
-#include "FallbackFonts/jp.ttf.h"
-#include "FallbackFonts/kr.ttf.h"
+//#include "FallbackFonts/ch.ttf.h"
+//#include "FallbackFonts/jp.ttf.h"
+//#include "FallbackFonts/kr.ttf.h"
 #include <Logs.h>
 
 // END FONT FALLBACK
@@ -100,33 +100,28 @@ void FontResources::PreloadFontCaches()
     auto krFont = fontPath / "kr.ttf";
     auto chFont = fontPath / "ch.ttf";
 
-    static const ImWchar glyphRanges[] = { // Add whole fucking glyph ranges so nothing missing
-        0x0020, 0x00FF,  // Basic Latin + Latin Supplement
-        0x0100, 0x017F,  // Latin Extended-A
-        0x0180, 0x024F,  // Latin Extended-B
-        0x0370, 0x03FF,  // Greek and Coptic
-        0x0400, 0x04FF,  // Cyrillic
-        0x0500, 0x052F,  // Cyrillic Supplement
-        0x2000, 0x206F,  // General Punctuation
-        0x20A0, 0x20CF,  // Currency Symbols
-        0x2100, 0x214F,  // Letterlike Symbols
-        0x2190, 0x21FF,  // Arrows
-        0x2200, 0x22FF,  // Mathematical Operators
-        0x2300, 0x23FF,  // Miscellaneous Technical
-        0x2500, 0x257F,  // Box Drawing
-        0x25A0, 0x25FF,  // Geometric Shapes
-        0x2600, 0x26FF,  // Miscellaneous Symbols
-        0x2E80, 0x2EFF,  // CJK Radicals Supplement
-        0x2F00, 0x2FDF,  // Kangxi Radicals
-        0x3000, 0x303F,  // CJK Symbols and Punctuation
-        0x3040, 0x309F,  // Hiragana
-        0x30A0, 0x30FF,  // Katakana
-        0x31F0, 0x31FF,  // Katakana Phonetic Extensions
-        0x4E00, 0x9FFF,  // CJK Unified Ideographs
-        0xAC00, 0xD7AF,  // Hangul Syllables
-        0xFF00, 0xFFEF,  // Halfwidth and Fullwidth Forms
-        0x0000, 0x0000   // End of list
+    static const ImWchar glyphRanges[] = { // Optimized
+        (ImWchar)0x0020, (ImWchar)0x052F,
+        (ImWchar)0x2000, (ImWchar)0x27BF,
+        (ImWchar)0x2E80, (ImWchar)0x2FA1,
+        (ImWchar)0x1F300, (ImWchar)0x1FAFF,
+        (ImWchar)0x2660, (ImWchar)0x2663,
+        (ImWchar)0x2665, (ImWchar)0x2666,
+        (ImWchar)0x2600, (ImWchar)0x2606,
+        (ImWchar)0x2618, (ImWchar)0x2619,
+        (ImWchar)0x263A, (ImWchar)0x263B,
+        (ImWchar)0x2708, (ImWchar)0x2714,
+        (ImWchar)0x2728, (ImWchar)0x2734,
+        (ImWchar)0x2740, (ImWchar)0x274B,
+        (ImWchar)0x2756, (ImWchar)0x2758,
+        (ImWchar)0x2764, (ImWchar)0x2767,
+        (ImWchar)0x2794, (ImWchar)0x27BE,
+        (ImWchar)0x27F0, (ImWchar)0x27FF,
+        (ImWchar)0x2900, (ImWchar)0x297F,
+        (ImWchar)0x2A00, (ImWchar)0x2AFF,
+        (ImWchar)0x0000, (ImWchar)0x0000
     };
+
 
     {
         float originScale = (wnd->GetBufferWidth() + wnd->GetBufferHeight()) / 15.6f;
