@@ -12,6 +12,9 @@
 #include <codecvt>
 #include <iconv.h>
 #include <string>
+#include <vector>
+#include <stdexcept>
+#include <iostream>
 
 std::vector<std::string> splitString(std::string &input, char delimeter)
 {
@@ -130,7 +133,7 @@ void flipArray(uint8_t *arr, size_t size)
     }
 }
 
-std::u8string CodepageToUtf8(const char* string, size_t str_len, const char* encoding) {
+std::u8string CodepageToUtf8(const char* string, size_t str_len, const char* encoding) { // Refactor
     // Open iconv conversion descriptor
     iconv_t conv = iconv_open("UTF-8", encoding);
     if (conv == (iconv_t)-1) {
@@ -151,22 +154,21 @@ std::u8string CodepageToUtf8(const char* string, size_t str_len, const char* enc
         errno = 0;
 
         size_t ret = iconv(conv, (char**)&inbuf, &inbytesleft, &outbufptr, &outbytesleft);
-        if (ret != (size_t)-1 || errno == E2BIG) {
-            // Successfully converted or need more space
-            if (ret != (size_t)-1) {
-                result.assign((const char8_t*)outbuf.data(), outbuf.size() - outbytesleft);
-                break;
-            }
+        if (ret != (size_t)-1) {
+            // Successfully converted
+            result.append((const char8_t*)outbuf.data(), outbuf.size() - outbytesleft);
+            break;
+        }
+        else if (errno == E2BIG) {
             // Resize buffer and retry if buffer was too small
             size_t processed = outbuf.size() - outbytesleft;
+            result.append((const char8_t*)outbuf.data(), processed);
             outbufsize *= 2;
             outbuf.resize(outbufsize);
-            inbuf = string + (str_len - inbytesleft);
-            std::fill(outbuf.begin() + processed, outbuf.end(), 0);
         }
         else {
             // Return whatever we have left, even if it's not valid
-            result.assign((const char8_t*)outbuf.data());
+            result.append((const char8_t*)outbuf.data(), outbuf.size() - outbytesleft);
             break;
         }
     }
