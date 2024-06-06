@@ -89,6 +89,16 @@ if (WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/GameResources/Notes
         $<TARGET_FILE_DIR:Game>/Resources/Notes
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+        $<TARGET_FILE_DIR:Game>/Resources/Fonts
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/GameResources/Fonts
+        $<TARGET_FILE_DIR:Game>/Resources/Fonts
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+        $<TARGET_FILE_DIR:Game>/Resources/Notes/Scripts
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/GameResources/Scripts
+        $<TARGET_FILE_DIR:Game>/Resources/Notes/Scripts
     )
 else ()
     add_custom_command(TARGET Game POST_BUILD
@@ -102,6 +112,16 @@ else ()
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/GameResources/Notes
         $<TARGET_FILE_DIR:Game>/Resources/Notes
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+        $<TARGET_FILE_DIR:Game>/Resources/Fonts
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/GameResources/Fonts
+        $<TARGET_FILE_DIR:Game>/Resources/Fonts
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+        $<TARGET_FILE_DIR:Game>/Resources/Notes/Scripts
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/GameResources/Scripts
+        $<TARGET_FILE_DIR:Game>/Resources/Notes/Scripts
     )
 endif ()
 

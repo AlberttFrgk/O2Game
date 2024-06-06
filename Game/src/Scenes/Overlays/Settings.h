@@ -29,6 +29,7 @@ private:
     bool MeasureLine = false;
     bool NoteTail = false;
     int BackgroundIndex = 0;
+    int NoteIndex = 0;
     bool convertAutoSound = false;
 
     std::string              currentSkin = "";

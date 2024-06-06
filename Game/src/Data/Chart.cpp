@@ -32,7 +32,7 @@ namespace {
     }
 }
 
-double TimingInfo::CalculateBeat(double offset)
+double TimingInfo::CalculateBeat(double offset) const
 {
     if (Type == TimingType::SV) {
         return 0;
@@ -479,9 +479,12 @@ void Chart::ApplyMod(Mod mod, void *data)
             // Keep track of BPM changes
             std::unordered_map<int, float> measureBPM;
             for (const auto& bpm : m_bpms) {
-                int measure = static_cast<int>(bpm.StartTime / bpm.TimeSignature);
+                int measure = static_cast<int>(bpm.CalculateBeat(bpm.StartTime) / bpm.TimeSignature);
                 measureBPM[measure] = bpm.Value;
             }
+
+            // Keep track of which lanes are occupied by hold notes
+            std::unordered_map<int, std::vector<bool>> occupiedLanes;
 
             for (auto& note : m_notes) {
                 int measure = -1;
@@ -507,33 +510,32 @@ void Chart::ApplyMod(Mod mod, void *data)
                     measureLane[measure] = lanes;
                 }
 
-                note.LaneIndex = measureLane[measure][note.LaneIndex];
+                // Check if the lane is occupied by a hold note
+                bool laneOccupied = false;
+                if (occupiedLanes.find(measure) != occupiedLanes.end()) {
+                    const auto& lanesOccupiedByHold = occupiedLanes[measure];
+                    laneOccupied = lanesOccupiedByHold[note.LaneIndex];
+                }
 
-                int nextMeasure = measure + 1;
-                if (note.EndTime > nextMeasure * measureBPM[nextMeasure]) {
-                    if (measureLane.find(nextMeasure) == measureLane.end()) {
-                        measureLane[nextMeasure] = measureLane[measure];
+                if (!laneOccupied) {
+                    // Assign lane and mark as occupied if it's a hold note
+                    if (note.Type == NoteType::HOLD) {
+                        note.LaneIndex = measureLane[measure][note.LaneIndex];
+                        occupiedLanes[measure].resize(m_keyCount, false); // Initialize the vector if not already initialized
+                        auto& lanesOccupiedByHold = occupiedLanes[measure];
+                        lanesOccupiedByHold[note.LaneIndex] = true;
+                        for (int j = note.LaneIndex + 1; j < m_keyCount; j++) {
+                            if (note.EndTime >= measure * measureBPM[measure] && note.LaneIndex != j) {
+                                lanesOccupiedByHold[j] = true;
+                            }
+                        }
+                    }
+                    else {
+                        // Shuffle lanes for normal notes if the lane is not occupied by a hold note
+                        note.LaneIndex = measureLane[measure][note.LaneIndex];
                     }
                 }
             }
-
-            // Log the randomization pattern for each measure
-            //int prevMeasure = -1;
-            //std::vector<int> prevPattern;
-            //for (const auto& [measure, randomizedLane] : measureLane) {
-            //    if (prevMeasure != -1 && prevPattern == randomizedLane) {
-            //        continue; // Skip logging if the pattern is the same as the previous measure
-            //    }
-            //    std::stringstream pattern;
-            //    for (int lane : randomizedLane) {
-            //        pattern << lane;
-            //    }
-            //    int startMeasure = prevMeasure == -1 ? 0 : prevMeasure + 1;
-            //    int endMeasure = measure;
-            //    Logs::Puts("[Chart] Randomized Lane from Measure %d to %d with pattern: %s", startMeasure, endMeasure, pattern.str().c_str());
-            //    prevMeasure = measure;
-            //    prevPattern = randomizedLane;
-            //}
 
             break;
         }

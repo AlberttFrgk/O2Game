@@ -92,8 +92,8 @@ void FontResources::PreloadFontCaches()
 
     GameWindow *wnd = GameWindow::GetInstance();
 
-    auto skinPath = Configuration::Font_GetPath();
-    auto fontPath = skinPath / "Fonts";
+    auto path = Configuration::Font_GetPath();
+    auto fontPath = path / "Fonts";
 
     auto normalfont = fontPath / "normal.ttf";
     auto jpFont = fontPath / "jp.ttf";
