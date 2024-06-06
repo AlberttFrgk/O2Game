@@ -1,4 +1,4 @@
-#include "Settings.h"
+﻿#include "Settings.h"
 #include <Configuration.h>
 #include <Imgui/ImguiUtil.h>
 #include <Imgui/imgui.h>
@@ -55,7 +55,7 @@ static std::map<int, std::string> Graphics = {
 static std::array<std::string, 4>  LongNote = { "None", "Short", "Normal", "Long" };
 //static std::array<std::string, 14> m_fps = { "30", "60", "75", "120", "144", "165", "180", "240", "360", "480", "600", "800", "1000", "Unlimited" };
 static std::array<std::string, 3>  SelectedBackground = { "Arena", "Song", "Disable" };
-
+static std::array<std::string, 3>  NoteSkin = { "Square", "Circle", "Custom" };
 static std::vector<std::string> m_resolutions = {};
 
 int currentFPSIndex = 0;
@@ -386,6 +386,66 @@ void SettingsOverlay::Render(double delta)
                             EnvironmentSetup::SetInt("MeasureLine", 1);
                         }
 
+                        ImGui::EndTabItem();
+                    }
+
+                    if (ImGui::BeginTabItem("Skins")) {
+                        ImGui::Text("Current selected skin: ");
+                        if (ImGui::BeginCombo("##SkinsComboBox", currentSkin.c_str())) {
+                            for (int i = 0; i < skins.size(); i++) {
+                                bool isSelected = (currentSkin == skins[i]);
+
+                                if (ImGui::Selectable(skins[i].c_str(), &isSelected)) {
+                                    currentSkin = skins[i];
+                                }
+
+                                if (isSelected) {
+                                    ImGui::SetItemDefaultFocus();
+                                }
+                            }
+
+                            ImGui::EndCombo();
+                        }
+
+                        ImGui::NewLine();
+
+                        ImGui::Text("Note Skin");
+                        for (int i = 0; i < NoteSkin.size(); ++i) {
+                            bool selected = (NoteIndex == i);
+
+                            std::string tooltipText;
+                            if (i == 0) {
+                                //tooltipText = "";
+                            }
+                            else if (i == 1) {
+                                //tooltipText = "";
+                            }
+                            else if (i == 2) {
+                                tooltipText = "Using custom note image from skin folder";
+                            }
+
+                            if (ImGui::Checkbox(NoteSkin[i].c_str(), &selected)) {
+                                NoteIndex = i;
+                            }
+
+                            if (!tooltipText.empty() && ImGui::IsItemHovered()) {
+                                ImGui::SetTooltip("%s", tooltipText.c_str());
+                            }
+
+                            ImGui::SameLine();
+                        }
+
+                        if (NoteIndex == 0) {
+                            EnvironmentSetup::SetInt("NoteSkin", 0);
+                        }
+                        else if (NoteIndex == 1) {
+                            EnvironmentSetup::SetInt("NoteSkin", 1);
+                        }
+                        else if (NoteIndex == 2) {
+                            EnvironmentSetup::SetInt("NoteSkin", 2);
+                        }
+
+                        ImGui::NewLine();
                         ImGui::NewLine();
 
                         ImGui::Text("Background");
@@ -425,27 +485,6 @@ void SettingsOverlay::Render(double delta)
                         else if (BackgroundIndex == 2) {
                             EnvironmentSetup::SetInt("Song Background", 0);
                             EnvironmentSetup::SetInt("Black Background", 1);
-                        }
-
-                        ImGui::EndTabItem();
-                    }
-
-                    if (ImGui::BeginTabItem("Skins")) {
-                        ImGui::Text("Current selected skin: ");
-                        if (ImGui::BeginCombo("##SkinsComboBox", currentSkin.c_str())) {
-                            for (int i = 0; i < skins.size(); i++) {
-                                bool isSelected = (currentSkin == skins[i]);
-
-                                if (ImGui::Selectable(skins[i].c_str(), &isSelected)) {
-                                    currentSkin = skins[i];
-                                }
-
-                                if (isSelected) {
-                                    ImGui::SetItemDefaultFocus();
-                                }
-                            }
-
-                            ImGui::EndCombo();
                         }
 
                         ImGui::EndTabItem();
@@ -588,6 +627,23 @@ void SettingsOverlay::LoadConfiguration()
     }
 
     try {
+        NoteIndex = std::stoi(Configuration::Load("Game", "NoteSkin").c_str());
+    }
+    catch (const std::invalid_argument&) {
+        NoteIndex = 2;
+    }
+
+    if (NoteIndex == 0) {
+        EnvironmentSetup::SetInt("NoteSkin", 0);
+    }
+    else if (NoteIndex == 1) {
+        EnvironmentSetup::SetInt("NoteSkin", 1);
+    }
+    else if (NoteIndex == 2) {
+        EnvironmentSetup::SetInt("NoteSkin", 2);
+    }
+
+    try {
         int noteTailValue = std::stoi(Configuration::Load("Game", "NoteTail"));
         NoteTail = (noteTailValue == 1);
     }
@@ -627,6 +683,7 @@ void SettingsOverlay::SaveConfiguration()
     Configuration::Set("Game", "AudioVolume", std::to_string(currentVolume));
     Configuration::Set("Game", "AutoSound", std::to_string(convertAutoSound ? 1 : 0));
     Configuration::Set("Game", "GuideLine", std::to_string(currentGuideLineIndex));
+    Configuration::Set("Game", "NoteSkin", std::to_string(NoteIndex));
     Configuration::Set("Game", "Background", std::to_string(BackgroundIndex));
     Configuration::Set("Game", "MeasureLine", std::to_string(MeasureLine ? 1 : 0));
     Configuration::Set("Game", "NoteTail", std::to_string(NoteTail ? 1 : 0));

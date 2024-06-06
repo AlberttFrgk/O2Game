@@ -52,7 +52,8 @@ struct TimingInfo
     float      TimeSignature;
     TimingType Type;
 
-    double CalculateBeat(double offset);
+    //double CalculateBeat(double offset);
+    double CalculateBeat(double offset) const;
 };
 
 struct Sample
