@@ -147,15 +147,30 @@ void GetLuaState(ScriptState &state, sol::table &table)
     state.init = table["init"];
 }
 
-void LuaScripting::TryLoadGroup(SkinGroup group)
+
+void LuaScripting::TryLoadGroup(SkinGroup group) // Not fully testes unless someone want make skin with lua script
 {
-    auto fullPath = m_lua_dir_path / m_expected_files[group];
+    std::filesystem::path fullPath;
+
+    if (group == SkinGroup::Notes && EnvironmentSetup::GetInt("NoteSkin") != 2) {
+        auto path = std::filesystem::current_path() / "Resources";
+        if (EnvironmentSetup::GetInt("NoteSkin") == 1) {
+            fullPath = path / "Scripts" / "Notes.lua";
+        }
+        else {
+            fullPath = path / "Scripts" / "Notes.lua";
+        }
+    }
+    else {
+        fullPath = m_lua_dir_path / m_expected_files[group];
+    }
+
     if (!std::filesystem::exists(fullPath)) {
         throw std::runtime_error("Missing file: " + fullPath.string());
     }
 
     m_states[group] = {};
-    auto &state = m_states[group];
+    auto& state = m_states[group];
     state.state = sol::state();
 
     if (state.state.lua_state() == nullptr) {
