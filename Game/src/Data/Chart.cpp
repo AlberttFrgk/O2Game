@@ -466,79 +466,46 @@ void Chart::ApplyMod(Mod mod, void *data)
 
         case Mod::PANIC:
         {
+            // Shuffle lanes
             std::vector<int> lanes(m_keyCount);
-            for (int i = 0; i < m_keyCount; i++) {
-                lanes[i] = i;
-            }
+            std::iota(lanes.begin(), lanes.end(), 0); // Initialize lanes with sequential values [0, 1, 2, ..., m_keyCount - 1]
+            std::shuffle(lanes.begin(), lanes.end(), std::default_random_engine(std::random_device{}()));
 
-            auto rng = std::default_random_engine{};
-            rng.seed((uint32_t)time(NULL));
-
+            // Map to store randomized lanes for each measure
             std::unordered_map<int, std::vector<int>> measureLane;
 
-            // Keep track of BPM changes
-            std::unordered_map<int, float> measureBPM;
-            for (const auto& bpm : m_bpms) {
-                int measure = static_cast<int>(bpm.CalculateBeat(bpm.StartTime) / bpm.TimeSignature);
-                measureBPM[measure] = bpm.Value;
-            }
-
-            // Keep track of which lanes are occupied by hold notes
-            std::unordered_map<int, std::vector<bool>> occupiedLanes;
-
+            // Iterate through notes
             for (auto& note : m_notes) {
-                int measure = -1;
-                for (size_t i = 0; i < m_bpms.size(); i++) {
-                    if (m_bpms[i].StartTime > note.StartTime) {
-                        measure = static_cast<int>(m_bpms[i - 1].CalculateBeat(note.StartTime) / m_bpms[i - 1].TimeSignature);
-                        break;
-                    }
-                }
+                // Find the timing point that corresponds to the note's start time
+                auto timingIter = std::lower_bound(m_bpms.begin(), m_bpms.end(), note.StartTime,
+                    [](const TimingInfo& timing, double startTime) { return timing.StartTime < startTime; });
 
-                if (measure == -1) {
-                    measure = static_cast<int>(m_bpms.back().CalculateBeat(note.StartTime) / m_bpms.back().TimeSignature);
-                }
+                // Calculate the measure of the note using the timing point's time signature
+                int measure = static_cast<int>(timingIter->CalculateBeat(note.StartTime) / timingIter->TimeSignature);
 
-                for (int i = measure; i > 0; i--) {
-                    if (measureBPM.find(i) == measureBPM.end()) {
-                        measureBPM[i] = measureBPM[i - 1];
-                    }
-                }
-
+                // Check if the measure already has a randomized lane pattern
                 if (measureLane.find(measure) == measureLane.end()) {
-                    std::shuffle(std::begin(lanes), std::end(lanes), rng);
+                    // If not, shuffle the lanes and store the pattern
+                    std::shuffle(lanes.begin(), lanes.end(), std::default_random_engine(std::random_device{}()));
                     measureLane[measure] = lanes;
                 }
 
-                // Check if the lane is occupied by a hold note
-                bool laneOccupied = false;
-                if (occupiedLanes.find(measure) != occupiedLanes.end()) {
-                    const auto& lanesOccupiedByHold = occupiedLanes[measure];
-                    laneOccupied = lanesOccupiedByHold[note.LaneIndex];
-                }
+                // Update the note's lane index with the randomized lane for the measure
+                note.LaneIndex = measureLane[measure][note.LaneIndex];
 
-                if (!laneOccupied) {
-                    // Assign lane and mark as occupied if it's a hold note
-                    if (note.Type == NoteType::HOLD) {
-                        note.LaneIndex = measureLane[measure][note.LaneIndex];
-                        occupiedLanes[measure].resize(m_keyCount, false); // Initialize the vector if not already initialized
-                        auto& lanesOccupiedByHold = occupiedLanes[measure];
-                        lanesOccupiedByHold[note.LaneIndex] = true;
-                        for (int j = note.LaneIndex + 1; j < m_keyCount; j++) {
-                            if (note.EndTime >= measure * measureBPM[measure] && note.LaneIndex != j) {
-                                lanesOccupiedByHold[j] = true;
-                            }
+                // Adjust lanes for hold notes if they cross measure boundaries
+                if (note.Type == NoteType::HOLD) {
+                    int endMeasure = static_cast<int>(timingIter->CalculateBeat(note.EndTime) / timingIter->TimeSignature);
+                    for (int i = measure + 1; i <= endMeasure; ++i) {
+                        if (measureLane.find(i) == measureLane.end()) {
+                            measureLane[i] = measureLane[measure]; // Use the same pattern as the previous measure
                         }
-                    }
-                    else {
-                        // Shuffle lanes for normal notes if the lane is not occupied by a hold note
-                        note.LaneIndex = measureLane[measure][note.LaneIndex];
                     }
                 }
             }
-
             break;
         }
+
 
         case Mod::REARRANGE:
         {
