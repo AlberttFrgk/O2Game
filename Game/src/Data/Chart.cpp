@@ -464,45 +464,54 @@ void Chart::ApplyMod(Mod mod, void *data)
             break;
         }
 
-        case Mod::PANIC:
+        case Mod::PANIC: // pler
         {
-            // Shuffle lanes
             std::vector<int> lanes(m_keyCount);
-            std::iota(lanes.begin(), lanes.end(), 0); // Initialize lanes with sequential values [0, 1, 2, ..., m_keyCount - 1]
-            std::shuffle(lanes.begin(), lanes.end(), std::default_random_engine(std::random_device{}()));
+            for (int i = 0; i < m_keyCount; i++) {
+                lanes[i] = i;
+            }
 
-            // Map to store randomized lanes for each measure
+            auto rng = std::default_random_engine{};
+            rng.seed((uint32_t)time(NULL));
+
             std::unordered_map<int, std::vector<int>> measureLane;
 
-            // Iterate through notes
+            // Keep track of BPM changes
+            std::unordered_map<int, float> measureBPM;
+            for (const auto& bpm : m_bpms) {
+                int measure = static_cast<int>(bpm.StartTime / bpm.TimeSignature);
+                measureBPM[measure] = bpm.Value;
+            }
+
+            // Shuffle lanes per measure
             for (auto& note : m_notes) {
-                // Find the timing point that corresponds to the note's start time
-                auto timingIter = std::lower_bound(m_bpms.begin(), m_bpms.end(), note.StartTime,
-                    [](const TimingInfo& timing, double startTime) { return timing.StartTime < startTime; });
+                int measure = -1;
+                for (size_t i = 0; i < m_bpms.size(); i++) {
+                    if (m_bpms[i].StartTime > note.StartTime) {
+                        measure = static_cast<int>(m_bpms[i - 1].CalculateBeat(note.StartTime) / m_bpms[i - 1].TimeSignature);
+                        break;
+                    }
+                }
 
-                // Calculate the measure of the note using the timing point's time signature
-                int measure = static_cast<int>(timingIter->CalculateBeat(note.StartTime) / timingIter->TimeSignature);
+                if (measure == -1) {
+                    measure = static_cast<int>(m_bpms.back().CalculateBeat(note.StartTime) / m_bpms.back().TimeSignature);
+                }
 
-                // Check if the measure already has a randomized lane pattern
                 if (measureLane.find(measure) == measureLane.end()) {
-                    // If not, shuffle the lanes and store the pattern
-                    std::shuffle(lanes.begin(), lanes.end(), std::default_random_engine(std::random_device{}()));
+                    std::shuffle(std::begin(lanes), std::end(lanes), rng);
                     measureLane[measure] = lanes;
                 }
 
-                // Update the note's lane index with the randomized lane for the measure
                 note.LaneIndex = measureLane[measure][note.LaneIndex];
 
-                // Adjust lanes for hold notes if they cross measure boundaries
-                if (note.Type == NoteType::HOLD) {
-                    int endMeasure = static_cast<int>(timingIter->CalculateBeat(note.EndTime) / timingIter->TimeSignature);
-                    for (int i = measure + 1; i <= endMeasure; ++i) {
-                        if (measureLane.find(i) == measureLane.end()) {
-                            measureLane[i] = measureLane[measure]; // Use the same pattern as the previous measure
-                        }
+                int nextMeasure = measure + 1;
+                if (note.EndTime > nextMeasure * measureBPM[nextMeasure]) {
+                    if (measureLane.find(nextMeasure) == measureLane.end()) {
+                        measureLane[nextMeasure] = measureLane[measure];
                     }
                 }
             }
+
             break;
         }
 

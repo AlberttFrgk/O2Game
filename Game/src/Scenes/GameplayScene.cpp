@@ -82,9 +82,6 @@ void GameplayScene::Update(double delta)
         m_counter += delta;
         m_drawExitButton = false;
         m_doExit = false;
-        m_minuteNum->DrawNumber(0);
-        m_secondNum->DrawNumber(0);
-
         if (m_counter > 5.0) {
             m_ended = true;
             m_counter = 0.0; // Reset
@@ -95,9 +92,6 @@ void GameplayScene::Update(double delta)
     }
 
     if (m_game->GetState() == GameState::Fail && !m_ended) {
-        m_minuteNum->DrawNumber(0);
-        m_secondNum->DrawNumber(0);
-
         m_ended = true;
         m_counter = 0.0; // Reset
         SceneManager::DisplayFade(100, [] {
@@ -293,21 +287,27 @@ void GameplayScene::Render(double delta)
         }
     }
 
-    if (m_drawCombo && std::get<7>(scores) > 0) { // O2Jam Combo Animation 1:1
+    if (m_drawCombo && std::get<7>(scores) > 0) {
         const double positionStart = 30.0;
-        const double increment = 6.0;
+        const double increment = 1.0;
         const double decrement = 6.0;
-        double animationSpeed = 72.0;
+        double animationSpeed = 90.0;
 
         double targetPosition = positionStart - decrement * m_comboTimer * animationSpeed;
         double currentposition = (targetPosition > 0.0) ? targetPosition : 0.0;
 
-        // If moving down, limit the wiggle to between 30px and 36px
         if (currentposition > positionStart) {
             double wiggleAmount = currentposition - positionStart;
             if (wiggleAmount > increment) {
                 currentposition = positionStart + increment;
+                animationSpeed -= 30.0;
+                if (animationSpeed < 1.0) {
+                    animationSpeed = 1.0;
+                }
             }
+        }
+        else {
+            animationSpeed = 90.0;
         }
 
         m_comboLogo->Position2 = UDim2::fromOffset(0, currentposition / 3.0);
