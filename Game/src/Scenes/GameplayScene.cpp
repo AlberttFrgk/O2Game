@@ -296,12 +296,12 @@ void GameplayScene::Render(double delta)
         // Dynamically calculate the animation speed
         double animationSpeed = initialAnimationSpeed * animationMultiplier;
 
-        double targetposition = positionStart - (positionEnd - positionStart) * m_comboTimer * animationSpeed;
-        double currentposition = (targetposition > 0.0) ? targetposition : 0.0;
+        double targetPosition = positionStart - (positionEnd - positionStart) * m_comboTimer * animationSpeed;
+        double currentPosition = (targetPosition > 0.0) ? targetPosition : 0.0;
 
         // Smooth transition for the position
-        m_comboLogo->Position2 = UDim2::fromOffset(0, currentposition / 3.0);
-        m_comboNum->Position2 = UDim2::fromOffset(0, currentposition);
+        m_comboLogo->Position2 = UDim2::fromOffset(0, currentPosition / 3.0);
+        m_comboNum->Position2 = UDim2::fromOffset(0, currentPosition);
 
         m_comboLogo->Draw(delta);
         m_comboNum->DrawNumber(std::get<7>(scores));
@@ -325,13 +325,13 @@ void GameplayScene::Render(double delta)
         const double positionStart = 5.0;
         double animationSpeed = 60.0;
 
-        double targetposition = positionStart - m_lnTimer * animationSpeed;
-        double currentposition = (targetposition > 0.0) ? targetposition : 0.0;
+        double targetPosition = positionStart - m_lnTimer * animationSpeed;
+        double currentPosition = (targetPosition > 0.0) ? targetPosition : 0.0;
 
-        m_lnLogo->Position2 = UDim2::fromOffset(0, currentposition);
+        m_lnLogo->Position2 = UDim2::fromOffset(0, currentPosition);
         m_lnLogo->Draw(delta);
 
-        m_lnComboNum->Position2 = UDim2::fromOffset(0, currentposition);
+        m_lnComboNum->Position2 = UDim2::fromOffset(0, currentPosition);
         m_lnComboNum->DrawNumber(std::get<9>(scores));
 
         m_lnTimer += delta;
