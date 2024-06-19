@@ -287,29 +287,19 @@ void GameplayScene::Render(double delta)
         }
     }
 
-    if (m_drawCombo && std::get<7>(scores) > 0) {
+    if (m_drawCombo && std::get<7>(scores) > 0) { // O2Jam Replication
         const double positionStart = 30.0;
-        const double increment = 1.0;
-        const double decrement = 6.0;
-        double animationSpeed = 90.0;
+        const double positionEnd = 36.0; // Decrement up to 36
+        double initialAnimationSpeed = 12.0; // Initial FPS
+        static double animationMultiplier = 1.0; // Multiplier to control FPS
 
-        double targetPosition = positionStart - decrement * m_comboTimer * animationSpeed;
-        double currentposition = (targetPosition > 0.0) ? targetPosition : 0.0;
+        // Dynamically calculate the animation speed
+        double animationSpeed = initialAnimationSpeed * animationMultiplier;
 
-        if (currentposition > positionStart) {
-            double wiggleAmount = currentposition - positionStart;
-            if (wiggleAmount > increment) {
-                currentposition = positionStart + increment;
-                animationSpeed -= 30.0;
-                if (animationSpeed < 1.0) {
-                    animationSpeed = 1.0;
-                }
-            }
-        }
-        else {
-            animationSpeed = 90.0;
-        }
+        double targetposition = positionStart - (positionEnd - positionStart) * m_comboTimer * animationSpeed;
+        double currentposition = (targetposition > 0.0) ? targetposition : 0.0;
 
+        // Smooth transition for the position
         m_comboLogo->Position2 = UDim2::fromOffset(0, currentposition / 3.0);
         m_comboNum->Position2 = UDim2::fromOffset(0, currentposition);
 
@@ -321,6 +311,13 @@ void GameplayScene::Render(double delta)
         if (m_comboTimer >= 1.0) {
             m_comboTimer = 0.0;
             m_drawCombo = false;
+            animationMultiplier = 1.0; // Reset the multiplier when combo ends
+        }
+        else {
+            animationMultiplier *= 2.0; // Double the FPS multiplier
+            if (animationMultiplier > 6.0) {
+                animationMultiplier = 6.0; // Cap the multiplier to avoid excessive FPS
+            }
         }
     }
 

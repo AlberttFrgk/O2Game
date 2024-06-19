@@ -343,7 +343,6 @@ bool RhythmEngine::Stop()
 {
     m_state = GameState::PosGame;
     GameAudioSampleCache::StopAll();
-    m_PlayTime = 0.0;
     return true;
 }
 
@@ -352,7 +351,6 @@ bool RhythmEngine::Fail()
 {
     m_state = GameState::Fail;
     GameAudioSampleCache::StopAll();
-    m_PlayTime = 0.0;
     return true;
 }
 
@@ -369,6 +367,7 @@ void RhythmEngine::Update(double delta)
     // Since I'm coming from Roblox, and I had no idea how to Real-Time sync the audio
     // I decided to use this method again from Roblox project I did in past.
     double last = m_currentAudioPosition;
+    m_PlayTime += delta;
     m_currentAudioPosition += (delta * m_rate) * 1000;
 
     // check difference between last and current audio position
@@ -437,7 +436,6 @@ void RhythmEngine::Update(double delta)
     //auto currentTime = std::chrono::system_clock::now();
     //auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(currentTime - m_startClock);
     //m_PlayTime = static_cast<int>(elapsedTime.count() - 4);
-    m_PlayTime += delta;
 }
 
 void RhythmEngine::Render(double delta)
@@ -618,7 +616,14 @@ double RhythmEngine::GetGameFrame() const
 
 int RhythmEngine::GetPlayTime() const
 {
-    return static_cast<int>(m_PlayTime - 5);
+    bool isPlaying = EnvironmentSetup::GetInt("NowPlaying") == 1;
+    if (isPlaying)
+    {
+        return static_cast<int>(m_PlayTime - 5);
+    }
+    else {
+        return 0;
+    }
 }
 
 int RhythmEngine::GetNoteImageIndex()
