@@ -360,13 +360,15 @@ void SettingsOverlay::Render(double delta)
 
                         ImGui::SameLine();
 
-                        ImGui::Checkbox("Disable Percy###SetCheckbox3", &NoteTail);
-                        if (NoteTail) { // Leave everything notetail untouched since no reason to make whole changes
-                            EnvironmentSetup::SetInt("NoteTail", 0);
-                        }
-                        else {
-                            EnvironmentSetup::SetInt("NoteTail", 1);
-                        }
+                        //ImGui::Checkbox("Disable Percy###SetCheckbox3", &Percy);
+                        //if (Percy) {
+                        //    EnvironmentSetup::SetInt("Percy", 0);
+                        //}
+                        //else {
+                        //    EnvironmentSetup::SetInt("Percy", 1);
+                        //}
+
+                        //TODO: Make new measure line system
 
                         ImGui::Checkbox("Long Note Head Position at HitPos###SetCheckbox2", &LongNoteOnHitPos);
                         if (ImGui::IsItemHovered()) {
@@ -640,20 +642,20 @@ void SettingsOverlay::LoadConfiguration()
         EnvironmentSetup::SetInt("NoteSkin", 2);
     }
 
-    try {
-        int noteTailValue = std::stoi(Configuration::Load("Game", "NoteTail"));
-        NoteTail = (noteTailValue == 1);
-    }
-    catch (const std::invalid_argument&) {
-        NoteTail = true;
-    }
+    //try {
+    //    int PercyValue = std::stoi(Configuration::Load("Game", "Percy"));
+    //    Percy = (PercyValue == 1);
+    //}
+    //catch (const std::invalid_argument&) {
+    //    Percy = true;
+    //}
 
-    if (NoteTail) { // HACK: Same workaround like Background :troll:
-        EnvironmentSetup::SetInt("NoteTail", 0);
-    }
-    else {
-        EnvironmentSetup::SetInt("NoteTail", 1);
-    }
+    //if (Percy) { // HACK: Same workaround like Background :troll:
+    //    EnvironmentSetup::SetInt("Percy", 0);
+    //}
+    //else {
+    //    EnvironmentSetup::SetInt("Percy", 1);
+    //}
 
     try {
         int measureLineValue = std::stoi(Configuration::Load("Game", "MeasureLine"));
@@ -683,7 +685,7 @@ void SettingsOverlay::SaveConfiguration()
     Configuration::Set("Game", "NoteSkin", std::to_string(NoteIndex));
     Configuration::Set("Game", "Background", std::to_string(BackgroundIndex));
     Configuration::Set("Game", "MeasureLine", std::to_string(MeasureLine ? 1 : 0));
-    Configuration::Set("Game", "NoteTail", std::to_string(NoteTail ? 1 : 0));
+    //Configuration::Set("Game", "Percy", std::to_string(Percy ? 1 : 0));
 
     if (currentFPSIndex == GetFpsOptions().size() - 1 && customFPS > 0) {
         Configuration::Set("Game", "FrameLimit", std::to_string(customFPS));

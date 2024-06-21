@@ -27,7 +27,7 @@ private:
     bool LongNoteLighting = false;
     bool LongNoteOnHitPos = false;
     bool MeasureLine = false;
-    bool NoteTail = false;
+    bool Percy = false;
     int BackgroundIndex = 0;
     int NoteIndex = 0;
     bool convertAutoSound = false;
