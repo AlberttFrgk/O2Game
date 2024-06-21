@@ -360,11 +360,8 @@ void SettingsOverlay::Render(double delta)
 
                         ImGui::SameLine();
 
-                        ImGui::Checkbox("Disable Note Tail###SetCheckbox3", &NoteTail);
-                        if (ImGui::IsItemHovered()) {
-                            ImGui::SetTooltip("Why this called No Percy? Lol");
-                        }
-                        if (NoteTail) {
+                        ImGui::Checkbox("Disable Percy###SetCheckbox3", &NoteTail);
+                        if (NoteTail) { // Leave everything notetail untouched since no reason to make whole changes
                             EnvironmentSetup::SetInt("NoteTail", 0);
                         }
                         else {

@@ -382,16 +382,10 @@ void RhythmEngine::Update(double delta)
         m_state = GameState::PosGame;
     }
 
-    //if (static_cast<int>(m_currentAudioPosition) % 1000 == 0) { // THIS CAUSING ISSUES NOTE FPS DOES NOT CORRECTLY APPLIED
-    //    m_noteImageIndex = (m_noteImageIndex + 1) % m_noteMaxImageIndex;
-    //}
-
-    // HACK: I had to use std chrono on this, otherwise it will not accurate and has weird inconsistent frame index
     static std::chrono::steady_clock::time_point lastUpdateTime = std::chrono::steady_clock::now();
     auto currentTime = std::chrono::steady_clock::now();
     auto lastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - lastUpdateTime);
 
-    // Check if it's time to update the note image index
     if (lastUpdate.count() >= 100) {
         m_noteImageIndex = (m_noteImageIndex + 1) % m_noteMaxImageIndex;
         lastUpdateTime = currentTime;
@@ -616,14 +610,7 @@ double RhythmEngine::GetGameFrame() const
 
 int RhythmEngine::GetPlayTime() const
 {
-    bool isPlaying = EnvironmentSetup::GetInt("NowPlaying") == 1;
-    if (isPlaying)
-    {
-        return static_cast<int>(m_PlayTime - 5);
-    }
-    else {
-        return 0;
-    }
+    return static_cast<int>(m_PlayTime - 5);
 }
 
 int RhythmEngine::GetNoteImageIndex()

@@ -96,7 +96,7 @@ bool Renderer::Create(RendererMode mode, GameWindow *window, bool failed)
                 }
 
                 SDL_SetHint(SDL_HINT_RENDER_DRIVER, rendererName.c_str());
-                SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "Linear");
+                SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "best");
             }
 
             m_renderer = SDL_CreateRenderer(window->GetWindow(), -1, SDL_RENDERER_ACCELERATED /*| SDL_RENDERER_PRESENTVSYNC*/);
