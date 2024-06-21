@@ -12,7 +12,7 @@ std::string defaultConfiguration = "[game]\n"
 	"renderer = 0\n"
 	"guideline = 1\n"
 	"background = 0\n"
-	"notetail = 0\n"
+	//"percy = 1\n"
 	"measureline = 0\n\n"
 
 	"[keymapping]\n"

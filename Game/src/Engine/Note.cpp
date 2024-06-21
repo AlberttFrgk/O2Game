@@ -236,9 +236,9 @@ void Note::Render(double delta)
         double tailPosY = lerp(0.0, static_cast<double>(hitPos), static_cast<float>(y2));
         bool isTailVisible = isWithinRange(tailPosY, min, max);
 
-        if (EnvironmentSetup::GetInt("NoteTail") == 0) {
-            tailPosY += m_tail->AbsoluteSize.Y;
-        }
+        //if (EnvironmentSetup::GetInt("Percy") == 0) {
+        //    tailPosY += m_tail->AbsoluteSize.Y;
+        //}
 
         double bodyPosY = (headPosY + tailPosY) / 2.0;
         double bodyHeight = std::abs(headPosY - (m_head->AbsoluteSize.Y / 2.0)) - (tailPosY - (m_head->AbsoluteSize.Y / 2.0));
