@@ -243,7 +243,7 @@ void Note::Render(double delta)
         double bodyPosY = (headPosY + tailPosY) / 2.0;
         double bodyHeight = std::abs(headPosY - (m_head->AbsoluteSize.Y / 2.0)) - (tailPosY - (m_head->AbsoluteSize.Y / 2.0));
 
-        m_body->Position = UDim2::fromOffset(m_laneOffset, bodyPosY);
+        m_body->Position = UDim2::fromOffset(m_laneOffset, bodyPosY - (m_head->AbsoluteSize.Y / 2.0));
         m_body->Size = { 1, 0, 0, bodyHeight };
 
         float transparency = 0.9f;
