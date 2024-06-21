@@ -208,7 +208,7 @@ void Note::Update(double delta)
     }
 }
 
-void Note::Render(double delta) // Code more cleared than before
+void Note::Render(double delta)
 {
     if (IsRemoveable()) {
         return;
@@ -236,8 +236,13 @@ void Note::Render(double delta) // Code more cleared than before
         double tailPosY = lerp(0.0, static_cast<double>(hitPos), static_cast<float>(y2));
         bool isTailVisible = isWithinRange(tailPosY, min, max);
 
+        if (EnvironmentSetup::GetInt("NoteTail") == 0) {
+            tailPosY += m_tail->AbsoluteSize.Y;
+        }
+
         double bodyPosY = (headPosY + tailPosY) / 2.0;
-        double bodyHeight = std::abs(headPosY - tailPosY);
+        double bodyHeight = std::abs(headPosY - (m_head->AbsoluteSize.Y / 2.0)) - (tailPosY - (m_head->AbsoluteSize.Y / 2.0));
+
         m_body->Position = UDim2::fromOffset(m_laneOffset, bodyPosY);
         m_body->Size = { 1, 0, 0, bodyHeight };
 
@@ -245,7 +250,6 @@ void Note::Render(double delta) // Code more cleared than before
         if (m_hitResult >= NoteResult::GOOD && m_state == NoteState::HOLD_ON_HOLDING) {
             transparency = 1.0f;
         }
-
         else if (m_hitResult >= NoteResult::MISS && m_state == NoteState::HOLD_MISSED_ACTIVE) {
             transparency = 0.7f;
         }
@@ -254,15 +258,10 @@ void Note::Render(double delta) // Code more cleared than before
         m_body->SetIndexAt(m_engine->GetNoteImageIndex());
         m_body->Draw(delta, &playRect);
 
-        bool NoteTail = EnvironmentSetup::GetInt("NoteTail") == 1;
-
         if (isTailVisible) {
             m_tail->Position = UDim2::fromOffset(m_laneOffset, tailPosY);
             m_tail->SetIndexAt(m_engine->GetNoteImageIndex());
-
-            if (NoteTail) {
-                m_tail->Draw(delta, &playRect);
-            }
+            m_tail->Draw(delta, &playRect);
 
             if (guideLineLength > 0) {
                 m_trail_down->Position = m_tail->Position;

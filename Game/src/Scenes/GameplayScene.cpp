@@ -390,9 +390,23 @@ void GameplayScene::Render(double delta)
         m_waveGage->Draw(&rc);
     }
 
-    int PlayTime = std::clamp(m_game->GetPlayTime(), 0, INT_MAX);
-    int currentMinutes = PlayTime / 60;
-    int currentSeconds = PlayTime % 60;
+    // Fix if playtime sometimes slighly double draw
+    int PlayTime = 0;
+    int currentMinutes = 0 / 60;
+    int currentSeconds = 0 % 60;
+
+    bool isPlaying = EnvironmentSetup::GetInt("NowPlaying") == 1;
+    if (isPlaying) // get timer if on play state
+    {
+        PlayTime = std::clamp(m_game->GetPlayTime(), 0, INT_MAX);
+        currentMinutes = PlayTime / 60;
+        currentSeconds = PlayTime % 60;
+    }
+    else { // get timer but this while game ended or failed
+        int lastPlayTime = PlayTime;
+        currentMinutes = lastPlayTime / 60;
+        currentSeconds = lastPlayTime % 60;
+    }
 
     m_minuteNum->DrawNumber(currentMinutes);
     m_secondNum->DrawNumber(currentSeconds);
