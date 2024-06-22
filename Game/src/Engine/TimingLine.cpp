@@ -83,5 +83,6 @@ void TimingLine::Render(double delta)
 
 void TimingLine::Release()
 {
+    EnvironmentSetup::SetInt("HalfNoteSize", 0);
     delete m_line;
 }
