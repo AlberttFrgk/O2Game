@@ -360,6 +360,7 @@ void Note::Render(double delta)
         }
 
         if (isHeadVisible) {
+            EnvironmentSetup::SetInt("HalfNoteSize", m_head->AbsoluteSize.Y / 2.0);
             DrawNoteHead(delta, headPosY, guideLineLength, playRect);
         }
     }
