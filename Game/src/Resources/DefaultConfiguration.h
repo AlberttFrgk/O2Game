@@ -7,13 +7,13 @@ std::string defaultConfiguration = "[game]\n"
 	"framelimit = 240\n" // Default 144 but i set this for more reasonable
 	"audiooffset = 0\n"
 	"audiovolume = 100\n"
-	"autosound = 1\n"
+	"autosound = 0\n"
 	"resolution = 1280x720\n" // Fix for most monitor
 	"renderer = 0\n"
 	"guideline = 1\n"
 	"background = 0\n"
-	//"percy = 1\n"
-	"measureline = 0\n\n"
+	"measureline = 1\n"
+	"measurelinetype = 0\n\n"
 
 	"[keymapping]\n"
 	"lane1 = A\n"
