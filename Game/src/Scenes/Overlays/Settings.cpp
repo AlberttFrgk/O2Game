@@ -350,10 +350,11 @@ void SettingsOverlay::Render(double delta)
 
                         ImGui::NewLine();
                         ImGui::NewLine();
+                        ImGui::NewLine();
 
                         ImGui::Text("Gameplay-Related Configuration");
 
-                        ImGui::Checkbox("Use New Measure Line###SetCheckbox3", &MeasureLineType);
+                        ImGui::Checkbox("Use New Measure Line###SetCheckbox1", &MeasureLineType);
                         if (ImGui::IsItemHovered()) {
                             ImGui::SetTooltip("Measure line position in the middle of the note; otherwise, it will be at the bottom of the note");
                         }
@@ -364,12 +365,23 @@ void SettingsOverlay::Render(double delta)
                             EnvironmentSetup::SetInt("MeasureLineType", 0);
                         }
 
-                        ImGui::Checkbox("Disable Measure Line###SetCheckbox4", &MeasureLine);
+                        ImGui::Checkbox("Disable Measure Line###SetCheckbox2", &MeasureLine);
                         if (MeasureLine) {
                             EnvironmentSetup::SetInt("MeasureLine", 0);
                         }
                         else {
                             EnvironmentSetup::SetInt("MeasureLine", 1);
+                        }
+
+                        ImGui::Checkbox("Long Note Body On Top###SetCheckbox3", &LNBodyOnTop);
+                        if (ImGui::IsItemHovered()) {
+                            ImGui::SetTooltip("If your note skin has issues, enable this option!");
+                        }
+                        if (LNBodyOnTop) {
+                            EnvironmentSetup::SetInt("LNBodyOnTop", 1);
+                        }
+                        else {
+                            EnvironmentSetup::SetInt("LNBodyOnTop", 0);
                         }
 
                         ImGui::EndTabItem();
@@ -646,11 +658,26 @@ void SettingsOverlay::LoadConfiguration()
         MeasureLine = true;
     }
 
-    if (MeasureLine) { // HACK: Same workaround like Background :troll:
+    if (MeasureLine) {
         EnvironmentSetup::SetInt("MeasureLine", 0);
     }
     else {
         EnvironmentSetup::SetInt("MeasureLine", 1);
+    }
+
+    try {
+        int LNBodyOnTopValue = std::stoi(Configuration::Load("Game", "LNBodyOnTop"));
+        LNBodyOnTop = (LNBodyOnTopValue == 1);
+    }
+    catch (const std::invalid_argument&) {
+        LNBodyOnTop = true;
+    }
+
+    if (LNBodyOnTop) {
+        EnvironmentSetup::SetInt("LNBodyOnTop", 1);
+    }
+    else {
+        EnvironmentSetup::SetInt("LNBodyOnTop", 0);
     }
 
     currentSkin = Configuration::Load("Game", "Skin");
@@ -667,6 +694,7 @@ void SettingsOverlay::SaveConfiguration()
     Configuration::Set("Game", "Background", std::to_string(BackgroundIndex));
     Configuration::Set("Game", "MeasureLine", std::to_string(MeasureLine ? 1 : 0));
     Configuration::Set("Game", "MeasureLineType", std::to_string(MeasureLineType ? 1 : 0));
+    Configuration::Set("Game", "LNBodyOnTop", std::to_string(LNBodyOnTop ? 1 : 0));
 
     if (currentFPSIndex == GetFpsOptions().size() - 1 && customFPS > 0) {
         Configuration::Set("Game", "FrameLimit", std::to_string(customFPS));
