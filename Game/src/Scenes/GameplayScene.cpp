@@ -151,17 +151,14 @@ void GameplayScene::Render(double delta)
 
     int arena = EnvironmentSetup::GetInt("Arena");
 
-    bool useSongBG = EnvironmentSetup::GetInt("Song Background") == 1;
-    bool blackBG = EnvironmentSetup::GetInt("Black Background") == 1;
-
-    if (useSongBG) {
+    if (EnvironmentSetup::GetInt("Background") == 1) {
         auto songBG = (Texture2D*)EnvironmentSetup::GetObj("SongBackground");
         if (songBG) {
             songBG->TintColor = Color3::FromRGB(128, 128, 128);
             songBG->Draw();
         }
     }
-    else if (blackBG) {
+    else if (EnvironmentSetup::GetInt("Background") == 2) {
         // Do nothing
     }
     else {

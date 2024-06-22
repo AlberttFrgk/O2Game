@@ -353,29 +353,16 @@ void SettingsOverlay::Render(double delta)
 
                         ImGui::Text("Gameplay-Related Configuration");
 
-                        ImGui::Checkbox("Long Note Lighting###SetCheckbox1", &LongNoteLighting);
+                        ImGui::Checkbox("Use New Measure Line###SetCheckbox3", &MeasureLineType);
                         if (ImGui::IsItemHovered()) {
-                            ImGui::SetTooltip("When Long note on hold, change the lighting brightness to 100%% else 90%% brightness");
+                            ImGui::SetTooltip("Measure line position in the middle of the note; otherwise, it will be at the bottom of the note");
                         }
-
-                        ImGui::SameLine();
-
-                        //ImGui::Checkbox("Disable Percy###SetCheckbox3", &Percy);
-                        //if (Percy) {
-                        //    EnvironmentSetup::SetInt("Percy", 0);
-                        //}
-                        //else {
-                        //    EnvironmentSetup::SetInt("Percy", 1);
-                        //}
-
-                        //TODO: Make new measure line system
-
-                        ImGui::Checkbox("Long Note Head Position at HitPos###SetCheckbox2", &LongNoteOnHitPos);
-                        if (ImGui::IsItemHovered()) {
-                            ImGui::SetTooltip("When Long note on hold, make the head position at hit position else keep going to bottom");
+                        if (MeasureLineType) {
+                            EnvironmentSetup::SetInt("MeasureLineType", 1);
                         }
-
-                        ImGui::SameLine();
+                        else {
+                            EnvironmentSetup::SetInt("MeasureLineType", 0);
+                        }
 
                         ImGui::Checkbox("Disable Measure Line###SetCheckbox4", &MeasureLine);
                         if (MeasureLine) {
@@ -473,17 +460,14 @@ void SettingsOverlay::Render(double delta)
                             ImGui::SameLine();
                         }
 
-                        if (BackgroundIndex == 0) {
-                            EnvironmentSetup::SetInt("Song Background", 0);
-                            EnvironmentSetup::SetInt("Black Background", 0);
-                        }
-                        else if (BackgroundIndex == 1) {
-                            EnvironmentSetup::SetInt("Song Background", 1);
-                            EnvironmentSetup::SetInt("Black Background", 0);
+                        if (BackgroundIndex == 1) {
+                            EnvironmentSetup::SetInt("Background", 1);
                         }
                         else if (BackgroundIndex == 2) {
-                            EnvironmentSetup::SetInt("Song Background", 0);
-                            EnvironmentSetup::SetInt("Black Background", 1);
+                            EnvironmentSetup::SetInt("Background", 2);
+                        }
+                        else {
+                            EnvironmentSetup::SetInt("Background", 0);
                         }
 
                         ImGui::EndTabItem();
@@ -612,17 +596,14 @@ void SettingsOverlay::LoadConfiguration()
         BackgroundIndex = 0;
     }
 
-    if (BackgroundIndex == 0) { // HACK: Solution for issue background not applied even configuration already loaded
-        EnvironmentSetup::SetInt("Song Background", 0);
-        EnvironmentSetup::SetInt("Black Background", 0);
-    }
-    else if (BackgroundIndex == 1) {
-        EnvironmentSetup::SetInt("Song Background", 1);
-        EnvironmentSetup::SetInt("Black Background", 0);
+    if (BackgroundIndex == 1) {
+        EnvironmentSetup::SetInt("Background", 1);
     }
     else if (BackgroundIndex == 2) {
-        EnvironmentSetup::SetInt("Song Background", 0);
-        EnvironmentSetup::SetInt("Black Background", 1);
+        EnvironmentSetup::SetInt("Background", 2);
+    }
+    else {
+        EnvironmentSetup::SetInt("Background", 0);
     }
 
     try {
@@ -642,20 +623,20 @@ void SettingsOverlay::LoadConfiguration()
         EnvironmentSetup::SetInt("NoteSkin", 2);
     }
 
-    //try {
-    //    int PercyValue = std::stoi(Configuration::Load("Game", "Percy"));
-    //    Percy = (PercyValue == 1);
-    //}
-    //catch (const std::invalid_argument&) {
-    //    Percy = true;
-    //}
+    try {
+        int MeasureLineTypeValue = std::stoi(Configuration::Load("Game", "MeasureLineType"));
+        MeasureLineType = (MeasureLineTypeValue == 1);
+    }
+    catch (const std::invalid_argument&) {
+        MeasureLineType = false;
+    }
 
-    //if (Percy) { // HACK: Same workaround like Background :troll:
-    //    EnvironmentSetup::SetInt("Percy", 0);
-    //}
-    //else {
-    //    EnvironmentSetup::SetInt("Percy", 1);
-    //}
+    if (MeasureLineType) {
+        EnvironmentSetup::SetInt("MeasureLineType", 1);
+    }
+    else {
+        EnvironmentSetup::SetInt("MeasureLineType", 0);
+    }
 
     try {
         int measureLineValue = std::stoi(Configuration::Load("Game", "MeasureLine"));
@@ -685,7 +666,7 @@ void SettingsOverlay::SaveConfiguration()
     Configuration::Set("Game", "NoteSkin", std::to_string(NoteIndex));
     Configuration::Set("Game", "Background", std::to_string(BackgroundIndex));
     Configuration::Set("Game", "MeasureLine", std::to_string(MeasureLine ? 1 : 0));
-    //Configuration::Set("Game", "Percy", std::to_string(Percy ? 1 : 0));
+    Configuration::Set("Game", "MeasureLineType", std::to_string(MeasureLineType ? 1 : 0));
 
     if (currentFPSIndex == GetFpsOptions().size() - 1 && customFPS > 0) {
         Configuration::Set("Game", "FrameLimit", std::to_string(customFPS));

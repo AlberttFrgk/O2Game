@@ -71,14 +71,14 @@ public:
 
 	void SetXPosition(int x);
 	void SetDrawable(bool drawable);
-	
-	bool IsHoldEffectDrawable();
-	bool IsDrawable();
-	bool IsRemoveable();
-	bool IsPassed();
 
-	bool IsHeadHit();
-	bool IsTailHit();
+	bool IsHoldEffectDrawable() const;
+	bool IsDrawable() const;
+	bool IsRemoveable() const;
+	bool IsPassed() const;
+
+	bool IsHeadHit() const;
+	bool IsTailHit() const;
 
 	void Release();
 

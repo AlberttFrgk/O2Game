@@ -290,6 +290,7 @@ void Note::Render(double delta)
     }
 
     if (isHeadVisible) {
+        EnvironmentSetup::SetInt("HalfNoteSize", m_head->AbsoluteSize.Y / 2.0);
         m_head->Position = UDim2::fromOffset(m_laneOffset, headPosY);
         m_head->SetIndexAt(m_engine->GetNoteImageIndex());
         m_head->Draw(delta, &playRect);
@@ -533,12 +534,12 @@ void Note::SetDrawable(bool drawable)
     m_drawAble = drawable;
 }
 
-bool Note::IsHoldEffectDrawable()
+bool Note::IsHoldEffectDrawable() const
 {
     return m_shouldDrawHoldEffect;
 }
 
-bool Note::IsDrawable()
+bool Note::IsDrawable() const
 {
     if (m_removeAble)
         return false;
@@ -546,22 +547,22 @@ bool Note::IsDrawable()
     return m_drawAble;
 }
 
-bool Note::IsRemoveable()
+bool Note::IsRemoveable() const
 {
     return m_state == NoteState::DO_REMOVE;
 }
 
-bool Note::IsPassed()
+bool Note::IsPassed() const
 {
     return m_state == NoteState::NORMAL_NOTE_PASSED || m_state == NoteState::HOLD_PASSED || IsRemoveable();
 }
 
-bool Note::IsHeadHit()
+bool Note::IsHeadHit() const
 {
     return m_didHitHead;
 }
 
-bool Note::IsTailHit()
+bool Note::IsTailHit() const
 {
     return m_didHitTail;
 }

@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <numeric>
 #include <unordered_map>
-#include <cstdio> 
+#include <cstdio>
 
 #include "../EnvironmentSetup.hpp"
 #include "Configuration.h"
