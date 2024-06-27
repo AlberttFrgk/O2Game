@@ -4,10 +4,6 @@
 constexpr int MAX_OBJECTS = 64;
 
 NoteImageCacheManager::NoteImageCacheManager() {
-    m_totalCount = 0;
-    m_totalNoteCount = 0;
-    m_totalHoldCount = 0;
-    m_totalTrailCount = 0;
 }
 
 NoteImageCacheManager::~NoteImageCacheManager() {
@@ -59,7 +55,6 @@ void NoteImageCacheManager::Repool(DrawableNote* image, NoteImageType noteType) 
         return;
 
     m_noteTextures[noteType].push_back(image);
-    m_totalNoteCount++;
 }
 
 void NoteImageCacheManager::RepoolHold(DrawableNote* image, NoteImageType noteType) {
@@ -67,7 +62,6 @@ void NoteImageCacheManager::RepoolHold(DrawableNote* image, NoteImageType noteTy
         return;
 
     m_holdTextures[noteType].push_back(image);
-    m_totalHoldCount++;
 }
 
 void NoteImageCacheManager::RepoolTrail(DrawableNote* image, NoteImageType noteType) {
@@ -75,7 +69,6 @@ void NoteImageCacheManager::RepoolTrail(DrawableNote* image, NoteImageType noteT
         return;
 
     m_trailTextures[noteType].push_back(image);
-    m_totalTrailCount++;
 }
 
 DrawableNote* NoteImageCacheManager::Depool(NoteImageType noteType) {
