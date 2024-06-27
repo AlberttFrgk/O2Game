@@ -158,16 +158,6 @@ Chart::Chart(Osu::Beatmap& beatmap) // Refactor
         }
     }
 
-    // TODO: This thing causing game crash, weird, NEED to be fixed
-    //for (auto& note : m_notes) {
-    //    if (m_keyCount == 4 && note.LaneIndex >= 2) {
-    //        note.LaneIndex += 3;
-    //    }
-    //    else if (m_keyCount == 5 && (note.LaneIndex == 3 || note.LaneIndex >= 4)) {
-    //        note.LaneIndex += 2;
-    //    }
-    //}
-
     for (int i = 0; i < beatmap.HitSamples.size(); i++) {
         auto& keysound = beatmap.HitSamples[i];
         auto path = beatmap.CurrentDir / keysound;
@@ -181,6 +171,7 @@ Chart::Chart(Osu::Beatmap& beatmap) // Refactor
     CalculateBeat();
     SortTimings();
     NormalizeTimings();
+    AdjustLaneIndex();
     ComputeKeyCount();
     ComputeHash();
 }
@@ -705,6 +696,41 @@ void Chart::NormalizeTimings()
     m_svs = result;
 }
 
+void Chart::AdjustLaneIndex() // Fix vector subscript out of range
+{
+    for (auto& note : m_notes) {
+        switch (m_keyCount) { // Fuck, this hard to figure out
+        case 4:
+        {
+            if (note.LaneIndex >= 2) {
+                note.LaneIndex += 3;
+            }
+            break;
+        }
+        case 5:
+        {
+            if (note.LaneIndex == 2) {
+                note.LaneIndex += 1;
+            }
+            else if (note.LaneIndex >= 3) {
+                note.LaneIndex += 2;
+            }
+            break;
+        }
+        case 6:
+        {
+            if (note.LaneIndex >= 3) {
+                note.LaneIndex += 1;
+            }
+            break;
+        }
+        default:
+            m_keyCount = 7;
+            break;
+        }
+    }
+}
+
 void Chart::ComputeKeyCount()
 {
     bool Lanes[7] = { false, false, false, false, false, false };
@@ -717,7 +743,7 @@ void Chart::ComputeKeyCount()
 
     // BMS-O2 4K is: X X - - - X X
     // BMS-O2 5K is: X X - X - X X
-    // BMS-O2 6K is: X X X - X X X
+    // BMS-O2 6K is: X X X X X X -
     // BMS-O2 7K is: X X X X X X X
 
     // Check for 7K first since it has the highest priority
@@ -725,7 +751,7 @@ void Chart::ComputeKeyCount()
         m_keyCount = 7;
     }
     // Check for 6K
-    else if (Lanes[0] && Lanes[1] && Lanes[2] && !Lanes[3] && Lanes[4] && Lanes[5] && Lanes[6]) {
+    else if (Lanes[0] && Lanes[1] && Lanes[2] && Lanes[3] && Lanes[4] && Lanes[5] && !Lanes[6]) {
         m_keyCount = 6;
     }
     // Check for 5K
@@ -736,7 +762,6 @@ void Chart::ComputeKeyCount()
     else if (Lanes[0] && Lanes[1] && !Lanes[2] && !Lanes[3] && !Lanes[4] && Lanes[5] && Lanes[6]) {
         m_keyCount = 4;
     }
-    // Otherwise, the pattern does not match any of the known K values
     else {
         Logs::Puts("[Chart] Unknown lane pattern, fallback to 7K");
         m_keyCount = 7;
