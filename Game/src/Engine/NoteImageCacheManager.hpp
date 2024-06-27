@@ -25,11 +25,6 @@ public:
     static void                   Release();
 
 private:
-    size_t m_totalCount;
-    size_t m_totalNoteCount;
-    size_t m_totalHoldCount;
-    size_t m_totalTrailCount;
-
     static NoteImageCacheManager* s_instance;
 
     std::unordered_map<NoteImageType, std::vector<DrawableNote*>> m_noteTextures;
