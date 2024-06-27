@@ -582,11 +582,11 @@ void SettingsOverlay::LoadConfiguration()
         auto fpsOptions = GetFpsOptions();
         auto it = std::find(fpsOptions.begin(), fpsOptions.end(), frameLimit);
         if (it != fpsOptions.end()) {
-            currentFPSIndex = std::distance(fpsOptions.begin(), it);
+            currentFPSIndex = static_cast<int>(std::distance(fpsOptions.begin(), it));
             customFPS = 0;
         }
         else {
-            currentFPSIndex = fpsOptions.size() - 1;
+            currentFPSIndex = static_cast<int>(fpsOptions.size()) - 1;
             customFPS = 9999;
         }
     }

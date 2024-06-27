@@ -314,7 +314,7 @@ void Note::Render(double delta)
 
     if (EnvironmentSetup::GetInt("LNBodyOnTop") == 1) {
         if (isHeadVisible) {
-            EnvironmentSetup::SetInt("HalfNoteSize", m_head->AbsoluteSize.Y / 2.0);
+            EnvironmentSetup::SetInt("HalfNoteSize", static_cast<int>(m_head->AbsoluteSize.Y) / 2);
             DrawNoteHead(delta, headPosY, guideLineLength, playRect);
         }
 
@@ -360,7 +360,7 @@ void Note::Render(double delta)
         }
 
         if (isHeadVisible) {
-            EnvironmentSetup::SetInt("HalfNoteSize", m_head->AbsoluteSize.Y / 2.0);
+            EnvironmentSetup::SetInt("HalfNoteSize", static_cast<int>(m_head->AbsoluteSize.Y) / 2);
             DrawNoteHead(delta, headPosY, guideLineLength, playRect);
         }
     }

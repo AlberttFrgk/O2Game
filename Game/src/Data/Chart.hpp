@@ -118,6 +118,8 @@ public:
     std::vector<Sample>     m_samples;
     std::vector<AutoSample> m_autoSamples;
 
+    void AdjustLaneIndex();
+
 private:
     double PredefinedAudioLength = -1;
 
