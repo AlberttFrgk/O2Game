@@ -40,11 +40,6 @@ SceneManager *SceneManager::s_instance = nullptr;
 
 void SceneManager::Update(double delta)
 {
-    if (m_ready_change_state) {
-        std::unique_lock<std::mutex> lock(m_mutex); // Lock the mutex
-        m_cv.wait(lock); // Wait until notified by the scene transition
-    }
-
     if (m_nextScene != nullptr) {
         // std::lock_guard<std::mutex> lock(m_mutex);
         if (m_onSceneChange) {
@@ -116,17 +111,11 @@ void SceneManager::Update(double delta)
 
 void SceneManager::Render(double delta)
 {
-    if (m_ready_change_state) {
-        std::unique_lock<std::mutex> lock(m_mutex); // Lock the mutex
-        m_cv.wait(lock); // Wait until notified by the scene transition
-    }
-
     if (m_currentScene)
         m_currentScene->Render(delta);
-
     if (m_currentOverlay && !MsgBox::Any()) {
         ImguiUtil::NewFrame();
-        auto& io = ImGui::GetIO();
+        auto &io = ImGui::GetIO();
 
         ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
         ImGui::SetNextWindowSize(m_currentOverlay->GetSize(), ImGuiCond_Always);
@@ -185,11 +174,6 @@ void SceneManager::Render(double delta)
 
 void SceneManager::Input(double delta)
 {
-    if (m_ready_change_state) {
-        std::unique_lock<std::mutex> lock(m_mutex); // Lock the mutex
-        m_cv.wait(lock); // Wait until notified by the scene transition
-    }
-
     m_inputId = std::this_thread::get_id();
 
     if (m_currentScene)
@@ -308,8 +292,8 @@ void SceneManager::IChangeScene(int idx)
     m_currentSceneId = idx;
 
     m_nextScene = m_scenes[idx].get();
-    m_ready_change_state = false;
-    m_cv.notify_all();
+    m_ready_change_state = true;
+    m_cv.notify_one();
 }
 
 void SceneManager::SetParent(Game *parent)
@@ -348,7 +332,7 @@ void SceneManager::DisplayFade(int transparency, std::function<void()> callback)
         }
 
         callback();
-    }).detach();
+        }).detach();
 }
 
 void SceneManager::ExecuteAfter(int ms_time, std::function<void()> callback)
@@ -373,19 +357,17 @@ void SceneManager::GameExecuteAfter(ExecuteThread thread, int ms_time, std::func
         game->GetMainThread()->QueueAction(callback);
     } else {
         switch (thread) {
-            case ExecuteThread::UPDATE:
-            {
-                game->GetRenderThread()->QueueAction(callback);
-                game->GetMainThread()->QueueAction(callback); // w
-                break;
-            }
+        case ExecuteThread::UPDATE:
+        {
+            game->GetRenderThread()->QueueAction(callback);
+            break;
+        }
 
-            case ExecuteThread::WINDOW:
-            {
-                game->GetRenderThread()->QueueAction(callback); // w
-                game->GetMainThread()->QueueAction(callback);
-                break;
-            }
+        case ExecuteThread::WINDOW:
+        {
+            game->GetMainThread()->QueueAction(callback);
+            break;
+        }
         }
     }
 }
