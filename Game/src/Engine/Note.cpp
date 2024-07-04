@@ -6,6 +6,7 @@
 #include "GameAudioSampleCache.hpp"
 #include "NoteImageCacheManager.hpp"
 #include "RhythmEngine.hpp"
+#include <Rendering/Window.h>
 
 #define REMOVE_TIME 800
 #define HOLD_COMBO_TICK 100
@@ -152,6 +153,7 @@ void Note::Load(NoteInfoDesc *desc)
     m_relPos = 0;
 
     m_lastScoreTime = -1;
+    GetNoteSize();
 }
 
 void Note::Update(double delta)
@@ -302,7 +304,7 @@ void Note::Render(double delta)
     auto hitPos = m_engine->GetHitPosition();
     double trackPosition = m_engine->GetTrackPosition();
 
-    int min = -100, max = hitPos + 25;
+    int min = -100, max = GameWindow::GetInstance()->GetBufferHeight();
     auto playRect = m_engine->GetPlayRectangle();
 
     int guideLineIndex = m_engine->GetGuideLineIndex();
@@ -312,23 +314,22 @@ void Note::Render(double delta)
     double headPosY = lerp(0.0, static_cast<double>(hitPos), static_cast<float>(y1));
     bool isHeadVisible = isWithinRange(headPosY, min, max);
 
-    if (EnvironmentSetup::GetInt("LNBodyOnTop") == 1) {
-        if (isHeadVisible) {
-            EnvironmentSetup::SetInt("HalfNoteSize", static_cast<int>(m_head->AbsoluteSize.Y) / 2);
-            DrawHead(delta, headPosY, guideLineLength, playRect);
+    if (m_type == NoteType::HOLD) {
+        double y2 = CalculateNotePosition(trackPosition, m_endTrackPosition, 1000.0, m_engine->GetNotespeed(), false) / 1000.0;
+        double tailPosY = lerp(0.0, static_cast<double>(hitPos), static_cast<float>(y2));
+        bool isTailVisible = isWithinRange(tailPosY, min, max);
+
+        if (EnvironmentSetup::GetInt("NoPercy") == 1) {
+            tailPosY += m_tail->AbsoluteSize.Y;
         }
 
-        if (m_type == NoteType::HOLD) {
-            double y2 = CalculateNotePosition(trackPosition, m_endTrackPosition, 1000.0, m_engine->GetNotespeed(), false) / 1000.0;
-            double tailPosY = lerp(0.0, static_cast<double>(hitPos), static_cast<float>(y2));
-            bool isTailVisible = isWithinRange(tailPosY, min, max);
+        double bodyPosY = (headPosY + tailPosY) / 2.0;
+        double bodyHeight = std::abs(headPosY - (m_head->AbsoluteSize.Y / 2.0)) - (tailPosY - (m_head->AbsoluteSize.Y / 2.0));
 
-            if (EnvironmentSetup::GetInt("NoPercy") == 1) {
-                tailPosY += m_tail->AbsoluteSize.Y;
+        if (EnvironmentSetup::GetInt("LNBodyOnTop") == 1) {
+            if (isHeadVisible) {
+                DrawHead(delta, headPosY, guideLineLength, playRect);
             }
-
-            double bodyPosY = (headPosY + tailPosY) / 2.0;
-            double bodyHeight = std::abs(headPosY - (m_head->AbsoluteSize.Y / 2.0)) - (tailPosY - (m_head->AbsoluteSize.Y / 2.0));
 
             if (isTailVisible) {
                 DrawTail(delta, tailPosY, guideLineLength, playRect);
@@ -336,31 +337,23 @@ void Note::Render(double delta)
 
             SetTransparency();
             DrawBody(delta, bodyPosY, bodyHeight, playRect);
+        }
+        else {
+            SetTransparency();
+            DrawBody(delta, bodyPosY, bodyHeight, playRect);
+
+            if (isTailVisible) {
+                DrawTail(delta, tailPosY, guideLineLength, playRect);
+            }
+
+            if (isHeadVisible) {
+                DrawHead(delta, headPosY, guideLineLength, playRect);
+            }
         }
     }
     else {
-        if (m_type == NoteType::HOLD) {
-            double y2 = CalculateNotePosition(trackPosition, m_endTrackPosition, 1000.0, m_engine->GetNotespeed(), false) / 1000.0;
-            double tailPosY = lerp(0.0, static_cast<double>(hitPos), static_cast<float>(y2));
-            bool isTailVisible = isWithinRange(tailPosY, min, max);
-
-            if (EnvironmentSetup::GetInt("NoPercy") == 1) {
-                tailPosY += m_tail->AbsoluteSize.Y;
-            }
-
-            double bodyPosY = (headPosY + tailPosY) / 2.0;
-            double bodyHeight = std::abs(headPosY - (m_head->AbsoluteSize.Y / 2.0)) - (tailPosY - (m_head->AbsoluteSize.Y / 2.0));
-
-            SetTransparency();
-            DrawBody(delta, bodyPosY, bodyHeight, playRect);
-
-            if (isTailVisible) {
-                DrawTail(delta, tailPosY, guideLineLength, playRect);
-            }
-        }
 
         if (isHeadVisible) {
-            EnvironmentSetup::SetInt("HalfNoteSize", static_cast<int>(m_head->AbsoluteSize.Y) / 2);
             DrawHead(delta, headPosY, guideLineLength, playRect);
         }
     }
@@ -577,6 +570,11 @@ void Note::SetXPosition(int x)
 void Note::SetDrawable(bool drawable)
 {
     m_drawAble = drawable;
+}
+
+void Note::GetNoteSize()
+{
+    EnvironmentSetup::SetInt("NoteSize", static_cast<int>(m_head->AbsoluteSize.Y));
 }
 
 bool Note::IsHoldEffectDrawable() const

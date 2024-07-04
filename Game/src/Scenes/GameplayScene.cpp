@@ -287,7 +287,7 @@ void GameplayScene::Render(double delta)
     if (m_drawCombo && std::get<7>(scores) > 0) { // O2Jam Replication
         const double positionStart = 30.0;
         const double positionEnd = 36.0; // Decrement up to 36
-        double initialAnimationSpeed = 12.0; // Initial FPS
+        double initialAnimationSpeed = 15.0; // Initial FPS
         static double animationMultiplier = 1.0; // Multiplier to control FPS
 
         // Dynamically calculate the animation speed
@@ -311,7 +311,7 @@ void GameplayScene::Render(double delta)
             animationMultiplier = 1.0; // Reset the multiplier when combo ends
         }
         else {
-            animationMultiplier *= 2.0; // Double the FPS multiplier
+            animationMultiplier += 1.0; // Double the FPS multiplier
             if (animationMultiplier > 6.0) {
                 animationMultiplier = 6.0; // Cap the multiplier to avoid excessive FPS
             }

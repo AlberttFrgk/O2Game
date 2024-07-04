@@ -76,6 +76,8 @@ public:
 	void SetXPosition(int x);
 	void SetDrawable(bool drawable);
 
+	void GetNoteSize();
+
 	bool IsHoldEffectDrawable() const;
 	bool IsDrawable() const;
 	bool IsRemoveable() const;

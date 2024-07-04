@@ -66,7 +66,7 @@ void TimingLine::Render(double delta)
     int halfNoteSize;
 
     if (EnvironmentSetup::GetInt("MeasureLineType") == 1) {
-        halfNoteSize = static_cast<int>(EnvironmentSetup::GetInt("HalfNoteSize"));
+        halfNoteSize = static_cast<int>(EnvironmentSetup::GetInt("NoteSize") / 2);
     }
     else {
         halfNoteSize = 0;
