@@ -52,9 +52,9 @@ public:
 	void Load(NoteInfoDesc* desc);
 
 	void Update(double delta);
-	void DrawNoteHead(double delta, double headPosY, int guideLineLength, Rect& playRect);
-	void DrawNoteBody(double delta, double bodyPosY, double bodyHeight, Rect& playRect);
-	void DrawNoteTail(double delta, double tailPosY, int guideLineLength, Rect& playRect);
+	void DrawHead(double delta, double headPosY, int guideLineLength, Rect& playRect);
+	void DrawBody(double delta, double bodyPosY, double bodyHeight, Rect& playRect);
+	void DrawTail(double delta, double tailPosY, int guideLineLength, Rect& playRect);
 	void SetTransparency();
 	void Render(double delta);
 

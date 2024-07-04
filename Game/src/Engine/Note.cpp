@@ -209,7 +209,7 @@ void Note::Update(double delta)
 }
 
 // I ended refactor whole note code
-void Note::DrawNoteHead(double delta, double headPosY, int guideLineLength, Rect &playRect) {
+void Note::DrawHead(double delta, double headPosY, int guideLineLength, Rect &playRect) {
     m_head->Position = UDim2::fromOffset(m_laneOffset, headPosY);
     m_head->SetIndexAt(m_engine->GetNoteImageIndex());
     m_head->Draw(delta, &playRect);
@@ -239,14 +239,14 @@ void Note::DrawNoteHead(double delta, double headPosY, int guideLineLength, Rect
     }
 }
 
-void Note::DrawNoteBody(double delta, double bodyPosY, double bodyHeight, Rect &playRect) {
+void Note::DrawBody(double delta, double bodyPosY, double bodyHeight, Rect &playRect) {
     m_body->Position = UDim2::fromOffset(m_laneOffset, bodyPosY - (m_head->AbsoluteSize.Y / 2.0));
     m_body->Size = { 1, 0, 0, bodyHeight };
     m_body->SetIndexAt(m_engine->GetNoteImageIndex());
     m_body->Draw(delta, &playRect);
 }
 
-void Note::DrawNoteTail(double delta, double tailPosY, int guideLineLength, Rect &playRect) {
+void Note::DrawTail(double delta, double tailPosY, int guideLineLength, Rect &playRect) {
     m_tail->Position = UDim2::fromOffset(m_laneOffset, tailPosY);
     m_tail->SetIndexAt(m_engine->GetNoteImageIndex());
     m_tail->Draw(delta, &playRect);
@@ -315,7 +315,7 @@ void Note::Render(double delta)
     if (EnvironmentSetup::GetInt("LNBodyOnTop") == 1) {
         if (isHeadVisible) {
             EnvironmentSetup::SetInt("HalfNoteSize", static_cast<int>(m_head->AbsoluteSize.Y) / 2);
-            DrawNoteHead(delta, headPosY, guideLineLength, playRect);
+            DrawHead(delta, headPosY, guideLineLength, playRect);
         }
 
         if (m_type == NoteType::HOLD) {
@@ -331,11 +331,11 @@ void Note::Render(double delta)
             double bodyHeight = std::abs(headPosY - (m_head->AbsoluteSize.Y / 2.0)) - (tailPosY - (m_head->AbsoluteSize.Y / 2.0));
 
             if (isTailVisible) {
-                DrawNoteTail(delta, tailPosY, guideLineLength, playRect);
+                DrawTail(delta, tailPosY, guideLineLength, playRect);
             }
 
             SetTransparency();
-            DrawNoteBody(delta, bodyPosY, bodyHeight, playRect);
+            DrawBody(delta, bodyPosY, bodyHeight, playRect);
         }
     }
     else {
@@ -352,16 +352,16 @@ void Note::Render(double delta)
             double bodyHeight = std::abs(headPosY - (m_head->AbsoluteSize.Y / 2.0)) - (tailPosY - (m_head->AbsoluteSize.Y / 2.0));
 
             SetTransparency();
-            DrawNoteBody(delta, bodyPosY, bodyHeight, playRect);
+            DrawBody(delta, bodyPosY, bodyHeight, playRect);
 
             if (isTailVisible) {
-                DrawNoteTail(delta, tailPosY, guideLineLength, playRect);
+                DrawTail(delta, tailPosY, guideLineLength, playRect);
             }
         }
 
         if (isHeadVisible) {
             EnvironmentSetup::SetInt("HalfNoteSize", static_cast<int>(m_head->AbsoluteSize.Y) / 2);
-            DrawNoteHead(delta, headPosY, guideLineLength, playRect);
+            DrawHead(delta, headPosY, guideLineLength, playRect);
         }
     }
 }
