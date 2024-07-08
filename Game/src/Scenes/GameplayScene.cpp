@@ -286,7 +286,7 @@ void GameplayScene::Render(double delta)
 
     if (m_drawCombo && std::get<7>(scores) > 0) { // This should be O2Jam Replication
         const double positionStart = 30.0;
-        const double decrement = 6.0;
+        const double step = 6.0;
         double animationSpeed = 90.0;
         double maxSpeed = animationSpeed;
 
@@ -301,7 +301,7 @@ void GameplayScene::Render(double delta)
             animationSpeed = maxSpeed;
         }
 
-        double targetposition = positionStart - decrement * m_comboTimer * animationSpeed;
+        double targetposition = positionStart - step * m_comboTimer * animationSpeed;
         double currentposition = (targetposition > 0.0) ? targetposition : 0.0;
 
         m_comboLogo->Position2 = UDim2::fromOffset(0, currentposition / 3.0);
