@@ -546,7 +546,7 @@ bool GameplayScene::Attach()
         m_title->AnchorPoint = { TitlePos[0].AnchorPointX, TitlePos[0].AnchorPointY };
         m_title->Clip = { RectPos[0].X, RectPos[0].Y, RectPos[0].Width, RectPos[0].Height };
 
-        m_autoText = std::make_unique<Text>(13);
+        m_autoText = std::make_unique<Text>(12);
         m_autoTextSize = m_autoText->CalculateSize(AUTOPLAY_TEXT);
         m_autoTextPos = UDim2::fromOffset(GameWindow::GetInstance()->GetBufferWidth(), 50);
 
