@@ -1,8 +1,9 @@
-#include "RhythmEngine.hpp"
+﻿#include "RhythmEngine.hpp"
 #include <Logs.h>
 #include <filesystem>
 #include <numeric>
 #include <unordered_map>
+#include <cstdio>
 
 #include "../EnvironmentSetup.hpp"
 #include "Configuration.h"
@@ -16,9 +17,6 @@
 
 #include "Judgements/BeatBasedJudge.h"
 #include "Judgements/MsBasedJudge.h"
-
-//#include <chrono>
-//#include <codecvt>
 
 #define MAX_BUFFER_TXT_SIZE 256
 
@@ -224,14 +222,30 @@ bool RhythmEngine::Load(Chart *chart)
         m_rate = std::clamp(m_rate, 0.5, 2.0);
     }
 
-    m_title = chart->m_title;
     char buffer[MAX_BUFFER_TXT_SIZE];
-    sprintf(buffer, "Lv.%d %s", chart->m_level, (const char *)chart->m_title.c_str());
 
-    m_title = std::u8string(buffer, buffer + strlen(buffer));
+    if (EnvironmentSetup::GetInt("SongType") == 1) {
+        m_title = chart->m_title;
+        std::string titleStr = std::string(chart->m_title.begin(), chart->m_title.end());
+        std::snprintf(buffer, MAX_BUFFER_TXT_SIZE, "Lv.%d %s", chart->m_level, titleStr.c_str());
+    }
+    else if (EnvironmentSetup::GetInt("SongType") == 2) {
+        m_title = chart->m_title;
+        std::string difnameStr = std::string(chart->m_difname.begin(), chart->m_difname.end());
+        std::string titleStr = std::string(chart->m_title.begin(), chart->m_title.end());
+        std::snprintf(buffer, MAX_BUFFER_TXT_SIZE, "[%s] %s", difnameStr.c_str(), titleStr.c_str());
+    }
+    else {
+        m_title = chart->m_title;
+        std::string titleStr = std::string(chart->m_title.begin(), chart->m_title.end());
+        std::snprintf(buffer, MAX_BUFFER_TXT_SIZE, "%d %s", chart->m_level, titleStr.c_str());
+    }
+
+    // Reset the u8string with the result of snprintf
+    m_title = std::u8string(buffer, buffer + std::strlen(buffer));
     if (m_rate != 1.0) {
         memset(buffer, 0, MAX_BUFFER_TXT_SIZE);
-        sprintf(buffer, "[%.2fx] %s", m_rate, (const char *)m_title.c_str());
+        sprintf(buffer, "[%.2fx] %s", m_rate, (const char*)m_title.c_str());
 
         m_title = std::u8string(buffer, buffer + strlen(buffer));
     }
@@ -318,7 +332,8 @@ void RhythmEngine::SetKeys(Keys *keys)
 
 bool RhythmEngine::Start()
 { // no, use update event instead
-    m_currentAudioPosition -= 3000;
+    EnvironmentSetup::SetInt("NowPlaying", 1);
+    m_currentAudioPosition -= 5000;
     m_state = GameState::Playing;
     //m_startClock = std::chrono::system_clock::now();
     return true;
@@ -329,7 +344,14 @@ bool RhythmEngine::Stop()
     m_state = GameState::PosGame;
     GameAudioSampleCache::StopAll();
     return true;
-    m_PlayTime = 0.0;
+}
+
+
+bool RhythmEngine::Fail()
+{
+    m_state = GameState::Fail;
+    GameAudioSampleCache::StopAll();
+    return true;
 }
 
 bool RhythmEngine::Ready()
@@ -345,6 +367,7 @@ void RhythmEngine::Update(double delta)
     // Since I'm coming from Roblox, and I had no idea how to Real-Time sync the audio
     // I decided to use this method again from Roblox project I did in past.
     double last = m_currentAudioPosition;
+    m_PlayTime += delta;
     m_currentAudioPosition += (delta * m_rate) * 1000;
 
     // check difference between last and current audio position
@@ -354,13 +377,18 @@ void RhythmEngine::Update(double delta)
         // assert(false); // TODO: Handle this
     }
 
-    if (m_currentAudioPosition > m_audioLength + 2000) { // Avoid game ended too early
-        m_state = GameState::PosGame;
+    if (m_currentAudioPosition > m_audioLength + 3000) { // Avoid game ended too early
         GameAudioSampleCache::StopAll();
+        m_state = GameState::PosGame;
     }
 
-    if (static_cast<int>(m_currentAudioPosition) % 1000 == 0) {
+    static std::chrono::steady_clock::time_point lastUpdateTime = std::chrono::steady_clock::now();
+    auto currentTime = std::chrono::steady_clock::now();
+    auto lastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - lastUpdateTime);
+
+    if (lastUpdate.count() >= 100) {
         m_noteImageIndex = (m_noteImageIndex + 1) % m_noteMaxImageIndex;
+        lastUpdateTime = currentTime;
     }
 
     UpdateVirtualResolution();
@@ -402,7 +430,6 @@ void RhythmEngine::Update(double delta)
     //auto currentTime = std::chrono::system_clock::now();
     //auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(currentTime - m_startClock);
     //m_PlayTime = static_cast<int>(elapsedTime.count() - 4);
-    m_PlayTime += delta;
 }
 
 void RhythmEngine::Render(double delta)
@@ -410,7 +437,11 @@ void RhythmEngine::Render(double delta)
     if (m_state == GameState::NotGame || m_state == GameState::PosGame)
         return;
 
-    m_timingLineManager->Render(delta);
+    bool MeasureLine = EnvironmentSetup::GetInt("MeasureLine") == 1;
+
+    if (MeasureLine) {
+        m_timingLineManager->Render(delta);
+    }
 
     for (auto &it : m_tracks) {
         it->Render(delta);
@@ -419,13 +450,13 @@ void RhythmEngine::Render(double delta)
 
 void RhythmEngine::Input(double delta)
 {
-    if (m_state == GameState::NotGame || m_state == GameState::PosGame)
+    if (m_state == GameState::NotGame)
         return;
 }
 
 void RhythmEngine::OnKeyDown(const KeyState &state)
 {
-    if (m_state == GameState::NotGame || m_state == GameState::PosGame)
+    if (m_state == GameState::NotGame)
         return;
 
     if (state.key == Keys::F3) {
@@ -449,7 +480,7 @@ void RhythmEngine::OnKeyDown(const KeyState &state)
 
 void RhythmEngine::OnKeyUp(const KeyState &state)
 {
-    if (m_state == GameState::NotGame || m_state == GameState::PosGame)
+    if (m_state == GameState::NotGame)
         return;
 
     if (!m_is_autoplay) {
@@ -579,7 +610,7 @@ double RhythmEngine::GetGameFrame() const
 
 int RhythmEngine::GetPlayTime() const
 {
-    return static_cast<int>(m_PlayTime - 3);
+    return static_cast<int>(m_PlayTime - 5);
 }
 
 int RhythmEngine::GetNoteImageIndex()

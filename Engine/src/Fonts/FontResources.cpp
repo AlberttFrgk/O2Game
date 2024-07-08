@@ -1,4 +1,4 @@
-#pragma warning(disable : 4838) // Goddamit
+﻿#pragma warning(disable : 4838) // Goddamit
 #pragma warning(disable : 4309)
 
 #include <Misc/md5.h>
@@ -25,9 +25,9 @@
 // BEGIN FONT FALLBACK
 
 #include "FallbackFonts/arial.ttf.h"
-#include "FallbackFonts/ch.ttf.h"
-#include "FallbackFonts/jp.ttf.h"
-#include "FallbackFonts/kr.ttf.h"
+//#include "FallbackFonts/ch.ttf.h"
+//#include "FallbackFonts/jp.ttf.h"
+//#include "FallbackFonts/kr.ttf.h"
 #include <Logs.h>
 
 // END FONT FALLBACK
@@ -92,13 +92,36 @@ void FontResources::PreloadFontCaches()
 
     GameWindow *wnd = GameWindow::GetInstance();
 
-    auto skinPath = Configuration::Font_GetPath();
-    auto fontPath = skinPath / "Fonts";
+    auto path = Configuration::Font_GetPath();
+    auto fontPath = path / "Fonts";
 
     auto normalfont = fontPath / "normal.ttf";
     auto jpFont = fontPath / "jp.ttf";
     auto krFont = fontPath / "kr.ttf";
     auto chFont = fontPath / "ch.ttf";
+
+    static const ImWchar glyphRanges[] = { // Optimized
+        (ImWchar)0x0020, (ImWchar)0x052F,
+        (ImWchar)0x2000, (ImWchar)0x27BF,
+        (ImWchar)0x2E80, (ImWchar)0x2FA1,
+        (ImWchar)0x1F300, (ImWchar)0x1FAFF,
+        (ImWchar)0x2660, (ImWchar)0x2663,
+        (ImWchar)0x2665, (ImWchar)0x2666,
+        (ImWchar)0x2600, (ImWchar)0x2606,
+        (ImWchar)0x2618, (ImWchar)0x2619,
+        (ImWchar)0x263A, (ImWchar)0x263B,
+        (ImWchar)0x2708, (ImWchar)0x2714,
+        (ImWchar)0x2728, (ImWchar)0x2734,
+        (ImWchar)0x2740, (ImWchar)0x274B,
+        (ImWchar)0x2756, (ImWchar)0x2758,
+        (ImWchar)0x2764, (ImWchar)0x2767,
+        (ImWchar)0x2794, (ImWchar)0x27BE,
+        (ImWchar)0x27F0, (ImWchar)0x27FF,
+        (ImWchar)0x2900, (ImWchar)0x297F,
+        (ImWchar)0x2A00, (ImWchar)0x2AFF,
+        (ImWchar)0x0000, (ImWchar)0x0000
+    };
+
 
     {
         float originScale = (wnd->GetBufferWidth() + wnd->GetBufferHeight()) / 15.6f;
@@ -118,9 +141,9 @@ void FontResources::PreloadFontCaches()
 
         {
             if (std::filesystem::exists(normalfont)) {
-                Font.Font = io.Fonts->AddFontFromFileTTF((const char *)normalfont.u8string().c_str(), fontSize, &conf);
+                Font.Font = io.Fonts->AddFontFromFileTTF((const char *)normalfont.u8string().c_str(), fontSize, &conf, glyphRanges); // glyphRanges, fixing missing fonts
             } else {
-                Font.Font = io.Fonts->AddFontFromMemoryTTF((void *)get_arial_font_data(), get_arial_font_size(), fontSize, &conf);
+                Font.Font = io.Fonts->AddFontFromMemoryTTF((void *)get_arial_font_data(), get_arial_font_size(), fontSize, &conf, glyphRanges);
             }
         }
 
@@ -151,7 +174,7 @@ void FontResources::PreloadFontCaches()
                         case TextRegion::Chinese:
                         {
                             if (std::filesystem::exists(chFont)) {
-                                io.Fonts->AddFontFromFileTTF((const char *)chFont.u8string().c_str(), fontSize, &conf, io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+                                io.Fonts->AddFontFromFileTTF((const char *)chFont.u8string().c_str(), fontSize, &conf, io.Fonts->GetGlyphRangesChineseFull());
                             }
 
                             break;

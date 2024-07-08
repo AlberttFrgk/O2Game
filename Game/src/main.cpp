@@ -22,8 +22,9 @@
 
 #if _WIN32
 extern "C" {
-__declspec(dllexport) unsigned long NvOptimusEnablement = 0x00000001;
-__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+    __declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
+    __declspec(dllexport) DWORD AmdPowerXpressRequestHighPerformance = 0x00000001;
+    __declspec(dllexport) DWORD IntelGpuPowerPreference = 0x00000002;
 }
 #endif
 
@@ -71,7 +72,7 @@ int Run(int argc, wchar_t **argv)
 
             if (std::filesystem::exists(argv[i]) && EnvironmentSetup::GetPath("FILE").empty()) {
                 std::filesystem::path path = argv[i];
-
+                EnvironmentSetup::SetInt("FileOpen", 1);
                 EnvironmentSetup::SetPath("FILE", path);
             }
         }

@@ -1,4 +1,4 @@
-#include "Settings.h"
+﻿#include "Settings.h"
 #include <Configuration.h>
 #include <Imgui/ImguiUtil.h>
 #include <Imgui/imgui.h>
@@ -35,18 +35,53 @@ static std::map<int, std::string> Graphics = {
     { 1, "Vulkan" },
 #if _WIN32
     { 2, "DirectX-9" },
-    { 3, "DirectX-11" },
-    { 4, "DirectX-12" },
+    { 3, "DirectX-12" },
 #endif
 #if __APPLE__
-    { 5, "Metal" },
+    { 4, "Metal" },
 #endif
 };
 
-static std::array<std::string, 4>  LongNote = { "None", "Short", "Normal", "Long" };
-static std::array<std::string, 14> m_fps = { "30", "60", "75", "120", "144", "165", "180", "240", "360", "480", "600", "800", "1000", "Unlimited" };
+//#if _WIN32
+//{ 2, "DirectX-9" },
+//{ 3, "DirectX-11" },
+//{ 4, "DirectX-12" },
+//#endif
+//#if __APPLE__
+//{ 5, "Metal" },
+//#endif
+//};
 
+static std::array<std::string, 4>  LongNote = { "None", "Short", "Normal", "Long" };
+//static std::array<std::string, 14> m_fps = { "30", "60", "75", "120", "144", "165", "180", "240", "360", "480", "600", "800", "1000", "Unlimited" };
+static std::array<std::string, 3>  SelectedBackground = { "Arena", "Song", "Disable" };
+static std::array<std::string, 3>  NoteSkin = { "Square", "Circle", "Custom" };
 static std::vector<std::string> m_resolutions = {};
+
+int currentFPSIndex = 0;
+int customFPS = 0;
+
+namespace {
+    int GetScreenRefreshRate() {
+        SDL_DisplayMode displayMode;
+        if (SDL_GetCurrentDisplayMode(0, &displayMode) != 0) {
+            return 60; // Default to 60 if SDL can't catch refresh rate (pc issues)
+        }
+        return displayMode.refresh_rate;
+    }
+
+    std::vector<std::string> GetFpsOptions() {
+        int refreshRate = GetScreenRefreshRate();
+        std::vector<int> multipliers = { 1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16, 20 };
+        std::vector<std::string> fpsOptions;
+
+        for (int multiplier : multipliers) {
+            fpsOptions.push_back(std::to_string(refreshRate * multiplier));
+        }
+        fpsOptions.push_back("Unlimited");
+        return fpsOptions;
+    }
+}
 
 void SettingsOverlay::Render(double delta)
 {
@@ -187,7 +222,8 @@ void SettingsOverlay::Render(double delta)
                         int nextGraphicsIndex = -1;
                         try {
                             GraphicsIndex = std::stoi(Configuration::Load("Game", "Renderer").c_str());
-                        } catch (const std::invalid_argument &) {
+                        }
+                        catch (const std::invalid_argument&) {
                         }
 
                         ImGui::Text("Graphics");
@@ -243,25 +279,34 @@ void SettingsOverlay::Render(double delta)
 
                         ImGui::NewLine();
 
+                        std::vector<std::string> fpsOptions = GetFpsOptions();
                         ImGui::Text("FPS");
-                        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Warning: setting unlimited FPS can cause PC to unstable!");
-                        if (ImGui::BeginCombo("###ComboBox2", m_fps[currentFPSIndex].c_str())) {
-                            for (int i = 0; i < m_fps.size(); i++) {
+                        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Warning: setting unlimited FPS can cause PC to become unstable!");
+                        if (ImGui::BeginCombo("###ComboBox2", fpsOptions[currentFPSIndex].c_str())) {
+                            for (int i = 0; i < fpsOptions.size(); i++) {
                                 bool isSelected = (currentFPSIndex == i);
 
-                                if (ImGui::Selectable(m_fps[i].c_str(), &isSelected)) {
+                                if (ImGui::Selectable(fpsOptions[i].c_str(), &isSelected)) {
                                     currentFPSIndex = i;
+                                    if (fpsOptions[i] == "Unlimited") {
+                                        customFPS = 9999;
+                                        Configuration::Set("Game", "FrameLimit", std::to_string(customFPS));
+                                    }
+                                    else {
+                                        customFPS = 0;
+                                        Configuration::Set("Game", "FrameLimit", fpsOptions[i]);
+                                    }
                                 }
 
                                 if (isSelected) {
                                     ImGui::SetItemDefaultFocus();
                                 }
                             }
-
                             ImGui::EndCombo();
                         }
 
                         ImGui::EndTabItem();
+
                     }
 
                     if (ImGui::BeginTabItem("Audio")) {
@@ -285,10 +330,10 @@ void SettingsOverlay::Render(double delta)
                         ImGui::Text("Guide Line Length");
 
                         for (int i = (int)LongNote.size() - 1; i >= 0; i--) {
-                            bool is_combo_selected = currentGuideLineIndex == i;
+                            bool selected = currentGuideLineIndex == i;
 
                             ImGui::PushItemWidth(50);
-                            if (ImGui::Checkbox(("###ComboCheck" + std::to_string(i)).c_str(), &is_combo_selected)) {
+                            if (ImGui::Checkbox(("###ComboCheck" + std::to_string(i)).c_str(), &selected)) {
                                 currentGuideLineIndex = i;
                             }
 
@@ -305,16 +350,38 @@ void SettingsOverlay::Render(double delta)
 
                         ImGui::NewLine();
                         ImGui::NewLine();
+                        ImGui::NewLine();
 
                         ImGui::Text("Gameplay-Related Configuration");
-                        ImGui::Checkbox("Long Note Lighting###SetCheckbox1", &LongNoteLighting);
+
+                        ImGui::Checkbox("Use New Measure Line###SetCheckbox1", &MeasureLineType);
                         if (ImGui::IsItemHovered()) {
-                            ImGui::SetTooltip("When Long note on hold, change the lighting brightness to 100%% else 90%% brightness");
+                            ImGui::SetTooltip("Measure line position in the middle of the note; otherwise, it will be at the bottom of the note");
+                        }
+                        if (MeasureLineType) {
+                            EnvironmentSetup::SetInt("MeasureLineType", 1);
+                        }
+                        else {
+                            EnvironmentSetup::SetInt("MeasureLineType", 0);
                         }
 
-                        ImGui::Checkbox("Long Note Head Position at HitPos###SetCheckbox2", &LongNoteOnHitPos);
+                        ImGui::Checkbox("Disable Measure Line###SetCheckbox2", &MeasureLine);
+                        if (MeasureLine) {
+                            EnvironmentSetup::SetInt("MeasureLine", 0);
+                        }
+                        else {
+                            EnvironmentSetup::SetInt("MeasureLine", 1);
+                        }
+
+                        ImGui::Checkbox("Long Note Body On Top###SetCheckbox3", &LNBodyOnTop);
                         if (ImGui::IsItemHovered()) {
-                            ImGui::SetTooltip("When Long note on hold, make the head position at hit position else keep going to bottom");
+                            ImGui::SetTooltip("If your note skin has issues, enable this option!");
+                        }
+                        if (LNBodyOnTop) {
+                            EnvironmentSetup::SetInt("LNBodyOnTop", 1);
+                        }
+                        else {
+                            EnvironmentSetup::SetInt("LNBodyOnTop", 0);
                         }
 
                         ImGui::EndTabItem();
@@ -322,7 +389,7 @@ void SettingsOverlay::Render(double delta)
 
                     if (ImGui::BeginTabItem("Skins")) {
                         ImGui::Text("Current selected skin: ");
-                        if (ImGui::BeginCombo("#SkinsComboBox", currentSkin.c_str())) {
+                        if (ImGui::BeginCombo("##SkinsComboBox", currentSkin.c_str())) {
                             for (int i = 0; i < skins.size(); i++) {
                                 bool isSelected = (currentSkin == skins[i]);
 
@@ -336,6 +403,83 @@ void SettingsOverlay::Render(double delta)
                             }
 
                             ImGui::EndCombo();
+                        }
+
+                        ImGui::NewLine();
+
+                        ImGui::Text("Note Skin");
+                        for (int i = 0; i < NoteSkin.size(); ++i) {
+                            bool selected = (NoteIndex == i);
+
+                            std::string tooltipText;
+                            if (i == 0) {
+                                //tooltipText = "";
+                            }
+                            else if (i == 1) {
+                                //tooltipText = "";
+                            }
+                            else if (i == 2) {
+                                tooltipText = "Using custom note image from skin folder";
+                            }
+
+                            if (ImGui::Checkbox(NoteSkin[i].c_str(), &selected)) {
+                                NoteIndex = i;
+                            }
+
+                            if (!tooltipText.empty() && ImGui::IsItemHovered()) {
+                                ImGui::SetTooltip("%s", tooltipText.c_str());
+                            }
+
+                            ImGui::SameLine();
+                        }
+
+                        if (NoteIndex == 0) {
+                            EnvironmentSetup::SetInt("NoteSkin", 0);
+                        }
+                        else if (NoteIndex == 1) {
+                            EnvironmentSetup::SetInt("NoteSkin", 1);
+                        }
+                        else if (NoteIndex == 2) {
+                            EnvironmentSetup::SetInt("NoteSkin", 2);
+                        }
+
+                        ImGui::NewLine();
+                        ImGui::NewLine();
+
+                        ImGui::Text("Background");
+                        for (int i = 0; i < SelectedBackground.size(); ++i) {
+                            bool selected = (BackgroundIndex == i);
+
+                            std::string tooltipText;
+                            if (i == 0) {
+                                tooltipText = "Using arena image background inside Skin folder";
+                            }
+                            else if (i == 1) {
+                                tooltipText = "Using song image background inside O2Jam file / BMS folder / osu!mania beatmap folder";
+                            }
+                            else if (i == 2) {
+                                tooltipText = "Not using any background";
+                            }
+
+                            if (ImGui::Checkbox(SelectedBackground[i].c_str(), &selected)) {
+                                BackgroundIndex = i;
+                            }
+
+                            if (!tooltipText.empty() && ImGui::IsItemHovered()) {
+                                ImGui::SetTooltip("%s", tooltipText.c_str());
+                            }
+
+                            ImGui::SameLine();
+                        }
+
+                        if (BackgroundIndex == 1) {
+                            EnvironmentSetup::SetInt("Background", 1);
+                        }
+                        else if (BackgroundIndex == 2) {
+                            EnvironmentSetup::SetInt("Background", 2);
+                        }
+                        else {
+                            EnvironmentSetup::SetInt("Background", 0);
                         }
 
                         ImGui::EndTabItem();
@@ -434,16 +578,23 @@ void SettingsOverlay::LoadConfiguration()
     }
 
     try {
-        auto value = Configuration::Load("Game", "FrameLimit");
-        auto it = std::find(m_fps.begin(), m_fps.end(), value);
-        if (it == m_fps.end()) {
-            currentFPSIndex = 4;
-        } else {
-            currentFPSIndex = (int)(it - m_fps.begin());
+        std::string frameLimit = Configuration::Load("Game", "FrameLimit");
+        auto fpsOptions = GetFpsOptions();
+        auto it = std::find(fpsOptions.begin(), fpsOptions.end(), frameLimit);
+        if (it != fpsOptions.end()) {
+            currentFPSIndex = static_cast<int>(std::distance(fpsOptions.begin(), it));
+            customFPS = 0;
         }
-    } catch (const std::invalid_argument &) {
-        currentFPSIndex = 4;
+        else {
+            currentFPSIndex = static_cast<int>(fpsOptions.size()) - 1;
+            customFPS = 9999;
+        }
     }
+    catch (const std::invalid_argument&) {
+        customFPS = 9999;
+    }
+
+    SceneManager::GetInstance()->SetFrameLimit(std::atof(Configuration::Load("Game", "FrameLimit").c_str()));
 
     try {
         currentGuideLineIndex = std::stoi(Configuration::Load("Game", "GuideLine").c_str());
@@ -451,12 +602,84 @@ void SettingsOverlay::LoadConfiguration()
         currentGuideLineIndex = 2;
     }
 
-    auto fps = m_fps[currentFPSIndex];
-    if (fps == *(m_fps.end() - 1)) {
-        fps = "-1";// Unlimited
+    try {
+        BackgroundIndex = std::stoi(Configuration::Load("Game", "Background").c_str());
+    } catch (const std::invalid_argument&) {
+        BackgroundIndex = 0;
     }
 
-    SceneManager::GetInstance()->SetFrameLimit(std::atof(fps.c_str()));
+    if (BackgroundIndex == 1) {
+        EnvironmentSetup::SetInt("Background", 1);
+    }
+    else if (BackgroundIndex == 2) {
+        EnvironmentSetup::SetInt("Background", 2);
+    }
+    else {
+        EnvironmentSetup::SetInt("Background", 0);
+    }
+
+    try {
+        NoteIndex = std::stoi(Configuration::Load("Game", "NoteSkin").c_str());
+    }
+    catch (const std::invalid_argument&) {
+        NoteIndex = 2;
+    }
+
+    if (NoteIndex == 0) {
+        EnvironmentSetup::SetInt("NoteSkin", 0);
+    }
+    else if (NoteIndex == 1) {
+        EnvironmentSetup::SetInt("NoteSkin", 1);
+    }
+    else if (NoteIndex == 2) {
+        EnvironmentSetup::SetInt("NoteSkin", 2);
+    }
+
+    try {
+        int MeasureLineTypeValue = std::stoi(Configuration::Load("Game", "MeasureLineType"));
+        MeasureLineType = (MeasureLineTypeValue == 1);
+    }
+    catch (const std::invalid_argument&) {
+        MeasureLineType = false;
+    }
+
+    if (MeasureLineType) {
+        EnvironmentSetup::SetInt("MeasureLineType", 1);
+    }
+    else {
+        EnvironmentSetup::SetInt("MeasureLineType", 0);
+    }
+
+    try {
+        int measureLineValue = std::stoi(Configuration::Load("Game", "MeasureLine"));
+        MeasureLine = (measureLineValue == 1);
+    }
+    catch (const std::invalid_argument&) {
+        MeasureLine = true;
+    }
+
+    if (MeasureLine) {
+        EnvironmentSetup::SetInt("MeasureLine", 0);
+    }
+    else {
+        EnvironmentSetup::SetInt("MeasureLine", 1);
+    }
+
+    try {
+        int LNBodyOnTopValue = std::stoi(Configuration::Load("Game", "LNBodyOnTop"));
+        LNBodyOnTop = (LNBodyOnTopValue == 1);
+    }
+    catch (const std::invalid_argument&) {
+        LNBodyOnTop = true;
+    }
+
+    if (LNBodyOnTop) {
+        EnvironmentSetup::SetInt("LNBodyOnTop", 1);
+    }
+    else {
+        EnvironmentSetup::SetInt("LNBodyOnTop", 0);
+    }
+
     currentSkin = Configuration::Load("Game", "Skin");
     PreloadSkin();
 }
@@ -466,15 +689,21 @@ void SettingsOverlay::SaveConfiguration()
     Configuration::Set("Game", "AudioOffset", std::to_string(currentOffset));
     Configuration::Set("Game", "AudioVolume", std::to_string(currentVolume));
     Configuration::Set("Game", "AutoSound", std::to_string(convertAutoSound ? 1 : 0));
-    Configuration::Set("Game", "FrameLimit", m_fps[currentFPSIndex]);
     Configuration::Set("Game", "GuideLine", std::to_string(currentGuideLineIndex));
+    Configuration::Set("Game", "NoteSkin", std::to_string(NoteIndex));
+    Configuration::Set("Game", "Background", std::to_string(BackgroundIndex));
+    Configuration::Set("Game", "MeasureLine", std::to_string(MeasureLine ? 1 : 0));
+    Configuration::Set("Game", "MeasureLineType", std::to_string(MeasureLineType ? 1 : 0));
+    Configuration::Set("Game", "LNBodyOnTop", std::to_string(LNBodyOnTop ? 1 : 0));
 
-    auto frame = m_fps[currentFPSIndex];
-    if (frame == m_fps[13]) {
-        frame = "9999";
+    if (currentFPSIndex == GetFpsOptions().size() - 1 && customFPS > 0) {
+        Configuration::Set("Game", "FrameLimit", std::to_string(customFPS));
+    }
+    else {
+        Configuration::Set("Game", "FrameLimit", GetFpsOptions()[currentFPSIndex]);
     }
 
-    SceneManager::GetInstance()->SetFrameLimit(std::atof(frame.c_str()));
+    SceneManager::GetInstance()->SetFrameLimit(std::atof(Configuration::Load("Game", "FrameLimit").c_str()));
 
     if (currentSkin.empty()) {
         throw std::runtime_error("SKIN_NAME Undefined!");

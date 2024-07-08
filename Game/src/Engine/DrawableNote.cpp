@@ -5,6 +5,7 @@
 
 DrawableNote::DrawableNote(NoteImage* frame) : FrameTimer::FrameTimer()
 {
+    SetFPS(0.0); // HACK: Stop note glitching by force it to 0 FPS (idk why it still initialized by itself if i remove SETFPS)
     m_frames.reserve(frame->Texture.size()); // Reserve memory for frames vector
 
     if (Renderer::GetInstance()->IsVulkan()) {
@@ -21,6 +22,4 @@ DrawableNote::DrawableNote(NoteImage* frame) : FrameTimer::FrameTimer()
     }
 
     AnchorPoint = { 0.0, 1.0 };
-
-    SetFPS(0); // slighly fix stupid glitch
 }

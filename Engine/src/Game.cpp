@@ -16,7 +16,7 @@
 
 constexpr auto kInputDefaultRate = 1000.0;
 constexpr auto kMenuDefaultRate = 60.0;
-constexpr auto kAudioDefaultRate = 24.0;
+constexpr auto kAudioDefaultRate = 60.0;
 
 namespace {
 
@@ -42,13 +42,14 @@ namespace {
     {
         const double targetFrameTime = 1000.0 / MaxFrameRate;
 
-        double newTick = SDL_GetTicks();
+        double newTick = static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
         double frameTime = newTick - curTick;
 
         if (frameTime < targetFrameTime)
         {
             double delayTime = targetFrameTime - frameTime;
-            SDL_Delay(static_cast<Uint32>(delayTime));
+            std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<long long>(delayTime)));
+            std::this_thread::yield();
             newTick += delayTime;
         }
 
@@ -83,7 +84,7 @@ Game::~Game()
 
         if (m_notify) {
             std::unique_lock<std::mutex> lock(m_mutex);
-            m_conditionVariable.wait(lock, [this] { return !m_notify; });
+            m_cv.wait(lock, [this] { return !m_notify; });
         }
     }
 
@@ -369,13 +370,12 @@ void Game::CheckFont()
 void Game::Stop()
 {
     if (m_running) {
-        m_running = false;
-
         {
-            std::lock_guard<std::mutex> lock(m_mutex); // TODO: Fix game does not properly exit while crash (if not just revert back to SDL_Delay Sleep)
+            std::unique_lock<std::mutex> lock(m_mutex);
+            m_running = false;
             m_notify = true;
         }
-        m_conditionVariable.notify_one();
+        m_cv.notify_one();
     }
 }
 

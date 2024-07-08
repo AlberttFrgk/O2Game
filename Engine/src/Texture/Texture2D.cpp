@@ -3,6 +3,9 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <vector>
+#include <memory>
+#include <stdexcept>
 
 #include "../Data/Imgui/imgui_impl_vulkan.h"
 #include "../Rendering/Vulkan/Texture2DVulkan_Internal.h"
@@ -14,6 +17,29 @@
 #include <SDL2/SDL_image.h>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/glm.hpp>
+
+namespace {
+    // Premultiply alpha
+    SDL_Surface* PremultiplyAlpha(SDL_Surface* surface) {
+        if (surface->format->BytesPerPixel != 4) return surface;
+
+        Uint32* pixels = (Uint32*)surface->pixels;
+        for (int y = 0; y < surface->h; ++y) {
+            for (int x = 0; x < surface->w; ++x) {
+                Uint32 pixel = pixels[y * surface->w + x];
+                Uint8 r, g, b, a;
+                SDL_GetRGBA(pixel, surface->format, &r, &g, &b, &a);
+
+                r = (r * a) / 255;
+                g = (g * a) / 255;
+                b = (b * a) / 255;
+
+                pixels[y * surface->w + x] = SDL_MapRGBA(surface->format, r, g, b, a);
+            }
+        }
+        return surface;
+    }
+}
 
 Texture2D::Texture2D()
 {
@@ -35,91 +61,62 @@ Texture2D::Texture2D()
     Size = UDim2::fromScale(1, 1);
 }
 
-Texture2D::Texture2D(std::string fileName) : Texture2D()
+Texture2D::Texture2D(const std::string& fileName) : Texture2D()
 {
-    if (!std::filesystem::exists(fileName)) {
-        fileName = std::filesystem::current_path().string() + fileName;
+    std::string filePath = fileName;
+    if (!std::filesystem::exists(filePath)) {
+        filePath = std::filesystem::current_path().string() + fileName;
     }
 
-    if (!std::filesystem::exists(fileName)) {
+    if (!std::filesystem::exists(filePath)) {
         throw std::runtime_error(fileName + " not found!");
     }
 
-    std::fstream fs(fileName, std::ios::binary | std::ios::in);
-    if (!fs.is_open()) {
-        throw std::runtime_error(fileName + " cannot opened!");
+    std::ifstream file(filePath, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) {
+        throw std::runtime_error(fileName + " cannot be opened!");
     }
 
-    fs.seekg(0, std::ios::end);
-    size_t size = fs.tellg();
-    fs.seekg(0, std::ios::beg);
+    size_t size = file.tellg();
+    file.seekg(0, std::ios::beg);
 
-    uint8_t *buffer = new uint8_t[size];
-    fs.read((char *)buffer, size);
-    fs.close();
+    std::vector<uint8_t> buffer(size);
+    file.read(reinterpret_cast<char*>(buffer.data()), size);
+    file.close();
 
-    Rotation = 0;
-    Transparency = 0.0f;
-    m_actualSize = { 0, 0, 0, 0 };
-    m_bDisposeTexture = true;
-    TintColor = { 1.0f, 1.0f, 1.0f };
-
-    LoadImageResources(buffer, size);
+    LoadImageResources(buffer.data(), size);
 }
 
-Texture2D::Texture2D(std::filesystem::path path) : Texture2D()
-{
+Texture2D::Texture2D(const std::filesystem::path& path) : Texture2D() {
     if (!std::filesystem::exists(path)) {
         throw std::runtime_error(path.string() + " not found!");
     }
 
-    std::fstream fs(path, std::ios::binary | std::ios::in);
-    if (!fs.is_open()) {
-        throw std::runtime_error(path.string() + " cannot opened!");
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) {
+        throw std::runtime_error(path.string() + " cannot be opened!");
     }
 
-    fs.seekg(0, std::ios::end);
-    size_t size = fs.tellg();
-    fs.seekg(0, std::ios::beg);
+    size_t size = file.tellg();
+    file.seekg(0, std::ios::beg);
 
-    uint8_t *buffer = new uint8_t[size];
-    fs.read((char *)buffer, size);
-    fs.close();
+    std::vector<uint8_t> buffer(size);
+    file.read(reinterpret_cast<char*>(buffer.data()), size);
+    file.close();
 
-    Rotation = 0;
-    Transparency = 0.0f;
-    m_actualSize = { 0, 0, 0, 0 };
-    m_bDisposeTexture = true;
-    TintColor = { 1.0f, 1.0f, 1.0f };
-
-    LoadImageResources(buffer, size);
+    LoadImageResources(buffer.data(), size);
 }
 
-// Do base constructor called before derived constructor?
-// https://stackoverflow.com/questions/120547/what-are-the-rules-for-calling-the-superclass-constructor
-
-Texture2D::Texture2D(uint8_t *fileData, size_t size) : Texture2D()
+Texture2D::Texture2D(const uint8_t* fileData, size_t size) : Texture2D()
 {
-    uint8_t *buffer = new uint8_t[size];
-    memcpy(buffer, fileData, size);
-
-    Rotation = 0;
-    Transparency = 0.0f;
-    m_actualSize = { 0, 0, 0, 0 };
-    m_bDisposeTexture = true;
-    TintColor = { 1.0f, 1.0f, 1.0f };
-
-    m_sdl_tex = nullptr;
-    m_vk_tex = nullptr;
-
-    LoadImageResources(buffer, size);
+    std::vector<uint8_t> buffer(fileData, fileData + size);
+    LoadImageResources(buffer.data(), size);
 }
 
 Texture2D::Texture2D(SDL_Texture *texture) : Texture2D()
 {
     m_bDisposeTexture = false;
     m_sdl_tex = texture;
-
     m_ready = true;
 }
 
@@ -135,17 +132,13 @@ Texture2D::~Texture2D()
 {
     if (m_bDisposeTexture) {
         if (Renderer::GetInstance()->IsVulkan() && m_vk_tex) {
-            auto vk_tex = m_vk_tex;
-
-            vkTexture::ReleaseTexture(vk_tex);
-
+            vkTexture::ReleaseTexture(m_vk_tex);
             m_vk_tex = nullptr;
         } else {
             if (m_sdl_tex) {
                 SDL_DestroyTexture(m_sdl_tex);
                 m_sdl_tex = nullptr;
             }
-
             if (m_sdl_surface) {
                 SDL_FreeSurface(m_sdl_surface);
                 m_sdl_surface = nullptr;
@@ -169,11 +162,11 @@ void Texture2D::Draw(Rect *clipRect)
     Draw(clipRect, true);
 }
 
-void Texture2D::Draw(Rect *clipRect, bool manualDraw)
+void Texture2D::Draw(Rect* clipRect, bool manualDraw)
 {
-    Renderer *renderer = Renderer::GetInstance();
-    auto      window = GameWindow::GetInstance();
-    bool      scaleOutput = window->IsScaleOutput();
+    Renderer* renderer = Renderer::GetInstance();
+    auto window = GameWindow::GetInstance();
+    bool scaleOutput = window->IsScaleOutput();
     CalculateSize();
 
     if (!m_ready)
@@ -226,66 +219,41 @@ void Texture2D::Draw(Rect *clipRect, bool manualDraw)
         ImVec2 uv3(1.0f, 1.0f); // Bottom-right UV coordinate
         ImVec2 uv4(0.0f, 1.0f); // Bottom-left UV coordinate
 
-        ImU32 color = IM_COL32((uint8_t)(TintColor.R * 255), (uint8_t)(TintColor.G * 255), (uint8_t)(TintColor.B * 255), 255); // Probably fix for Color3
+        ImU32 color = IM_COL32((uint8_t)(TintColor.R * 255), (uint8_t)(TintColor.G * 255), (uint8_t)(TintColor.B * 255), 255);
 
-        std::array<ImDrawVert, 6> vertexData;
-
-        for (int i = 0; i < 6; i++) {
-            ImDrawVert &vertex = vertexData[i];
-            switch (i) {
-            case 0:
-                vertex.pos = ImVec2(x1, y1);
-                vertex.uv = uv1;
-                break;
-            case 1:
-                vertex.pos = ImVec2(x2, y1);
-                vertex.uv = uv2;
-                break;
-            case 2:
-                vertex.pos = ImVec2(x2, y2);
-                vertex.uv = uv3;
-                break;
-            case 3:
-                vertex.pos = ImVec2(x1, y1);
-                vertex.uv = uv1;
-                break;
-            case 4:
-                vertex.pos = ImVec2(x2, y2);
-                vertex.uv = uv3;
-                break;
-            case 5:
-                vertex.pos = ImVec2(x1, y2);
-                vertex.uv = uv4;
-                break;
-            }
-            vertex.col = color;
-        }
+        std::array<ImDrawVert, 6> vertexData = {{
+            {ImVec2(x1, y1), uv1, color},
+            {ImVec2(x2, y1), uv2, color},
+            {ImVec2(x2, y2), uv3, color},
+            {ImVec2(x1, y1), uv1, color},
+            {ImVec2(x2, y2), uv3, color},
+            {ImVec2(x1, y2), uv4, color}
+        }};
 
         SubmitQueueInfo info = {};
         info.AlphaBlend = AlphaBlend;
         info.descriptor = imageId;
-        info.vertices = std::vector(vertexData.begin(), vertexData.end());
-        info.indices = { 0, 1, 2, 3, 4, 5 };
+        info.vertices = {vertexData.begin(), vertexData.end()};
+        info.indices = {0, 1, 2, 3, 4, 5};
         info.scissor = scissor;
 
-        // submit to queue
         vulkan_driver->queue_submit(info);
     } else {
-        SDL_FRect destRect = { m_calculatedSizeF.left, m_calculatedSizeF.top, m_calculatedSizeF.right, m_calculatedSizeF.bottom };
+        SDL_FRect destRect = {m_calculatedSizeF.left, m_calculatedSizeF.top, m_calculatedSizeF.right, m_calculatedSizeF.bottom};
         if (scaleOutput) {
-            destRect.x = destRect.x * window->GetWidthScale();
-            destRect.y = destRect.y * window->GetHeightScale();
-            destRect.w = destRect.w * window->GetWidthScale();
-            destRect.h = destRect.h * window->GetHeightScale();
+            destRect.x *= window->GetWidthScale();
+            destRect.y *= window->GetHeightScale();
+            destRect.w *= window->GetWidthScale();
+            destRect.h *= window->GetHeightScale();
         }
 
-        SDL_Rect      originClip = {};
+        SDL_Rect originClip = {};
         SDL_BlendMode oldBlendMode = SDL_BLENDMODE_NONE;
 
         if (clipRect) {
             SDL_RenderGetClipRect(renderer->GetSDLRenderer(), &originClip);
 
-            SDL_Rect testClip = { clipRect->left, clipRect->top, clipRect->right - clipRect->left, clipRect->bottom - clipRect->top };
+            SDL_Rect testClip = {clipRect->left, clipRect->top, clipRect->right - clipRect->left, clipRect->bottom - clipRect->top};
             if (scaleOutput) {
                 testClip.x = static_cast<int>(testClip.x * window->GetWidthScale());
                 testClip.y = static_cast<int>(testClip.y * window->GetHeightScale());
@@ -301,23 +269,15 @@ void Texture2D::Draw(Rect *clipRect, bool manualDraw)
             SDL_SetTextureBlendMode(m_sdl_tex, renderer->GetSDLBlendMode());
         }
 
-        SDL_Color color = { (uint8_t)(TintColor.R * 255.0f), (uint8_t)(TintColor.G * 255.0f), (uint8_t)(TintColor.B * 255.0f), (uint8_t)255 };
+        SDL_Color color = {(uint8_t)(TintColor.R * 255.0f), (uint8_t)(TintColor.G * 255.0f), (uint8_t)(TintColor.B * 255.0f), 255};
         if (SDL_BYTEORDER == SDL_BIG_ENDIAN) {
-            color.r = (uint8_t)(TintColor.B * 255.0f);
-            color.b = (uint8_t)(TintColor.R * 255.0f);
+            std::swap(color.r, color.b);
         }
 
         SDL_SetTextureColorMod(m_sdl_tex, color.r, color.g, color.b);
         SDL_SetTextureAlphaMod(m_sdl_tex, static_cast<uint8_t>(255 - (Transparency / 100.0) * 255));
 
-        int error = SDL_RenderCopyExF(
-            renderer->GetSDLRenderer(),
-            m_sdl_tex,
-            nullptr,
-            &destRect,
-            Rotation,
-            nullptr,
-            (SDL_RendererFlip)0);
+        int error = SDL_RenderCopyExF(renderer->GetSDLRenderer(), m_sdl_tex, nullptr, &destRect, Rotation, nullptr, SDL_FLIP_NONE);
 
         if (error != 0) {
             throw SDLException();
@@ -328,20 +288,16 @@ void Texture2D::Draw(Rect *clipRect, bool manualDraw)
         }
 
         if (clipRect) {
-            if (originClip.w == 0 || originClip.h == 0) {
-                SDL_RenderSetClipRect(renderer->GetSDLRenderer(), nullptr);
-            } else {
-                SDL_RenderSetClipRect(renderer->GetSDLRenderer(), &originClip);
-            }
+            SDL_RenderSetClipRect(renderer->GetSDLRenderer(), originClip.w == 0 || originClip.h == 0 ? nullptr : &originClip);
         }
     }
 }
 
 void Texture2D::CalculateSize()
 {
-    GameWindow *window = GameWindow::GetInstance();
-    int         wWidth = window->GetBufferWidth();
-    int         wHeight = window->GetBufferHeight();
+    GameWindow* window = GameWindow::GetInstance();
+    int wWidth = window->GetBufferWidth();
+    int wHeight = window->GetBufferHeight();
 
     float xPos = static_cast<float>((wWidth * Position.X.Scale) + Position.X.Offset);
     float yPos = static_cast<float>((wHeight * Position.Y.Scale) + Position.Y.Offset);
@@ -349,8 +305,8 @@ void Texture2D::CalculateSize()
     float width = static_cast<float>((m_actualSize.right * Size.X.Scale) + Size.X.Offset);
     float height = static_cast<float>((m_actualSize.bottom * Size.Y.Scale) + Size.Y.Offset);
 
-    m_preAnchoredSize = { (LONG)xPos, (LONG)yPos, (LONG)width, (LONG)height };
-    m_preAnchoredSizeF = { xPos, yPos, width, height };
+    m_preAnchoredSize = {(LONG)xPos, (LONG)yPos, (LONG)width, (LONG)height};
+    m_preAnchoredSizeF = {xPos, yPos, width, height};
 
     float xAnchor = width * std::clamp((float)AnchorPoint.X, 0.0f, 1.0f);
     float yAnchor = height * std::clamp((float)AnchorPoint.Y, 0.0f, 1.0f);
@@ -358,11 +314,11 @@ void Texture2D::CalculateSize()
     xPos -= xAnchor;
     yPos -= yAnchor;
 
-    m_calculatedSize = { (LONG)xPos, (LONG)yPos, (LONG)width, (LONG)height };
-    m_calculatedSizeF = { xPos, yPos, width, height };
+    m_calculatedSize = {(LONG)xPos, (LONG)yPos, (LONG)width, (LONG)height};
+    m_calculatedSizeF = {xPos, yPos, width, height};
 
-    AbsolutePosition = { xPos, yPos };
-    AbsoluteSize = { width, height };
+    AbsolutePosition = {xPos, yPos};
+    AbsoluteSize = {width, height};
 }
 
 Rect Texture2D::GetOriginalRECT()
@@ -375,84 +331,37 @@ void Texture2D::SetOriginalRECT(Rect size)
     m_actualSize = size;
 }
 
-Texture2D *Texture2D::FromTexture2D(Texture2D *tex)
-{
-    auto copy = new Texture2D(tex->m_sdl_tex);
-    copy->m_actualSize = tex->m_actualSize;
-    copy->Position = tex->Position;
-    copy->Size = tex->Size;
-
-    return copy;
-}
-
-Texture2D *Texture2D::FromBMP(uint8_t *fileData, size_t size)
-{
-    return nullptr;
-}
-
-Texture2D *Texture2D::FromBMP(std::string fileName)
-{
-    return nullptr;
-}
-
-Texture2D *Texture2D::FromJPEG(uint8_t *fileData, size_t size)
-{
-    return nullptr;
-}
-
-Texture2D *Texture2D::FromJPEG(std::string fileName)
-{
-    return nullptr;
-}
-
-Texture2D *Texture2D::FromPNG(uint8_t *fileData, size_t size)
-{
-    return nullptr;
-}
-
-Texture2D *Texture2D::FromPNG(std::string fileName)
-{
-    return nullptr;
-}
-
-void Texture2D::LoadImageResources(uint8_t *buffer, size_t size)
+void Texture2D::LoadImageResources(uint8_t* buffer, size_t size)
 {
     if (Renderer::GetInstance()->IsVulkan()) {
         auto tex_data = vkTexture::TexLoadImage(buffer, size);
-
-        m_actualSize = { 0, 0, tex_data->Width, tex_data->Height };
+        m_actualSize = {0, 0, tex_data->Width, tex_data->Height};
         m_vk_tex = tex_data;
-
         m_bDisposeTexture = true;
         m_ready = true;
     } else {
-        SDL_RWops *rw = SDL_RWFromMem(buffer, (int)size);
+        SDL_RWops* rw = SDL_RWFromMem(buffer, static_cast<int>(size));
+        std::unique_ptr<SDL_Surface, decltype(&SDL_FreeSurface)> decompressed_surface(IMG_LoadTyped_RW(rw, 1, "PNG"), SDL_FreeSurface);
 
-        // check if buffer magic is BMP
-        if (buffer[0] == 0x42 && buffer[1] == 0x4D) {
-            m_sdl_surface = SDL_LoadBMP_RW(rw, 1);
-        } else {
-            m_sdl_surface = IMG_Load_RW(rw, 1);
-        }
-
-        if (!m_sdl_surface) {
+        if (!decompressed_surface) {
             throw SDLException();
         }
 
+        std::unique_ptr<SDL_Surface, decltype(&SDL_FreeSurface)> formatted_surface(SDL_ConvertSurfaceFormat(decompressed_surface.get(), SDL_PIXELFORMAT_ABGR8888, 0), SDL_FreeSurface);
+
+        if (!formatted_surface) {
+            throw SDLException();
+        }
+
+        m_sdl_surface = PremultiplyAlpha(formatted_surface.release()); // Fix white line issue
         m_sdl_tex = SDL_CreateTextureFromSurface(Renderer::GetInstance()->GetSDLRenderer(), m_sdl_surface);
+
         if (!m_sdl_tex) {
             throw SDLException();
         }
 
-        // sdl get texture resolution
-        int w, h;
-        SDL_QueryTexture(m_sdl_tex, nullptr, nullptr, &w, &h);
-
+        m_actualSize = {0, 0, m_sdl_surface->w, m_sdl_surface->h};
         m_bDisposeTexture = true;
-        m_actualSize = { 0, 0, w, h };
-
         m_ready = true;
     }
-
-    delete[] buffer;
 }

@@ -18,7 +18,6 @@
 #include "../GameScenes.h"
 #include "../Resources/GameDatabase.h"
 
-// I don't know if this new changes causing memleak or not because i can't tell due my hardware limit
 LoadingScene::LoadingScene()
 {
     m_background = nullptr;
@@ -56,8 +55,13 @@ void LoadingScene::Update(double delta)
 
                 EnvironmentSetup::SetInt("Autoplay", autoplay);
                 EnvironmentSetup::Set("SongRate", rate);
-                EnvironmentSetup::SetInt("Song BG", 1);
-                EnvironmentSetup::SetInt("Difficulty", 2); // Hard difficulty it's fun (fucked)
+
+                if (EnvironmentSetup::GetInt("FileOpen") == 1) {
+                    LoadModifiers();
+                }
+                else {
+                    EnvironmentSetup::SetInt("Song BG", 1);
+                }
             }
 
             const char *bmsfile[] = { ".bms", ".bme", ".bml", ".bmsc" };
@@ -74,6 +78,7 @@ void LoadingScene::Update(double delta)
                 }
 
                 chart = new Chart(beatmap);
+                EnvironmentSetup::SetInt("SongType", 0);
             } else if (file.extension() == ojnfile) {
                 O2::OJN o2jamFile;
                 o2jamFile.Load(file);
@@ -87,8 +92,9 @@ void LoadingScene::Update(double delta)
                 }
 
                 chart = new Chart(o2jamFile, diffIndex);
-
+                EnvironmentSetup::SetInt("SongType", 1);
                 IsO2Jam = true;
+
             } else {
                 Osu::Beatmap beatmap(file);
 
@@ -99,6 +105,7 @@ void LoadingScene::Update(double delta)
                 }
 
                 chart = new Chart(beatmap);
+                EnvironmentSetup::SetInt("SongType", 2);
             }
 
             EnvironmentSetup::SetObj("SONG", chart);
@@ -171,6 +178,33 @@ void LoadingScene::Update(double delta)
             }
         }
     }
+}
+
+void LoadingScene::LoadModifiers() // For File Opened
+{
+    std::string difficultyValue = Configuration::Load("Gameplay", "Difficulty");
+    int setDifficulty = std::stoi(difficultyValue);
+    switch (setDifficulty) {
+    case 0: // EZ
+        EnvironmentSetup::SetInt("Difficulty", 0);
+        break;
+    case 1: // NM
+        EnvironmentSetup::SetInt("Difficulty", 1);
+        break;
+    case 2: // HD
+        EnvironmentSetup::SetInt("Difficulty", 2);
+        break;
+    }
+
+    std::string selectedMods = Configuration::Load("Gameplay", "Modifiers");
+    std::istringstream iss(selectedMods);
+    std::string mod;
+    while (std::getline(iss, mod, ',')) {
+        EnvironmentSetup::SetInt(mod, 1);
+    }
+
+    std::string arenaValue = Configuration::Load("Gameplay", "Arena");
+    EnvironmentSetup::SetInt("Arena", std::stoi(arenaValue));
 }
 
 void LoadingScene::Render(double delta)

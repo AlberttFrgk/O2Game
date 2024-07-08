@@ -24,6 +24,7 @@ public:
     void OnMouseDown(const MouseState &state) override;
 
     bool Attach() override;
+    void RestartGame();
     bool Detach() override;
 
 protected:
@@ -32,6 +33,7 @@ protected:
 
 private:
     void SaveConfiguration();
+    void SaveModifiers();
     void LoadChartImage();
 
     int scene_index = 0;
@@ -41,6 +43,9 @@ private:
     bool  isWait = false;
     bool  isScrolled = false;
     float waitTime = 0;
+
+    int  currentDifficulty;
+    int  difficulty;
 
     float currentSpeed = 2.25;
     float currentRate = 1.0;

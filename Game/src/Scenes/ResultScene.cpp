@@ -132,13 +132,9 @@ void ResultScene::Render(double delta)
     }
 
     if (m_backButton) {
-        if (EnvironmentSetup::GetPath("FILE").empty()) {
-            SceneManager::DisplayFade(100, [] {
-                SceneManager::ChangeScene(GameScene::SONGSELECT);
-            });
-        } else {
-            SceneManager::GetInstance()->StopGame();
-        }
+    SceneManager::DisplayFade(100, [] {
+        SceneManager::ChangeScene(GameScene::SONGSELECT);
+        });
     }
 
     if (m_retryButton) {
