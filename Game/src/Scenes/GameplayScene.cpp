@@ -267,7 +267,7 @@ void GameplayScene::Render(double delta)
         m_judgement[m_judgeIndex]->AnchorPoint = { 0.5, 0.5 };
         m_judgement[m_judgeIndex]->Draw();
 
-        m_judgeSize = std::clamp(m_judgeSize + (delta * 6), 0.6, 1.0); // Nice
+        m_judgeSize = std::clamp(m_judgeSize + (delta * 6), 0.5, 1.0); // Nice
         if ((m_judgeTimer += delta) > 0.60) {
             m_drawJudge = false;
         }
@@ -286,19 +286,27 @@ void GameplayScene::Render(double delta)
 
     if (m_drawCombo && std::get<7>(scores) > 0) { // This should be O2Jam Replication
         const double positionStart = 30.0;
-        const double step = 6.0;
+        double step = 6.0;
         double animationSpeed = 90.0;
+        double maxStep = step;
         double maxSpeed = animationSpeed;
 
         if (m_comboTimer > 0.5) {
-            animationSpeed += 15.0 * delta;
+            animationSpeed += 10.0 * delta;
+            step += 1.0 * delta;
+
         }
         else {
-            animationSpeed -= 15.0 * delta;
+            animationSpeed -= 10.0 * delta;
+            step -= 1.0 * delta;
         }
 
-        if (animationSpeed > 90.0) {
+        if (animationSpeed > maxSpeed) {
             animationSpeed = maxSpeed;
+        }
+
+        if (step > maxStep) {
+            step = maxStep;
         }
 
         double targetposition = positionStart - step * m_comboTimer * animationSpeed;
