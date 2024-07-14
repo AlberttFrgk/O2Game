@@ -309,11 +309,11 @@ void GameplayScene::Render(double delta)
             step = maxStep;
         }
 
-        double targetposition = positionStart - step * m_comboTimer * animationSpeed;
-        double currentposition = (targetposition > 0.0) ? targetposition : 0.0;
+        double targetPosition = positionStart - step * m_comboTimer * animationSpeed;
+        double currentPosition = (targetPosition > 0.0) ? targetPosition : 0.0;
 
-        m_comboLogo->Position2 = UDim2::fromOffset(0, currentposition / 3.0);
-        m_comboNum->Position2 = UDim2::fromOffset(0, currentposition);
+        m_comboLogo->Position2 = UDim2::fromOffset(0, currentPosition / 3.0);
+        m_comboNum->Position2 = UDim2::fromOffset(0, currentPosition);
 
         m_comboLogo->Draw(delta);
         m_comboNum->DrawNumber(std::get<7>(scores));
@@ -328,9 +328,30 @@ void GameplayScene::Render(double delta)
 
     if (m_drawLN && std::get<9>(scores) > 0) {
         const double positionStart = 5.0;
-        double animationSpeed = 60.0;
+        double step = 1.0;
+        double animationSpeed = 90.0;
+        double maxStep = step;
+        double maxSpeed = animationSpeed;
 
-        double targetPosition = positionStart - m_lnTimer * animationSpeed;
+        if (m_comboTimer > 1.0) {
+            animationSpeed += 10.0 * delta;
+            step += 0.1 * delta;
+
+        }
+        else {
+            animationSpeed -= 10.0 * delta;
+            step -= 0.1 * delta;
+        }
+
+        if (animationSpeed > maxSpeed) {
+            animationSpeed = maxSpeed;
+        }
+
+        if (step > maxStep) {
+            step = maxStep;
+        }
+
+        double targetPosition = positionStart - step * m_lnTimer * animationSpeed;
         double currentPosition = (targetPosition > 0.0) ? targetPosition : 0.0;
 
         m_lnLogo->Position2 = UDim2::fromOffset(0, currentPosition);
