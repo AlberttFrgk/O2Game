@@ -35,7 +35,7 @@ struct MissInfo
     float beat;
     float hit_beat;
     float time;
-};
+}; 
 
 bool CheckSkinComponent(std::filesystem::path x)
 {
@@ -1055,11 +1055,6 @@ bool GameplayScene::Attach()
 
             if (IsHD) {
                 segments = {
-                    //{ 0.00f, 0.00f, { 0, 0, 0, 255 }, { 0, 0, 0, 255 } },
-                    //{ 0.00f, 0.00f, { 0, 0, 0, 255 }, { 0, 0, 0, 0 } },
-                    //{ 0.00f, 0.45f, { 0, 0, 0, 0 }, { 0, 0, 0, 0 } },
-                    //{ 0.45f, 0.50f, { 0, 0, 0, 0 }, { 0, 0, 0, 255 } },
-                    //{ 0.50f, 1.00f, { 0, 0, 0, 255 }, { 0, 0, 0, 255 } }
                     { 0.00f, 0.45f, { 0, 0, 0, 0 }, { 0, 0, 0, 0 } },
                     { 0.45f, 0.50f, { 0, 0, 0, 0 }, { 0, 0, 0, 255 } },
                     { 0.50f, 1.00f, { 0, 0, 0, 255 }, { 0, 0, 0, 255 } }
@@ -1091,10 +1086,10 @@ bool GameplayScene::Attach()
             m_laneHideImage->Size = UDim2::fromOffset(imageWidth, imageHeight);
         }
 
-        bool areVisualModsActive = IsHD || IsFL || IsSD; // Check if any of the VisualMods are active (Hidden or Flashlight)
-        bool areNoteModsActive = IsMR || IsRD || IsPC; // Check if any of the NoteMods are active (Mirror or Random)
+        bool VisualModEnabled = IsHD || IsFL || IsSD; // Check if any of the VisualMods are active (Hidden or Flashlight)
+        bool NoteModEnabled = IsMR || IsRD || IsPC; // Check if any of the NoteMods are active (Mirror or Random)
 
-        if (areVisualModsActive) { // Draw VisualMods (Hidden, Flashlight, and Sudden)
+        if (VisualModEnabled) { // Draw VisualMods (Hidden, Flashlight, and Sudden)
             if (IsHD) {
                 std::string VisualModImage = "ModHidden.png";
                 auto VisualModfilename = playingPath / VisualModImage;
@@ -1125,7 +1120,7 @@ bool GameplayScene::Attach()
             }
         }
 
-        if (areNoteModsActive) { // Draw NoteMods (Mirror, Random, and Panic)
+        if (NoteModEnabled) { // Draw NoteMods (Mirror, Random, and Panic)
             if (IsMR) {
                 std::string NoteModImage = "ModMirror.png";
                 auto NoteModfilename = playingPath / NoteModImage;

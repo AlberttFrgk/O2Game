@@ -319,7 +319,7 @@ void Note::Render(double delta)
         double tailPosY = lerp(0.0, static_cast<double>(hitPos), static_cast<float>(y2));
         bool isTailVisible = isWithinRange(tailPosY, min, max);
 
-        if (EnvironmentSetup::GetInt("NoPercy") == 1) {
+        if (EnvironmentSetup::GetInt("NewLN") == 1) {
             tailPosY += m_tail->AbsoluteSize.Y;
         }
 

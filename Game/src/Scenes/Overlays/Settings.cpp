@@ -317,7 +317,7 @@ void SettingsOverlay::Render(double delta)
 
                         ImGui::Text("Audio Offset");
                         ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Warning: this will make keysounded sample as auto sample!");
-                        ImGui::SliderInt("###Slider1", &currentOffset, -500, 500);
+                        ImGui::SliderInt("###Slider1", &currentOffset, -1000, 1000);
 
                         ImGui::NewLine();
                         ImGui::Checkbox("Convert Sample to Auto Sample###Checkbox1", &convertAutoSound);
@@ -350,11 +350,10 @@ void SettingsOverlay::Render(double delta)
 
                         ImGui::NewLine();
                         ImGui::NewLine();
-                        ImGui::NewLine();
 
                         ImGui::Text("Gameplay-Related Configuration");
 
-                        ImGui::Checkbox("Use New Measure Line###SetCheckbox1", &MeasureLineType);
+                        ImGui::Checkbox("New Measure Line###SetCheckbox1", &MeasureLineType);
                         if (ImGui::IsItemHovered()) {
                             ImGui::SetTooltip("Measure line position in the middle of the note; otherwise, it will be at the bottom of the note");
                         }
@@ -365,6 +364,16 @@ void SettingsOverlay::Render(double delta)
                             EnvironmentSetup::SetInt("MeasureLineType", 0);
                         }
 
+                        ImGui::SameLine();
+
+                        ImGui::Checkbox("New Long Note###SetCheckbox3", &NewLongNote);
+                        if (NewLongNote) { // Leave everything untouched since no reason to make whole changes
+                            EnvironmentSetup::SetInt("NewLN", 1);
+                        }
+                        else {
+                            EnvironmentSetup::SetInt("NewLN", 0);
+                        }
+
                         ImGui::Checkbox("Disable Measure Line###SetCheckbox2", &MeasureLine);
                         if (MeasureLine) {
                             EnvironmentSetup::SetInt("MeasureLine", 0);
@@ -372,6 +381,8 @@ void SettingsOverlay::Render(double delta)
                         else {
                             EnvironmentSetup::SetInt("MeasureLine", 1);
                         }
+
+                        ImGui::SameLine();
 
                         ImGui::Checkbox("Long Note Body On Top###SetCheckbox3", &LNBodyOnTop);
                         if (ImGui::IsItemHovered()) {
@@ -636,6 +647,21 @@ void SettingsOverlay::LoadConfiguration()
     }
 
     try {
+        int NewLNValue = std::stoi(Configuration::Load("Game", "NewLongNote"));
+        NewLongNote = (NewLNValue == 1);
+    }
+    catch (const std::invalid_argument&) {
+        NewLongNote = false;
+    }
+
+    if (NewLongNote) {
+        EnvironmentSetup::SetInt("NewLN", 1);
+    }
+    else {
+        EnvironmentSetup::SetInt("NewLN", 0);
+    }
+
+    try {
         int MeasureLineTypeValue = std::stoi(Configuration::Load("Game", "MeasureLineType"));
         MeasureLineType = (MeasureLineTypeValue == 1);
     }
@@ -695,6 +721,7 @@ void SettingsOverlay::SaveConfiguration()
     Configuration::Set("Game", "MeasureLine", std::to_string(MeasureLine ? 1 : 0));
     Configuration::Set("Game", "MeasureLineType", std::to_string(MeasureLineType ? 1 : 0));
     Configuration::Set("Game", "LNBodyOnTop", std::to_string(LNBodyOnTop ? 1 : 0));
+    Configuration::Set("Game", "NewLongNote", std::to_string(NewLongNote ? 1 : 0));
 
     if (currentFPSIndex == GetFpsOptions().size() - 1 && customFPS > 0) {
         Configuration::Set("Game", "FrameLimit", std::to_string(customFPS));

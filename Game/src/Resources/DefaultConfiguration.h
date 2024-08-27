@@ -14,6 +14,7 @@ std::string defaultConfiguration = "[game]\n"
 	"background = 0\n"
 	"measureline = 1\n"
 	"measurelinetype = 0\n"
+	"newlongnote = 0\n"
 	"lnbodyontop = 0\n\n"
 
 	"[keymapping]\n"
