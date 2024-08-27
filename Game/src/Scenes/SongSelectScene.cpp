@@ -47,7 +47,7 @@ static std::wstring OpenFilePrompt() {
     }
 }
 
-static std::array<std::string, 8>  Mods = { "Mirror", "Random", "Panic", "Rearrange", "Autoplay", "Hidden", "Flashlight", "Sudden"};
+static std::array<std::string, 7> Mods = { "Mirror", "Random", "Rearrange", "Autoplay", "Hidden", "Flashlight", "Sudden" };
 static std::array<std::string, 13> Arena = { "Random",
                                              "Arena 1", "Arena 2", "Arena 3", "Arena 4", "Arena 5", "Arena 6", "Arena 7", "Arena 8", "Arena 9", "Arena 10", "Arena 11", "Arena 12" };
 
@@ -532,39 +532,31 @@ void SongSelectScene::OnGameSelectMusic(double delta)
                 if (ImGui::Button(mod.c_str(), MathUtil::ScaleVec2(ImVec2(80, 0)))) {
                     EnvironmentSetup::SetInt(mod, value == 1 ? 0 : 1);
 
-                    switch (i) { // New Modifier
+                    switch (i) {
                     case 0: // Mirror
                         EnvironmentSetup::SetInt(Mods[1], 0); // Random
-                        EnvironmentSetup::SetInt(Mods[2], 0); // Panic
-                        EnvironmentSetup::SetInt(Mods[3], 0); // Rearrange
+                        EnvironmentSetup::SetInt(Mods[2], 0); // Rearrange
                         break;
                     case 1: // Random
                         EnvironmentSetup::SetInt(Mods[0], 0); // Mirror
-                        EnvironmentSetup::SetInt(Mods[2], 0); // Panic
-                        EnvironmentSetup::SetInt(Mods[3], 0); // Rearrange
+                        EnvironmentSetup::SetInt(Mods[2], 0); // Rearrange
                         break;
-                    case 2: // Panic
+                    case 2: // Rearrange
                         EnvironmentSetup::SetInt(Mods[0], 0); // Mirror
                         EnvironmentSetup::SetInt(Mods[1], 0); // Random
-                        EnvironmentSetup::SetInt(Mods[3], 0); // Rearrange
-                        break;
-                    case 3: // Rearrange
-                        EnvironmentSetup::SetInt(Mods[0], 0); // Mirror
-                        EnvironmentSetup::SetInt(Mods[1], 0); // Random
-                        EnvironmentSetup::SetInt(Mods[2], 0); // Panic
                         bOpenRearrange = true; // Open Rearrange Window
                         break;
-                    case 5: // Hidden
-                        EnvironmentSetup::SetInt(Mods[6], 0); // Flashlight
-                        EnvironmentSetup::SetInt(Mods[7], 0); // Sudden
+                    case 4: // Hidden
+                        EnvironmentSetup::SetInt(Mods[5], 0); // Flashlight
+                        EnvironmentSetup::SetInt(Mods[6], 0); // Sudden
                         break;
-                    case 6: // Flashlight
-                        EnvironmentSetup::SetInt(Mods[5], 0); // Hidden
-                        EnvironmentSetup::SetInt(Mods[7], 0); // Sudden
+                    case 5: // Flashlight
+                        EnvironmentSetup::SetInt(Mods[4], 0); // Hidden
+                        EnvironmentSetup::SetInt(Mods[6], 0); // Sudden
                         break;
-                    case 7: // Sudden
-                        EnvironmentSetup::SetInt(Mods[5], 0); // Hidden
-                        EnvironmentSetup::SetInt(Mods[6], 0); // Flashlight
+                    case 6: // Sudden
+                        EnvironmentSetup::SetInt(Mods[4], 0); // Hidden
+                        EnvironmentSetup::SetInt(Mods[5], 0); // Flashlight
                         break;
                     }
                 }
@@ -580,6 +572,7 @@ void SongSelectScene::OnGameSelectMusic(double delta)
                 }
             }
 
+            ImGui::NewLine();
             ImGui::PushItemWidth(ImGui::GetCurrentWindow()->Size.x - 15);
             ImGui::Text("Arena");
 

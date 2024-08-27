@@ -9,6 +9,10 @@
 #include <random>
 #include <unordered_set>
 #include <numeric>
+#include <MsgBox.h>
+#include <SceneManager.h>
+#include "../GameScenes.h"
+#include "../EnvironmentSetup.hpp"
 
 float float_floor(float value)
 {
@@ -171,7 +175,7 @@ Chart::Chart(Osu::Beatmap& beatmap) // Refactor
     CalculateBeat();
     SortTimings();
     NormalizeTimings();
-    AdjustLaneIndex();
+    CheckFor7K();
     ComputeKeyCount();
     ComputeHash();
 }
@@ -590,6 +594,7 @@ float Chart::GetCommonBPM()
 
 void Chart::NormalizeTimings()
 {
+    EnvironmentSetup::SetInt("KeyCount", m_keyCount);
     std::vector<TimingInfo> result;
 
     float baseBPM = GetCommonBPM();
@@ -696,38 +701,13 @@ void Chart::NormalizeTimings()
     m_svs = result;
 }
 
-void Chart::AdjustLaneIndex() // Fix vector subscript out of range
+void Chart::CheckFor7K()
 {
-    for (auto& note : m_notes) {
-        switch (m_keyCount) { // Fuck, this hard to figure out
-        case 4:
-        {
-            if (note.LaneIndex >= 2) {
-                note.LaneIndex += 3;
-            }
-            break;
-        }
-        case 5:
-        {
-            if (note.LaneIndex == 2) {
-                note.LaneIndex += 1;
-            }
-            else if (note.LaneIndex >= 3) {
-                note.LaneIndex += 2;
-            }
-            break;
-        }
-        case 6:
-        {
-            if (note.LaneIndex >= 3) {
-                note.LaneIndex += 1;
-            }
-            break;
-        }
-        default:
-            m_keyCount = 7;
-            break;
-        }
+    bool is7K = EnvironmentSetup::GetInt("KeyCount") == 7;
+    if (!is7K)
+    {
+        MsgBox::Show("Only7K", "Error", "Only 7K Mode Allowed!", MsgBoxType::OK);
+        SceneManager::ChangeScene(GameScene::SONGSELECT);
     }
 }
 

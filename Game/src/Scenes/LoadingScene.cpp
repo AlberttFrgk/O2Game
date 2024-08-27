@@ -162,14 +162,22 @@ void LoadingScene::Update(double delta)
         if (IsFile) {
             EnvironmentSetup::SetObj("SongBackground", m_background);
         }
-        SceneManager::ChangeScene(GameScene::GAMEPLAY);
-        EnvironmentSetup::SetInt("FillStart", 1);
+        bool is7K = EnvironmentSetup::GetInt("KeyCount") == 7;
+        if (!is7K)
+        {
+            MsgBox::Show("Only7K", "Error", "Only 7K Mode Allowed!", MsgBoxType::OK);
+            SceneManager::ChangeScene(GameScene::SONGSELECT);
+        }
+        else {
+            SceneManager::ChangeScene(GameScene::GAMEPLAY);
+            EnvironmentSetup::SetInt("FillStart", 1);
+        }
     } else {
         if (fucked) {
             std::string songId = EnvironmentSetup::Get("Key");
             if (songId.size() > 0) {
                 if (m_counter > 1) {
-                    SceneManager::ChangeScene(GameScene::MAINMENU);
+                    SceneManager::ChangeScene(GameScene::SONGSELECT);
                 }
             } else {
                 if (MsgBox::GetResult("FailChart") == 4) {
