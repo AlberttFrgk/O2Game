@@ -72,6 +72,7 @@ private:
 
     std::unique_ptr<Text> m_title;
     std::unique_ptr<Text> m_autoText;
+    std::unique_ptr<Text> m_gameInfo;
 
     std::unique_ptr<Texture2D> m_laneHideImage;
 
@@ -95,6 +96,7 @@ private:
     double m_judgeTimer;
     double m_comboTimer;
     double m_lnTimer;
+    double m_counter;
 
     /* other stuff */
     double m_judgeSize;
@@ -107,8 +109,14 @@ private:
     bool m_drawExitButton;
     bool m_doExit;
 
+    double lifeFillDuration;
+
     /* auto text size */
     bool  m_autoPlay;
     int   m_autoTextSize;
     UDim2 m_autoTextPos;
+
+    /* game info */
+    int m_gameInfoSize;
+    UDim2 m_gameInfoPos;
 };

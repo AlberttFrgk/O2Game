@@ -193,7 +193,7 @@ void GameWindow::SetScaleOutput(bool value)
     m_scaleOutput = value;
 }
 
-bool GameWindow::IsScaleOutput()
+bool GameWindow::IsScaleOutput() const
 {
     return m_scaleOutput;
 }

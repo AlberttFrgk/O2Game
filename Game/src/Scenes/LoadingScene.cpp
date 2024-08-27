@@ -18,7 +18,6 @@
 #include "../GameScenes.h"
 #include "../Resources/GameDatabase.h"
 
-// I don't know if this new changes causing memleak or not because i can't tell due my hardware limit
 LoadingScene::LoadingScene()
 {
     m_background = nullptr;
@@ -39,7 +38,7 @@ void LoadingScene::Update(double delta)
     int  diffIndex = EnvironmentSetup::GetInt("Difficulty");
     bool IsO2Jam = false;
 
-    Chart* chart = (Chart*)EnvironmentSetup::GetObj("SONG");
+    Chart *chart = (Chart *)EnvironmentSetup::GetObj("SONG");
     if (chart == nullptr || chart->GetO2JamId() != songId) {
         if (!fucked) {
             std::filesystem::path file;
@@ -47,8 +46,7 @@ void LoadingScene::Update(double delta)
             if (songId != -1) {
                 file = GameDatabase::GetInstance()->GetPath();
                 file /= "o2ma" + std::to_string(songId) + ".ojn";
-            }
-            else {
+            } else {
                 file = EnvironmentSetup::GetPath("FILE");
                 IsFile = true;
 
@@ -57,12 +55,17 @@ void LoadingScene::Update(double delta)
 
                 EnvironmentSetup::SetInt("Autoplay", autoplay);
                 EnvironmentSetup::Set("SongRate", rate);
-                EnvironmentSetup::SetInt("Song BG", 1);
-                EnvironmentSetup::SetInt("Difficulty", 2); // Hard difficulty it's fun (fucked)
+
+                if (EnvironmentSetup::GetInt("FileOpen") == 1) {
+                    LoadModifiers();
+                }
+                else {
+                    EnvironmentSetup::SetInt("Song BG", 1);
+                }
             }
 
-            const char* bmsfile[] = { ".bms", ".bme", ".bml", ".bmsc" };
-            const char* ojnfile = ".ojn";
+            const char *bmsfile[] = { ".bms", ".bme", ".bml", ".bmsc" };
+            const char *ojnfile = ".ojn";
 
             if (file.extension() == bmsfile[0] || file.extension() == bmsfile[1] || file.extension() == bmsfile[2] || file.extension() == bmsfile[3]) {
                 BMS::BMSFile beatmap;
@@ -75,8 +78,8 @@ void LoadingScene::Update(double delta)
                 }
 
                 chart = new Chart(beatmap);
-            }
-            else if (file.extension() == ojnfile) {
+                EnvironmentSetup::SetInt("SongType", 0);
+            } else if (file.extension() == ojnfile) {
                 O2::OJN o2jamFile;
                 o2jamFile.Load(file);
 
@@ -89,10 +92,10 @@ void LoadingScene::Update(double delta)
                 }
 
                 chart = new Chart(o2jamFile, diffIndex);
-
+                EnvironmentSetup::SetInt("SongType", 1);
                 IsO2Jam = true;
-            }
-            else {
+
+            } else {
                 Osu::Beatmap beatmap(file);
 
                 if (!beatmap.IsValid()) {
@@ -102,12 +105,12 @@ void LoadingScene::Update(double delta)
                 }
 
                 chart = new Chart(beatmap);
+                EnvironmentSetup::SetInt("SongType", 2);
             }
 
             EnvironmentSetup::SetObj("SONG", chart);
         }
-    }
-    else {
+    } else {
         IsO2Jam = chart->GetO2JamId() == songId; // TODO: refactor this
     }
 
@@ -127,14 +130,14 @@ void LoadingScene::Update(double delta)
     if (!fucked) {
         try {
             if (m_background == nullptr) {
-                GameWindow* window = GameWindow::GetInstance();
+                GameWindow *window = GameWindow::GetInstance();
                 if (chart->m_backgroundFile.size() > 0 && std::filesystem::exists(dirPath)) {
                     m_background = new Texture2D(dirPath.string());
                     m_background->Size = UDim2::fromOffset(window->GetBufferWidth(), window->GetBufferHeight());
                 }
 
                 if (chart->m_backgroundBuffer.size() > 0 && m_background == nullptr) {
-                    m_background = new Texture2D((uint8_t*)chart->m_backgroundBuffer.data(), chart->m_backgroundBuffer.size());
+                    m_background = new Texture2D((uint8_t *)chart->m_backgroundBuffer.data(), chart->m_backgroundBuffer.size());
                     m_background->Size = UDim2::fromOffset(window->GetBufferWidth(), window->GetBufferHeight());
                 }
 
@@ -149,34 +152,67 @@ void LoadingScene::Update(double delta)
                     }
                 }
             }
-        }
-        catch (SDLException& e) {
+        } catch (SDLException &e) {
             MsgBox::Show("FailChart", "Error", "Failed to create texture: " + std::string(e.what()));
             fucked = true;
         }
     }
 
-    if (m_counter > 2.5 && chart != nullptr) {
+    if (m_counter > 3.0 && chart != nullptr) {
         if (IsFile) {
             EnvironmentSetup::SetObj("SongBackground", m_background);
         }
-        SceneManager::ChangeScene(GameScene::GAMEPLAY);
-    }
-    else {
+        bool is7K = EnvironmentSetup::GetInt("KeyCount") == 7;
+        if (!is7K)
+        {
+            MsgBox::Show("Only7K", "Error", "Only 7K Mode Allowed!", MsgBoxType::OK);
+            SceneManager::ChangeScene(GameScene::SONGSELECT);
+        }
+        else {
+            SceneManager::ChangeScene(GameScene::GAMEPLAY);
+            EnvironmentSetup::SetInt("FillStart", 1);
+        }
+    } else {
         if (fucked) {
             std::string songId = EnvironmentSetup::Get("Key");
             if (songId.size() > 0) {
                 if (m_counter > 1) {
-                    SceneManager::ChangeScene(GameScene::MAINMENU);
+                    SceneManager::ChangeScene(GameScene::SONGSELECT);
                 }
-            }
-            else {
+            } else {
                 if (MsgBox::GetResult("FailChart") == 4) {
                     SceneManager::GetInstance()->StopGame();
                 }
             }
         }
     }
+}
+
+void LoadingScene::LoadModifiers() // For File Opened
+{
+    std::string difficultyValue = Configuration::Load("Gameplay", "Difficulty");
+    int setDifficulty = std::stoi(difficultyValue);
+    switch (setDifficulty) {
+    case 0: // EZ
+        EnvironmentSetup::SetInt("Difficulty", 0);
+        break;
+    case 1: // NM
+        EnvironmentSetup::SetInt("Difficulty", 1);
+        break;
+    case 2: // HD
+        EnvironmentSetup::SetInt("Difficulty", 2);
+        break;
+    }
+
+    std::string selectedMods = Configuration::Load("Gameplay", "Modifiers");
+    std::istringstream iss(selectedMods);
+    std::string mod;
+    while (std::getline(iss, mod, ',')) {
+        EnvironmentSetup::SetInt(mod, 1);
+    }
+
+    std::string arenaValue = Configuration::Load("Gameplay", "Arena");
+    EnvironmentSetup::SetInt("Arena", std::stoi(arenaValue));
 }
 
 void LoadingScene::Render(double delta)
@@ -190,12 +226,14 @@ bool LoadingScene::Attach()
 {
     SceneManager::DisplayFade(0, [] {});
 
+    EnvironmentSetup::SetInt("FillStart", 0);
+
     fucked = false;
     is_shown = false;
     is_ready = true;
     m_counter = 0;
 
-    m_background = (Texture2D*)EnvironmentSetup::GetObj("SongBackground");
+    m_background = (Texture2D *)EnvironmentSetup::GetObj("SongBackground");
     dont_dispose = m_background != nullptr;
     return true;
 }
@@ -206,6 +244,8 @@ bool LoadingScene::Detach()
         delete m_background;
         m_background = nullptr;
     }
+
+    EnvironmentSetup::SetInt("FillStart", 1);
 
     return true;
 }

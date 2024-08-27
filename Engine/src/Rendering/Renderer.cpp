@@ -52,11 +52,11 @@ bool Renderer::Create(RendererMode mode, GameWindow *window, bool failed)
                 break;
             }
 
-            case RendererMode::DIRECTX11:
+            /*case RendererMode::DIRECTX11:
             {
                 rendererName = "direct3d11";
                 break;
-            }
+            }*/
 
             case RendererMode::DIRECTX12:
             {
@@ -96,10 +96,10 @@ bool Renderer::Create(RendererMode mode, GameWindow *window, bool failed)
                 }
 
                 SDL_SetHint(SDL_HINT_RENDER_DRIVER, rendererName.c_str());
-                SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0"); // STOP CHANGING THIS, LEAVE IT "as is"
+                SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "best");
             }
 
-            m_renderer = SDL_CreateRenderer(window->GetWindow(), -1, SDL_RENDERER_ACCELERATED);
+            m_renderer = SDL_CreateRenderer(window->GetWindow(), -1, SDL_RENDERER_ACCELERATED /*| SDL_RENDERER_PRESENTVSYNC*/);
             if (!m_renderer) {
                 throw SDLException();
             }

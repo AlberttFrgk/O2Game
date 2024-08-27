@@ -23,6 +23,7 @@
 #endif
 
 #include "../Engine/SkinConfig.hpp"
+#include "../EnvironmentSetup.hpp"
 
 #pragma warning(disable : 26451)
 
@@ -393,9 +394,20 @@ namespace GameNoteResource {
         }
 
         bool IsVulkan = Renderer::GetInstance()->IsVulkan();
+        std::filesystem::path skinNotePath;
 
-        auto skinPath = SkinManager::GetInstance()->GetPath();
-        auto skinNotePath = skinPath / "Notes";
+        if (EnvironmentSetup::GetInt("NoteSkin") == 1) {
+            auto path = std::filesystem::current_path() / "Resources";
+            skinNotePath = path / "Notes" / "Circle";
+        }
+        else if (EnvironmentSetup::GetInt("NoteSkin") == 2) {
+            auto skinPath = SkinManager::GetInstance()->GetPath();
+            skinNotePath = skinPath / "Notes";
+        }
+        else {
+            auto path = std::filesystem::current_path() / "Resources";
+            skinNotePath = path / "Notes" / "Square";
+        }
 
         auto manager = SkinManager::GetInstance();
 

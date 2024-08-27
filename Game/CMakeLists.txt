@@ -70,27 +70,59 @@ add_executable(Game
 target_include_directories(Game PRIVATE "../Engine/include")
 
 if (WIN32)
-	add_custom_command(TARGET Game POST_BUILD
+    add_custom_command(TARGET Game POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/third-party/bin/x64-windows/Debug
-        $<TARGET_FILE_DIR:Game>)
+        $<TARGET_FILE_DIR:Game>
+    )
 
     # Create directory $<TARGET_FILE_DIR:Game>/Skins/Default then
     # copy from ${CMAKE_SOURCE_DIR}/GameResources/Resources to $<TARGET_FILE_DIR:Game>/Skins/Default
-
     add_custom_command(TARGET Game POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory
         $<TARGET_FILE_DIR:Game>/Skins/Default
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/GameResources/Resources
-        $<TARGET_FILE_DIR:Game>/Skins/Default)
+        $<TARGET_FILE_DIR:Game>/Skins/Default
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+        $<TARGET_FILE_DIR:Game>/Resources/Notes
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/GameResources/Notes
+        $<TARGET_FILE_DIR:Game>/Resources/Notes
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+        $<TARGET_FILE_DIR:Game>/Resources/Fonts
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/GameResources/Fonts
+        $<TARGET_FILE_DIR:Game>/Resources/Fonts
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+        $<TARGET_FILE_DIR:Game>/Resources/Notes/Scripts
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/GameResources/Scripts
+        $<TARGET_FILE_DIR:Game>/Resources/Notes/Scripts
+    )
 else ()
     add_custom_command(TARGET Game POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-    $<TARGET_FILE_DIR:Game>/Skins/Default
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${CMAKE_SOURCE_DIR}/GameResources/Resources
-    $<TARGET_FILE_DIR:Game>/Skins/Default)
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+        $<TARGET_FILE_DIR:Game>/Skins/Default
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/GameResources/Resources
+        $<TARGET_FILE_DIR:Game>/Skins/Default
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+        $<TARGET_FILE_DIR:Game>/Resources/Notes
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/GameResources/Notes
+        $<TARGET_FILE_DIR:Game>/Resources/Notes
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+        $<TARGET_FILE_DIR:Game>/Resources/Fonts
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/GameResources/Fonts
+        $<TARGET_FILE_DIR:Game>/Resources/Fonts
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+        $<TARGET_FILE_DIR:Game>/Resources/Notes/Scripts
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/GameResources/Scripts
+        $<TARGET_FILE_DIR:Game>/Resources/Notes/Scripts
+    )
 endif ()
 
 if (MSVC)

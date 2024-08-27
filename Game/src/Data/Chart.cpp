@@ -7,6 +7,12 @@
 #include <filesystem>
 #include <fstream>
 #include <random>
+#include <unordered_set>
+#include <numeric>
+#include <MsgBox.h>
+#include <SceneManager.h>
+#include "../GameScenes.h"
+#include "../EnvironmentSetup.hpp"
 
 float float_floor(float value)
 {
@@ -17,7 +23,20 @@ float float_floor(float value)
 #endif
 }
 
-double TimingInfo::CalculateBeat(double offset)
+namespace {
+    std::string getFileExtension(const std::string& filename) {
+        size_t dotPos = filename.find_last_of('.');
+        if (dotPos != std::string::npos) {
+            std::string ext = filename.substr(dotPos + 1);
+            // Convert extension to lowercase
+            std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
+            return ext;
+        }
+        return ""; // No extension found
+    }
+}
+
+double TimingInfo::CalculateBeat(double offset) const
 {
     if (Type == TimingType::SV) {
         return 0;
@@ -32,7 +51,7 @@ Chart::Chart()
     m_keyCount = 7;
 }
 
-Chart::Chart(Osu::Beatmap &beatmap)
+Chart::Chart(Osu::Beatmap& beatmap) // Refactor
 {
     if (!beatmap.IsValid()) {
         throw std::invalid_argument("Invalid osu beatmap!");
@@ -43,64 +62,79 @@ Chart::Chart(Osu::Beatmap &beatmap)
     }
 
     if (beatmap.CircleSize < 1 || beatmap.CircleSize > 7) {
-        throw std::invalid_argument("osu beatmap's Mania key must be 7");
+        throw std::invalid_argument("osu beatmap's Mania key must be between 1 and 7");
     }
 
-    // m_audio = beatmap.AudioFilename;
     m_title = std::u8string(beatmap.Title.begin(), beatmap.Title.end());
     m_keyCount = (int)beatmap.CircleSize;
     m_artist = std::u8string(beatmap.Artist.begin(), beatmap.Artist.end());
+    m_difname = std::u8string(beatmap.Version.begin(), beatmap.Version.end());
     m_beatmapDirectory = beatmap.CurrentDir;
 
-    for (auto &event : beatmap.Events) {
-        switch (event.Type) {
-            case Osu::OsuEventType::Background:
-            {
-                std::string fileName = event.params[0];
-                fileName.erase(std::remove(fileName.begin(), fileName.end(), '\"'), fileName.end());
+    for (auto& event : beatmap.Events) {
+        if (event.Type == Osu::OsuEventType::Background) {
+            std::string fileName = event.params[0];
+            fileName.erase(std::remove(fileName.begin(), fileName.end(), '\"'), fileName.end());
+            m_backgroundFile = fileName;
+            break;
+        }
+    }
 
-                m_backgroundFile = fileName;
-                break;
+    for (auto& event : beatmap.Events) {
+        if (event.Type == Osu::OsuEventType::Sample) {
+            std::string fileName = event.params[1];
+            if (fileName.front() == '\"' && fileName.back() == '\"') {
+                fileName = fileName.substr(1, fileName.size() - 2);
             }
 
-            case Osu::OsuEventType::Sample:
-            {
-                std::string fileName = event.params[1];
-                fileName.erase(std::remove(fileName.begin(), fileName.end(), '\"'), fileName.end());
-
-                auto path = beatmap.CurrentDir / fileName;
-                if (std::filesystem::exists(path)) {
-                    AutoSample sample = {};
-                    sample.StartTime = event.StartTime;
-                    sample.Index = beatmap.GetCustomSampleIndex(fileName);
-                    sample.Volume = 1;
-                    sample.Pan = 0;
-
-                    m_autoSamples.push_back(sample);
+            auto path = beatmap.CurrentDir / fileName;
+            if (!std::filesystem::exists(path)) {
+                std::string extension = getFileExtension(fileName);
+                if (!extension.empty()) {
+                    std::vector<std::string> extensionsToTry = { ".ogg", ".wav", ".mp3" };
+                    for (const auto& ext : extensionsToTry) {
+                        std::string newFileName = fileName.substr(0, fileName.find_last_of('.')) + ext;
+                        path = beatmap.CurrentDir / newFileName;
+                        if (std::filesystem::exists(path)) {
+                            fileName = newFileName;
+                            break;
+                        }
+                    }
                 }
+            }
 
-                break;
+            if (std::filesystem::exists(path)) {
+                AutoSample sample = {};
+                sample.StartTime = event.StartTime;
+                sample.Index = beatmap.GetCustomSampleIndex(fileName);
+                sample.Volume = 1;
+                sample.Pan = 0;
+                m_autoSamples.push_back(sample);
+            } else {
+                Logs::Puts("[Chart] Custom sample file not found: %s", fileName.c_str());
             }
         }
     }
 
-    {
-        AutoSample sample = {};
-        sample.StartTime = beatmap.AudioLeadIn;
-        sample.Index = beatmap.GetCustomSampleIndex(beatmap.AudioFilename);
-        sample.Volume = 1;
-        sample.Pan = 0;
-
-        m_autoSamples.push_back(sample);
+    AutoSample autoSample = {};
+    if (beatmap.AudioLeadIn = 0) {
+        autoSample.StartTime = beatmap.AudioLeadIn - 1; // Handle if offset 0 that causing audio delay
     }
+    else {
+        autoSample.StartTime = beatmap.AudioLeadIn;
+    }
+    autoSample.Index = beatmap.GetCustomSampleIndex(beatmap.AudioFilename);
+    autoSample.Volume = 1.0f;
+    autoSample.Pan = 0;
+    m_autoSamples.push_back(autoSample);
 
-    for (auto &note : beatmap.HitObjects) {
+    for (auto& note : beatmap.HitObjects) {
         NoteInfo info = {};
         info.StartTime = note.StartTime;
         info.Type = NoteType::NORMAL;
         info.Keysound = note.KeysoundIndex;
         info.LaneIndex = static_cast<int>(float_floor(note.X * static_cast<float>(beatmap.CircleSize) / 512.0f));
-        info.Volume = static_cast<float>(note.Volume) / 100.0f;
+        info.Volume = note.Volume > 0 ? static_cast<float>(note.Volume) / 100.0f : 1.0f;
         info.Pan = 0;
 
         if (note.Type == 128) {
@@ -111,15 +145,12 @@ Chart::Chart(Osu::Beatmap &beatmap)
         m_notes.push_back(info);
     }
 
-    for (auto &timing : beatmap.TimingPoints) {
-        bool IsSV = timing.Inherited == 0 || timing.BeatLength < 0;
-
-        if (IsSV) {
+    for (auto& timing : beatmap.TimingPoints) {
+        if (timing.Inherited == 0 || timing.BeatLength < 0) {
             TimingInfo info = {};
             info.StartTime = timing.Offset;
             info.Value = std::clamp(-100.0f / timing.BeatLength, 0.1f, 10.0f);
             info.Type = TimingType::SV;
-
             m_svs.push_back(info);
         } else {
             TimingInfo info = {};
@@ -127,63 +158,25 @@ Chart::Chart(Osu::Beatmap &beatmap)
             info.Value = 60000.0f / timing.BeatLength;
             info.TimeSignature = timing.TimeSignature;
             info.Type = TimingType::BPM;
-
             m_bpms.push_back(info);
         }
     }
 
     for (int i = 0; i < beatmap.HitSamples.size(); i++) {
-        auto &keysound = beatmap.HitSamples[i];
-
+        auto& keysound = beatmap.HitSamples[i];
         auto path = beatmap.CurrentDir / keysound;
 
         Sample sm = {};
         sm.FileName = path;
         sm.Index = i;
-
         m_samples.push_back(sm);
     }
 
-    for (auto &note : m_notes) {
-        switch (m_keyCount) {
-            case 4:
-            {
-                if (note.LaneIndex >= 2) {
-                    note.LaneIndex += 3;
-                }
-                break;
-            }
-
-            case 5:
-            {
-                if (note.LaneIndex == 3) {
-                    note.LaneIndex += 1;
-                } else if (note.LaneIndex >= 4) {
-                    note.LaneIndex += 2;
-                }
-                break;
-            }
-        }
-    }
-
-    m_bpms[0].Beat = 0;
-    for (int i = 1; i < m_bpms.size(); i++) {
-        m_bpms[i].Beat = m_bpms[i - 1].CalculateBeat(m_bpms[i].StartTime);
-    }
-
-    std::sort(m_autoSamples.begin(), m_autoSamples.end(), [](const AutoSample &a, const AutoSample &b) {
-        return a.StartTime < b.StartTime;
-    });
-
-    std::sort(m_bpms.begin(), m_bpms.end(), [](const TimingInfo &a, const TimingInfo &b) {
-        return a.StartTime < b.StartTime;
-    });
-
-    std::sort(m_svs.begin(), m_svs.end(), [](const TimingInfo &a, const TimingInfo &b) {
-        return a.StartTime < b.StartTime;
-    });
-
+    CalculateBeat();
+    SortTimings();
     NormalizeTimings();
+    CheckFor7K();
+    ComputeKeyCount();
     ComputeHash();
 }
 
@@ -213,7 +206,7 @@ Chart::Chart(BMS::BMSFile &file)
         info.Type = NoteType::NORMAL;
         info.LaneIndex = note.Lane;
         info.Keysound = note.SampleIndex;
-        info.Volume = 1;
+        info.Volume = 1.0f;
         info.Pan = 0;
 
         if (note.EndTime != -1) {
@@ -229,7 +222,7 @@ Chart::Chart(BMS::BMSFile &file)
                 AutoSample sm = {};
                 sm.StartTime = note.StartTime;
                 sm.Index = note.SampleIndex;
-                sm.Volume = 1;
+                sm.Volume = 1.0f;
                 sm.Pan = 0;
 
                 m_autoSamples.push_back(sm);
@@ -273,7 +266,7 @@ Chart::Chart(BMS::BMSFile &file)
         AutoSample sm = {};
         sm.StartTime = autoSample.StartTime;
         sm.Index = autoSample.SampleIndex;
-        sm.Volume = 1;
+        sm.Volume = 1.0f;
         sm.Pan = 0;
 
         m_autoSamples.push_back(sm);
@@ -288,22 +281,9 @@ Chart::Chart(BMS::BMSFile &file)
         m_bpms.push_back(info);
     }
 
-    m_bpms[0].Beat = 0;
-    for (int i = 1; i < m_bpms.size(); i++) {
-        m_bpms[i].Beat = m_bpms[i - 1].CalculateBeat(m_bpms[i].StartTime);
-    }
+    CalculateBeat();
 
-    std::sort(m_autoSamples.begin(), m_autoSamples.end(), [](const AutoSample &a, const AutoSample &b) {
-        return a.StartTime < b.StartTime;
-    });
-
-    std::sort(m_bpms.begin(), m_bpms.end(), [](const TimingInfo &a, const TimingInfo &b) {
-        return a.StartTime < b.StartTime;
-    });
-
-    std::sort(m_svs.begin(), m_svs.end(), [](const TimingInfo &a, const TimingInfo &b) {
-        return a.StartTime < b.StartTime;
-    });
+    SortTimings();
 
     PredefinedAudioLength = file.AudioLength;
     NormalizeTimings();
@@ -368,10 +348,7 @@ Chart::Chart(O2::OJN &file, int diffIndex)
         m_bpms.push_back(info);
     }
 
-    m_bpms[0].Beat = 0;
-    for (int i = 1; i < m_bpms.size(); i++) {
-        m_bpms[i].Beat = m_bpms[i - 1].CalculateBeat(m_bpms[i].StartTime);
-    }
+    CalculateBeat();
 
     for (auto &autoSample : diff.AutoSamples) {
         AutoSample sm = {};
@@ -392,22 +369,37 @@ Chart::Chart(O2::OJN &file, int diffIndex)
         m_samples.push_back(sm);
     }
 
-    std::sort(m_autoSamples.begin(), m_autoSamples.end(), [](const AutoSample &a, const AutoSample &b) {
-        return a.StartTime < b.StartTime;
-    });
-
-    std::sort(m_bpms.begin(), m_bpms.end(), [](const TimingInfo &a, const TimingInfo &b) {
-        return a.StartTime < b.StartTime;
-    });
-
-    std::sort(m_svs.begin(), m_svs.end(), [](const TimingInfo &a, const TimingInfo &b) {
-        return a.StartTime < b.StartTime;
-    });
+    SortTimings();
 
     PredefinedAudioLength = diff.AudioLength;
     NormalizeTimings();
     ComputeKeyCount();
     ComputeHash();
+}
+
+
+
+void Chart::CalculateBeat()
+{
+    m_bpms[0].Beat = 0;
+    for (size_t  i = 1; i < m_bpms.size(); i++) {
+        m_bpms[i].Beat = m_bpms[i - 1].CalculateBeat(m_bpms[i].StartTime);
+    }
+}
+
+void Chart::SortTimings()
+{
+    std::sort(m_autoSamples.begin(), m_autoSamples.end(), [](const AutoSample& a, const AutoSample& b) {
+        return a.StartTime < b.StartTime;
+        });
+
+    std::sort(m_bpms.begin(), m_bpms.end(), [](const TimingInfo& a, const TimingInfo& b) {
+        return a.StartTime < b.StartTime;
+        });
+
+    std::sort(m_svs.begin(), m_svs.end(), [](const TimingInfo& a, const TimingInfo& b) {
+        return a.StartTime < b.StartTime;
+        });
 }
 
 Chart::~Chart()
@@ -444,7 +436,7 @@ void Chart::ApplyMod(Mod mod, void *data)
         case Mod::RANDOM:
         {
             std::vector<int> lanes(m_keyCount);
-            for (int i = 0; i < 7; i++) {
+            for (int i = 0; i < m_keyCount; i++) {
                 lanes[i] = i;
             }
 
@@ -453,11 +445,71 @@ void Chart::ApplyMod(Mod mod, void *data)
 
             std::shuffle(std::begin(lanes), std::end(lanes), rng);
 
-            for (auto &note : m_notes) {
+            for (auto& note : m_notes) {
                 note.LaneIndex = lanes[note.LaneIndex];
             }
+
+            /*std::stringstream pattern;
+            for (int lane : lanes) {
+                pattern << lane;
+            }
+
+            Logs::Puts("[Chart] Set lane pattern to: %s", pattern.str().c_str());*/
+
             break;
         }
+
+        case Mod::PANIC: // pler
+        {
+            std::vector<int> lanes(m_keyCount);
+            for (int i = 0; i < m_keyCount; i++) {
+                lanes[i] = i;
+            }
+
+            auto rng = std::default_random_engine{};
+            rng.seed((uint32_t)time(NULL));
+
+            std::unordered_map<int, std::vector<int>> measureLane;
+
+            // Keep track of BPM changes
+            std::unordered_map<int, float> measureBPM;
+            for (const auto& bpm : m_bpms) {
+                int measure = static_cast<int>(bpm.StartTime / bpm.TimeSignature);
+                measureBPM[measure] = bpm.Value;
+            }
+
+            // Shuffle lanes per measure
+            for (auto& note : m_notes) {
+                int measure = -1;
+                for (size_t i = 0; i < m_bpms.size(); i++) {
+                    if (m_bpms[i].StartTime > note.StartTime) {
+                        measure = static_cast<int>(m_bpms[i - 1].CalculateBeat(note.StartTime) / m_bpms[i - 1].TimeSignature);
+                        break;
+                    }
+                }
+
+                if (measure == -1) {
+                    measure = static_cast<int>(m_bpms.back().CalculateBeat(note.StartTime) / m_bpms.back().TimeSignature);
+                }
+
+                if (measureLane.find(measure) == measureLane.end()) {
+                    std::shuffle(std::begin(lanes), std::end(lanes), rng);
+                    measureLane[measure] = lanes;
+                }
+
+                note.LaneIndex = measureLane[measure][note.LaneIndex];
+
+                int nextMeasure = measure + 1;
+                if (note.EndTime > nextMeasure * measureBPM[nextMeasure]) {
+                    if (measureLane.find(nextMeasure) == measureLane.end()) {
+                        measureLane[nextMeasure] = measureLane[measure];
+                    }
+                }
+            }
+
+            break;
+        }
+
 
         case Mod::REARRANGE:
         {
@@ -542,6 +594,7 @@ float Chart::GetCommonBPM()
 
 void Chart::NormalizeTimings()
 {
+    EnvironmentSetup::SetInt("KeyCount", m_keyCount);
     std::vector<TimingInfo> result;
 
     float baseBPM = GetCommonBPM();
@@ -648,6 +701,16 @@ void Chart::NormalizeTimings()
     m_svs = result;
 }
 
+void Chart::CheckFor7K()
+{
+    bool is7K = EnvironmentSetup::GetInt("KeyCount") == 7;
+    if (!is7K)
+    {
+        MsgBox::Show("Only7K", "Error", "Only 7K Mode Allowed!", MsgBoxType::OK);
+        SceneManager::ChangeScene(GameScene::SONGSELECT);
+    }
+}
+
 void Chart::ComputeKeyCount()
 {
     bool Lanes[7] = { false, false, false, false, false, false };
@@ -679,7 +742,6 @@ void Chart::ComputeKeyCount()
     else if (Lanes[0] && Lanes[1] && !Lanes[2] && !Lanes[3] && !Lanes[4] && Lanes[5] && Lanes[6]) {
         m_keyCount = 4;
     }
-    // Otherwise, the pattern does not match any of the known K values
     else {
         Logs::Puts("[Chart] Unknown lane pattern, fallback to 7K");
         m_keyCount = 7;

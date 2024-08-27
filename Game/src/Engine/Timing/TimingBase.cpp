@@ -7,7 +7,7 @@ TimingBase::TimingBase(std::vector<TimingInfo> &_timings, std::vector<TimingInfo
     base_multiplier = base;
 }
 
-TimingInfo &FindTimingAt(std::vector<TimingInfo> &timings, double offset)
+static TimingInfo& FindTimingAt(std::vector<TimingInfo>& timings, double offset)
 {
     int min = 0, max = (int)timings.size() - 1;
     int left = min, right = max;
@@ -16,13 +16,15 @@ TimingInfo &FindTimingAt(std::vector<TimingInfo> &timings, double offset)
         int mid = (left + right) / 2;
 
         bool afterMid = mid < 0 || timings[mid].StartTime < offset;
-        bool beforeMid = mid + 1 >= timings.size() || offset < timings[mid + 1].StartTime;
+        bool beforeMid = static_cast<unsigned long long>(mid) + 1 >= timings.size() || offset < timings[static_cast<std::vector<TimingInfo, std::allocator<TimingInfo>>::size_type>(mid) + 1].StartTime;
 
         if (afterMid && beforeMid) {
             return timings[mid];
-        } else if (afterMid) {
+        }
+        else if (afterMid) {
             left = mid + 1;
-        } else {
+        }
+        else {
             right = mid - 1;
         }
     }
@@ -37,7 +39,14 @@ double TimingBase::GetBeatAt(double offset)
 
 double TimingBase::GetBPMAt(double offset)
 {
-    return FindTimingAt(timings, offset).Value;
+    double BPM = FindTimingAt(timings, offset).Value;
+
+    // Handle BPM overflow at int32_t range
+    if (BPM >= INT_MAX || BPM <= -INT_MAX) {
+        BPM = fmod(BPM, INT_MAX);
+    }
+
+    return BPM;
 }
 
 double TimingBase::GetOffsetAt(double offset)

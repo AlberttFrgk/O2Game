@@ -16,6 +16,7 @@ enum class GameState {
     NotGame,
     PreGame,
     Playing,
+    Fail,
     PosGame
 };
 
@@ -36,6 +37,7 @@ public:
 
     bool Start();
     bool Stop();
+    bool Fail();
     bool Ready();
 
     void Update(double delta);
@@ -76,7 +78,7 @@ public:
     std::vector<TimingInfo> GetBPMs() const;
     std::vector<TimingInfo> GetSVs() const;
 
-    double GetElapsedTime() const;
+    double GetGameFrame() const;
     int    GetPlayTime() const;
     int    GetNoteImageIndex();
 
@@ -140,8 +142,8 @@ private:
     std::vector<Autoplay::ReplayHitInfo>                          m_autoFrames;
 
     /* clock system */
-    int                                   m_PlayTime = 0;
-    std::chrono::system_clock::time_point m_startClock;
+    double m_PlayTime;
+    //std::chrono::system_clock::time_point m_startClock;
 
     TimingBase                         *m_timings = nullptr;
     JudgeBase                          *m_judge = nullptr;

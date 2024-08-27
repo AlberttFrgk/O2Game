@@ -1,6 +1,7 @@
 #include "TimingLine.hpp"
 #include "RhythmEngine.hpp"
 #include "Texture/ResizableImage.h"
+#include "../EnvironmentSetup.hpp"
 
 namespace {
     double CalculateLinePosition(double trackOffset, double offset, double noteSpeed, bool upscroll = false)
@@ -62,15 +63,26 @@ void TimingLine::Render(double delta)
     double min = 0, max = hitPos;
     double pos_y = min + (max - min) * alpha;
 
+    int halfNoteSize;
+
+    if (EnvironmentSetup::GetInt("MeasureLineType") == 1) {
+        halfNoteSize = static_cast<int>(EnvironmentSetup::GetInt("NoteSize") / 2);
+    }
+    else {
+        halfNoteSize = 0;
+    }
+
     m_line->Size = UDim2::fromOffset(m_imageSize, 1);
-    m_line->Position = UDim2::fromOffset(m_imagePos, pos_y); //+ start.Lerp(end, alpha);
+    m_line->Position = UDim2::fromOffset(m_imagePos, pos_y - halfNoteSize); //+ start.Lerp(end, alpha);
 
     if (m_line->Position.Y.Offset >= 0 && m_line->Position.Y.Offset < hitPos + 10) {
+        m_line->TintColor = { 0.7f, 0.7f, 0.7f };
         m_line->Draw(&playRect);
     }
 }
 
 void TimingLine::Release()
 {
+    EnvironmentSetup::SetInt("HalfNoteSize", 0);
     delete m_line;
 }

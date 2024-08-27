@@ -18,10 +18,10 @@ class Sprite2D
 public:
     Sprite2D() = default;
 
-    Sprite2D(std::vector<Texture2D *> textures, float delay = 1.0f);
-    Sprite2D(std::vector<std::string> textures, float delay = 1.0f);
-    Sprite2D(std::vector<std::filesystem::path> textures, float delay = 1.0f);
-    Sprite2D(std::vector<SDL_Texture *> textures, float delay = 1.0f);
+    Sprite2D(std::vector<Texture2D *> textures, double delay = 1.0);
+    Sprite2D(std::vector<std::string> textures, double delay = 1.0);
+    Sprite2D(std::vector<std::filesystem::path> textures, double delay = 1.0);
+    Sprite2D(std::vector<SDL_Texture *> textures, double delay = 1.0);
 
     ~Sprite2D();
 
@@ -37,15 +37,18 @@ public:
     void DrawOnce(double delta, bool manual = false);
 
     Texture2D *GetTexture();
-    void       SetFPS(float fps);
+    void       SetFPS(double fps);
     void       Reset();
 
-private:
     double m_spritespeed = 1.0;
+
+private:
     float  m_currentTime = 0;
     int    m_currentIndex = 0;
 
     bool m_drawOnce = false;
 
     std::vector<Texture2D *> m_textures;
+
+    void DrawInternal(double delta, bool playOnce, Rect* rect, bool manual);
 };

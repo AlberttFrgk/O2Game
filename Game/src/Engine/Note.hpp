@@ -52,6 +52,10 @@ public:
 	void Load(NoteInfoDesc* desc);
 
 	void Update(double delta);
+	void DrawHead(double delta, double headPosY, int guideLineLength, Rect& playRect);
+	void DrawBody(double delta, double bodyPosY, double bodyHeight, Rect& playRect);
+	void DrawTail(double delta, double tailPosY, int guideLineLength, Rect& playRect);
+	void SetTransparency();
 	void Render(double delta);
 
 	double GetInitialTrackPosition() const;
@@ -71,14 +75,16 @@ public:
 
 	void SetXPosition(int x);
 	void SetDrawable(bool drawable);
-	
-	bool IsHoldEffectDrawable();
-	bool IsDrawable();
-	bool IsRemoveable();
-	bool IsPassed();
 
-	bool IsHeadHit();
-	bool IsTailHit();
+	void GetNoteSize();
+
+	bool IsHoldEffectDrawable() const;
+	bool IsDrawable() const;
+	bool IsRemoveable() const;
+	bool IsPassed() const;
+
+	bool IsHeadHit() const;
+	bool IsTailHit() const;
 
 	void Release();
 

@@ -71,7 +71,7 @@ void BGMPreview::Load()
             m_autoSamples.clear();
 
             for (auto &sample : m_currentChart->m_autoSamples) {
-                m_autoSamples.push_back(sample);
+                m_autoSamples.emplace_back(sample);
             }
 
             for (auto &note : m_currentChart->m_notes) {
@@ -82,7 +82,7 @@ void BGMPreview::Load()
                     sm.Volume = note.Volume;
                     sm.Pan = note.Pan;
 
-                    m_autoSamples.push_back(sm);
+                    m_autoSamples.emplace_back(sm);
                 }
             }
 
@@ -118,7 +118,7 @@ void BGMPreview::Update(double delta)
         auto &sample = m_autoSamples[i];
         if (m_currentAudioPosition >= sample.StartTime) {
             if (sample.StartTime - m_currentAudioPosition < 5) {
-                GameAudioSampleCache::Play(sample.Index, (int)::round(sample.Volume * 50.0f), (int)::round(sample.Pan * 100.0f));
+                GameAudioSampleCache::Play(sample.Index, (int)::round(sample.Volume * 100.0f), (int)::round(sample.Pan * 100.0f));
             }
 
             m_currentSampleIndex++;

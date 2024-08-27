@@ -10,6 +10,7 @@ public:
     ~LoadingScene();
 
     void Update(double delta) override;
+    void LoadModifiers();
     void Render(double delta) override;
 
     bool Attach() override;
@@ -26,5 +27,5 @@ private:
     std::u8string m_title;
 
     double     m_counter;
-    Texture2D* m_background;
+    Texture2D *m_background;
 };

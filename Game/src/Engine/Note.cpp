@@ -6,6 +6,7 @@
 #include "GameAudioSampleCache.hpp"
 #include "NoteImageCacheManager.hpp"
 #include "RhythmEngine.hpp"
+#include <Rendering/Window.h>
 
 #define REMOVE_TIME 800
 #define HOLD_COMBO_TICK 100
@@ -91,7 +92,7 @@ Note::Note(RhythmEngine *engine, GameTrack *track)
     m_hitPos = 0;
     m_relPos = 0;
 
-    m_keyVolume = 50;
+    m_keyVolume = 100;
     m_keyPan = 0;
 
     m_lastScoreTime = -1;
@@ -152,6 +153,7 @@ void Note::Load(NoteInfoDesc *desc)
     m_relPos = 0;
 
     m_lastScoreTime = -1;
+    GetNoteSize();
 }
 
 void Note::Update(double delta)
@@ -208,121 +210,151 @@ void Note::Update(double delta)
     }
 }
 
+// I ended refactor whole note code
+void Note::DrawHead(double delta, double headPosY, int guideLineLength, Rect &playRect) {
+    m_head->Position = UDim2::fromOffset(m_laneOffset, headPosY);
+    m_head->SetIndexAt(m_engine->GetNoteImageIndex());
+    m_head->Draw(delta, &playRect);
+
+    if (guideLineLength > 0) {
+        m_trail_down->Position = m_head->Position;
+        m_trail_down->Size = UDim2::fromOffset(1, guideLineLength);
+        m_trail_down->AnchorPoint = { 0, 0 };
+        m_trail_down->AlphaBlend = true;
+        m_trail_down->Draw(delta, &playRect);
+
+        m_trail_down->Position = m_head->Position + UDim2::fromOffset(m_head->AbsoluteSize.X, 0);
+        m_trail_down->AnchorPoint = { 1, 0 };
+        m_trail_down->AlphaBlend = true;
+        m_trail_down->Draw(delta, &playRect);
+
+        m_trail_up->Position = m_head->Position + UDim2::fromOffset(0, -m_head->AbsoluteSize.Y);
+        m_trail_up->Size = UDim2::fromOffset(1, guideLineLength);
+        m_trail_up->AnchorPoint = { 0, 1 };
+        m_trail_up->AlphaBlend = true;
+        m_trail_up->Draw(delta, &playRect);
+
+        m_trail_up->Position = m_head->Position + UDim2::fromOffset(m_head->AbsoluteSize.X, -m_head->AbsoluteSize.Y);
+        m_trail_up->AnchorPoint = { 1, 1 };
+        m_trail_up->AlphaBlend = true;
+        m_trail_up->Draw(delta, &playRect);
+    }
+}
+
+void Note::DrawBody(double delta, double bodyPosY, double bodyHeight, Rect &playRect) {
+    m_body->Position = UDim2::fromOffset(m_laneOffset, bodyPosY - (m_head->AbsoluteSize.Y / 2.0));
+    m_body->Size = { 1, 0, 0, bodyHeight };
+    m_body->SetIndexAt(m_engine->GetNoteImageIndex());
+    m_body->Draw(delta, &playRect);
+}
+
+void Note::DrawTail(double delta, double tailPosY, int guideLineLength, Rect &playRect) {
+    m_tail->Position = UDim2::fromOffset(m_laneOffset, tailPosY);
+    m_tail->SetIndexAt(m_engine->GetNoteImageIndex());
+    m_tail->Draw(delta, &playRect);
+
+    if (guideLineLength > 0) {
+        m_trail_down->Position = m_tail->Position;
+        m_trail_down->Size = UDim2::fromOffset(1, guideLineLength);
+        m_trail_down->AnchorPoint = { 0, 0 };
+        m_trail_down->AlphaBlend = true;
+        m_trail_down->Draw(delta, &playRect);
+
+        m_trail_down->Position = m_tail->Position + UDim2::fromOffset(m_tail->AbsoluteSize.X, 0);
+        m_trail_down->AnchorPoint = { 1, 0 };
+        m_trail_down->AlphaBlend = true;
+        m_trail_down->Draw(delta, &playRect);
+
+        m_trail_up->Position = m_tail->Position + UDim2::fromOffset(0, -m_tail->AbsoluteSize.Y);
+        m_trail_up->Size = UDim2::fromOffset(1, guideLineLength);
+        m_trail_up->AnchorPoint = { 0, 1 };
+        m_trail_up->AlphaBlend = true;
+        m_trail_up->Draw(delta, &playRect);
+
+        m_trail_up->Position = m_tail->Position + UDim2::fromOffset(m_tail->AbsoluteSize.X, -m_tail->AbsoluteSize.Y);
+        m_trail_up->AnchorPoint = { 1, 1 };
+        m_trail_up->AlphaBlend = true;
+        m_trail_up->Draw(delta, &playRect);
+    }
+}
+
+void Note::SetTransparency() {
+    float transparency = 0.9f;
+    if (m_hitResult >= NoteResult::GOOD && m_state == NoteState::HOLD_ON_HOLDING) {
+        transparency = 1.0f;
+    }
+    else if (m_hitResult >= NoteResult::MISS && m_state == NoteState::HOLD_MISSED_ACTIVE) {
+        transparency = 0.7f;
+    }
+    m_head->TintColor = { transparency, transparency, transparency };
+    m_body->TintColor = { transparency, transparency, transparency };
+    m_tail->TintColor = { transparency, transparency, transparency };
+}
+
 void Note::Render(double delta)
 {
-    if (IsRemoveable())
+    if (IsRemoveable()) {
         return;
-    if (!m_drawAble)
+    }
+    if (!m_drawAble) {
         return;
+    }
 
-    auto   resolution = m_engine->GetResolution();
-    auto   hitPos = m_engine->GetHitPosition();
+    auto resolution = m_engine->GetResolution();
+    auto hitPos = m_engine->GetHitPosition();
     double trackPosition = m_engine->GetTrackPosition();
 
-    int  min = -100, max = hitPos + 25;
+    int min = -100, max = GameWindow::GetInstance()->GetBufferHeight();
     auto playRect = m_engine->GetPlayRectangle();
 
     int guideLineIndex = m_engine->GetGuideLineIndex();
-
     int guideLineLength = 24 * length_multiplier[guideLineIndex];
 
+    double y1 = CalculateNotePosition(trackPosition, m_initialTrackPosition, 1000.0, m_engine->GetNotespeed(), false) / 1000.0;
+    double headPosY = lerp(0.0, static_cast<double>(hitPos), static_cast<float>(y1));
+    bool isHeadVisible = isWithinRange(headPosY, min, max);
+
     if (m_type == NoteType::HOLD) {
-        double y1 = CalculateNotePosition(trackPosition, m_initialTrackPosition, 1000.0, m_engine->GetNotespeed(), false) / 1000.0;
         double y2 = CalculateNotePosition(trackPosition, m_endTrackPosition, 1000.0, m_engine->GetNotespeed(), false) / 1000.0;
+        double tailPosY = lerp(0.0, static_cast<double>(hitPos), static_cast<float>(y2));
+        bool isTailVisible = isWithinRange(tailPosY, min, max);
 
-        m_head->Position = UDim2::fromOffset(m_laneOffset, lerp(0.0, (double)hitPos, (float)y1));
-        m_tail->Position = UDim2::fromOffset(m_laneOffset, lerp(0.0, (double)hitPos, (float)y2));
-
-        float Transparency = 0.9f;
-
-        if (m_hitResult >= NoteResult::GOOD && m_state == NoteState::HOLD_ON_HOLDING) {
-            // m_head->Position.Y.Offset = hitPos;
-            Transparency = 1.0f;
+        if (EnvironmentSetup::GetInt("NewLN") == 1) {
+            tailPosY += m_tail->AbsoluteSize.Y;
         }
 
-        m_head->CalculateSize();
-        m_tail->CalculateSize();
+        double bodyPosY = (headPosY + tailPosY) / 2.0;
+        double bodyHeight = std::abs(headPosY - (m_head->AbsoluteSize.Y / 2.0)) - (tailPosY - (m_head->AbsoluteSize.Y / 2.0));
 
-        double headPos = m_head->AbsolutePosition.Y + (m_head->AbsoluteSize.Y / 2.0);
-        double tailPos = m_tail->AbsolutePosition.Y + (m_tail->AbsoluteSize.Y / 2.0);
-
-        double height = headPos - tailPos;
-        double position = (height / 2.0) + tailPos;
-
-        m_body->Position = UDim2::fromOffset(m_laneOffset, position);
-        m_body->Size = { 1, 0, 0, height };
-
-        m_body->TintColor = { Transparency, Transparency, Transparency };
-
-        bool b1 = isWithinRange(m_head->Position.Y.Offset, min, max);
-        bool b2 = isWithinRange(m_tail->Position.Y.Offset, min, max);
-
-        if (isCollision(m_tail->Position.Y.Offset, m_head->Position.Y.Offset, min, max)) {
-            m_body->SetIndexAt(m_engine->GetNoteImageIndex());
-            m_body->Draw(delta, &playRect);
-        }
-
-        if (b1) {
-            if (guideLineLength > 0) {
-                m_trail_down->Position = m_head->Position;
-                m_trail_down->Size = UDim2::fromOffset(1, guideLineLength);
-                m_trail_down->AnchorPoint = { 0, 0 };
-                m_trail_down->Draw(delta, &playRect);
-
-                m_trail_down->Position = m_head->Position + UDim2::fromOffset(m_head->AbsoluteSize.X, 0);
-                m_trail_down->AnchorPoint = { 1, 0 };
-                m_trail_down->Draw(delta, &playRect);
+        if (EnvironmentSetup::GetInt("LNBodyOnTop") == 1) {
+            if (isHeadVisible) {
+                DrawHead(delta, headPosY, guideLineLength, playRect);
             }
 
-            m_head->SetIndexAt(m_engine->GetNoteImageIndex());
-            m_head->Draw(delta, &playRect);
-        }
-
-        if (b2) {
-            if (guideLineLength > 0) {
-                m_trail_up->Position = m_tail->Position + UDim2::fromOffset(0, -m_tail->AbsoluteSize.Y);
-                m_trail_up->Size = UDim2::fromOffset(1, guideLineLength);
-                m_trail_up->AnchorPoint = { 0, 1 };
-                m_trail_up->Draw(delta, &playRect);
-
-                m_trail_up->Position = m_tail->Position + UDim2::fromOffset(m_tail->AbsoluteSize.X, -m_tail->AbsoluteSize.Y);
-                m_trail_up->AnchorPoint = { 1, 1 };
-                m_trail_up->Draw(delta, &playRect);
+            if (isTailVisible) {
+                DrawTail(delta, tailPosY, guideLineLength, playRect);
             }
 
-            m_tail->SetIndexAt(m_engine->GetNoteImageIndex());
-            m_tail->Draw(delta, &playRect);
+            SetTransparency();
+            DrawBody(delta, bodyPosY, bodyHeight, playRect);
         }
-    } else {
-        double y1 = CalculateNotePosition(trackPosition, m_initialTrackPosition, 1000.0, m_engine->GetNotespeed(), false) / 1000.0;
-        m_head->Position = UDim2::fromOffset(m_laneOffset, lerp(0.0, (double)hitPos, (float)y1));
-        m_head->CalculateSize();
+        else {
+            SetTransparency();
+            DrawBody(delta, bodyPosY, bodyHeight, playRect);
 
-        bool b1 = isWithinRange(m_head->Position.Y.Offset, min, max);
-
-        if (b1) {
-            if (guideLineLength > 0) {
-                m_trail_down->Position = m_head->Position;
-                m_trail_down->Size = UDim2::fromOffset(1, guideLineLength);
-                m_trail_down->AnchorPoint = { 0, 0 };
-                m_trail_down->Draw(delta, &playRect);
-
-                m_trail_down->Position = m_head->Position + UDim2::fromOffset(m_head->AbsoluteSize.X, 0);
-                m_trail_down->AnchorPoint = { 1, 0 };
-                m_trail_down->Draw(delta, &playRect);
-
-                m_trail_up->Position = m_head->Position + UDim2::fromOffset(0, -m_head->AbsoluteSize.Y);
-                m_trail_up->Size = UDim2::fromOffset(1, guideLineLength);
-                m_trail_up->AnchorPoint = { 0, 1 };
-                m_trail_up->Draw(delta, &playRect);
-
-                m_trail_up->Position = m_head->Position + UDim2::fromOffset(m_head->AbsoluteSize.X, -m_head->AbsoluteSize.Y);
-                m_trail_up->AnchorPoint = { 1, 1 };
-                m_trail_up->Draw(delta, &playRect);
+            if (isTailVisible) {
+                DrawTail(delta, tailPosY, guideLineLength, playRect);
             }
 
-            m_head->SetIndexAt(m_engine->GetNoteImageIndex());
-            m_head->Draw(delta, &playRect);
+            if (isHeadVisible) {
+                DrawHead(delta, headPosY, guideLineLength, playRect);
+            }
+        }
+    }
+    else {
+
+        if (isHeadVisible) {
+            DrawHead(delta, headPosY, guideLineLength, playRect);
         }
     }
 }
@@ -389,26 +421,37 @@ std::tuple<bool, NoteResult> Note::CheckHit()
 
     if (m_type == NoteType::NORMAL) {
         double time_to_end = m_engine->GetGameAudioPosition() - m_startTime;
-        auto   result = judge->CalculateResult(this);
+        auto result = judge->CalculateResult(this);
         if (std::get<bool>(result)) {
             m_ignore = false;
         }
+        else if (time_to_end) {
+            m_ignore = true;
+        }
 
         return result;
-    } else {
+    }
+    else {
         if (m_state == NoteState::HOLD_PRE) {
             double time_to_end = m_engine->GetGameAudioPosition() - m_startTime;
-            auto   result = judge->CalculateResult(this);
+            auto result = judge->CalculateResult(this);
             if (std::get<bool>(result)) {
                 m_ignore = false;
             }
+            else if (time_to_end) {
+                m_ignore = true;
+            }
 
             return result;
-        } else if (m_state == NoteState::HOLD_MISSED_ACTIVE) {
+        }
+        else if (m_state == NoteState::HOLD_MISSED_ACTIVE) {
             double time_to_end = m_engine->GetGameAudioPosition() - m_endTime;
-            auto   result = judge->CalculateResult(this);
+            auto result = judge->CalculateResult(this);
             if (std::get<bool>(result)) {
                 m_ignore = false;
+            }
+            else if (time_to_end) {
+                m_ignore = true;
             }
 
             return result;
@@ -421,7 +464,7 @@ std::tuple<bool, NoteResult> Note::CheckHit()
 std::tuple<bool, NoteResult> Note::CheckRelease()
 {
     if (m_type == NoteType::HOLD) {
-        double     time_to_end = m_engine->GetGameAudioPosition() - m_endTime;
+        double time_to_end = m_engine->GetGameAudioPosition() - m_endTime;
         JudgeBase *judge = m_engine->GetJudge();
 
         if (m_state == NoteState::HOLD_ON_HOLDING || m_state == NoteState::HOLD_MISSED_ACTIVE) {
@@ -429,6 +472,7 @@ std::tuple<bool, NoteResult> Note::CheckRelease()
 
             if (std::get<bool>(result)) {
                 if (m_state == NoteState::HOLD_MISSED_ACTIVE) {
+                    m_ignore = false;
                     return { true, NoteResult::BAD };
                 }
 
@@ -436,8 +480,15 @@ std::tuple<bool, NoteResult> Note::CheckRelease()
             }
 
             if (m_state == NoteState::HOLD_ON_HOLDING) {
+                if (time_to_end) {
+                    m_ignore = true;
+                }
                 return { true, NoteResult::MISS };
-            } else {
+            }
+            else {
+                if (time_to_end) {
+                    m_ignore = true;
+                }
                 return { false, NoteResult::MISS };
             }
         }
@@ -489,7 +540,7 @@ void Note::OnRelease(NoteResult result)
             m_lastScoreTime = -1;
 
             if (result == NoteResult::MISS) {
-                GameAudioSampleCache::Stop(m_keysoundIndex);
+                //GameAudioSampleCache::Stop(m_keysoundIndex);
                 m_state = NoteState::HOLD_MISSED_ACTIVE;
 
                 m_track->HandleHoldScore(HoldResult::HoldBreak);
@@ -521,12 +572,17 @@ void Note::SetDrawable(bool drawable)
     m_drawAble = drawable;
 }
 
-bool Note::IsHoldEffectDrawable()
+void Note::GetNoteSize()
+{
+    EnvironmentSetup::SetInt("NoteSize", static_cast<int>(m_head->AbsoluteSize.Y));
+}
+
+bool Note::IsHoldEffectDrawable() const
 {
     return m_shouldDrawHoldEffect;
 }
 
-bool Note::IsDrawable()
+bool Note::IsDrawable() const
 {
     if (m_removeAble)
         return false;
@@ -534,22 +590,22 @@ bool Note::IsDrawable()
     return m_drawAble;
 }
 
-bool Note::IsRemoveable()
+bool Note::IsRemoveable() const
 {
     return m_state == NoteState::DO_REMOVE;
 }
 
-bool Note::IsPassed()
+bool Note::IsPassed() const
 {
-    return m_state == NoteState::NORMAL_NOTE_PASSED || m_state == NoteState::HOLD_PASSED;
+    return m_state == NoteState::NORMAL_NOTE_PASSED || m_state == NoteState::HOLD_PASSED || IsRemoveable();
 }
 
-bool Note::IsHeadHit()
+bool Note::IsHeadHit() const
 {
     return m_didHitHead;
 }
 
-bool Note::IsTailHit()
+bool Note::IsTailHit() const
 {
     return m_didHitTail;
 }

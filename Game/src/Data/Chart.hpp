@@ -52,7 +52,8 @@ struct TimingInfo
     float      TimeSignature;
     TimingType Type;
 
-    double CalculateBeat(double offset);
+    //double CalculateBeat(double offset);
+    double CalculateBeat(double offset) const;
 };
 
 struct Sample
@@ -75,6 +76,7 @@ struct AutoSample
 enum class Mod {
     MIRROR,
     RANDOM,
+    PANIC,
     REARRANGE
 };
 
@@ -85,6 +87,8 @@ public:
     Chart(Osu::Beatmap &beatmap);
     Chart(BMS::BMSFile &bmsfile);
     Chart(O2::OJN &ojnfile, int diffIndex = 2);
+    void CalculateBeat();
+    void SortTimings();
     ~Chart();
 
     void ApplyMod(Mod mod, void *data = NULL);
@@ -102,6 +106,7 @@ public:
     std::vector<char>     m_backgroundBuffer;
     std::u8string         m_title;
     std::u8string         m_artist;
+    std::u8string         m_difname;
     std::string           m_audio;
     std::filesystem::path m_beatmapDirectory;
 
@@ -112,6 +117,8 @@ public:
 
     std::vector<Sample>     m_samples;
     std::vector<AutoSample> m_autoSamples;
+
+    void CheckFor7K();
 
 private:
     double PredefinedAudioLength = -1;

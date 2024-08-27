@@ -24,8 +24,12 @@ private:
     int  currentOffset = 0;
     int  currentResolutionIndex = 0;
     int  currentGuideLineIndex = 0;
-    bool LongNoteLighting = false;
-    bool LongNoteOnHitPos = false;
+    bool MeasureLine = false;
+    bool LNBodyOnTop = false;
+    bool MeasureLineType = false;
+    int BackgroundIndex = 0;
+    int NoteIndex = 0;
+    bool NewLongNote = false;
     bool convertAutoSound = false;
 
     std::string              currentSkin = "";

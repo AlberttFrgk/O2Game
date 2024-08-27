@@ -20,9 +20,9 @@ class Texture2D
 
 public:
     Texture2D();
-    Texture2D(std::string fileName);
-    Texture2D(std::filesystem::path path);
-    Texture2D(uint8_t *fileData, size_t size);
+    Texture2D(const std::string& fileName);
+    Texture2D(const std::filesystem::path& path);
+    Texture2D(const uint8_t *fileData, size_t size);
     Texture2D(SDL_Texture *texture);
     Texture2D(Texture2D_Vulkan *texture);
     ~Texture2D();
@@ -51,7 +51,7 @@ public:
     Rect GetOriginalRECT();
     void SetOriginalRECT(Rect size);
 
-    static Texture2D *FromTexture2D(Texture2D *tex);
+    // static Texture2D *FromTexture2D(Texture2D *tex);
 
     static Texture2D *FromBMP(uint8_t *fileData, size_t size);
     static Texture2D *FromBMP(std::string fileName);

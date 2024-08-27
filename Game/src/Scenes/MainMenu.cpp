@@ -44,7 +44,7 @@ void MainMenu::Render(double delta)
             std::string title = std::string(O2GAME_TITLE) + " " + std::string(O2GAME_VERSION);
             ImGui::Text("%s", title.c_str());
 
-            std::string text = "No Account!";
+            std::string text = "Main Menu";
             auto        textWidth = ImGui::CalcTextSize(text.c_str()).x;
 
             ImGui::SameLine(MathUtil::ScaleVec2(ImVec2(windowNextSz.x, 0)).x - textWidth - 15);
@@ -54,7 +54,7 @@ void MainMenu::Render(double delta)
         }
 
         {
-            ImFont *font = FontResources::GetButtonFont();
+            ImFont* font = FontResources::GetButtonFont();
             ImGui::PushFont(font);
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
             auto ButtonColor = ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive);
@@ -70,21 +70,29 @@ void MainMenu::Render(double delta)
                 ImGui::NewLine();
             }
 
+            ImGui::NewLine();
             ImGui::Spacing();
-            if (ImGui::Button("Single player", ButtonSize)) {
-                nextScene = 0;
-            }
-
-            ImGui::Spacing();
-            if (ImGui::Button("Multi player", ButtonSize)) {
-                MsgBox::Show("Multiplayer", "Error", "Multiplayer is not implemented yet!");
-            }
+            //if (ImGui::Button("Single player", ButtonSize)) {
+            //    nextScene = 0;
+            //}
 
             ImGui::NewLine();
             ImGui::Spacing();
-            if (ImGui::Button("Editor", ButtonSize)) {
-                nextScene = 2;
+
+            if (ImGui::Button("Play", ButtonSize)) {
+                nextScene = 0;
             }
+
+            // ImGui::Spacing();
+            // if (ImGui::Button("Multi player", ButtonSize)) {
+            //    MsgBox::Show("Multiplayer", "Error", "Multiplayer is not implemented yet!");
+            //}
+
+            //ImGui::NewLine();
+            //ImGui::Spacing();
+            //if (ImGui::Button("Editor", ButtonSize)) {
+            //    nextScene = 2;
+            //}
 
             ImGui::NewLine();
             ImGui::Spacing();
@@ -107,41 +115,41 @@ void MainMenu::Render(double delta)
 
     if (nextScene != -1) {
         switch (nextScene) {
-            case 0:
-            {
-                SceneManager::DisplayFade(100, [this]() {
-                    SceneManager::ChangeScene(GameScene::SONGSELECT);
+        case 0:
+        {
+            SceneManager::DisplayFade(100, [this]() {
+                SceneManager::ChangeScene(GameScene::SONGSELECT);
                 });
-                break;
-            }
+            break;
+        }
 
-            case 1:
-            {
-                break;
-            }
+        case 1:
+        {
+            break;
+        }
 
-            case 2:
-            {
-                SceneManager::DisplayFade(100, [this]() {
-                    SceneManager::ChangeScene(GameScene::EDITOR);
+        case 2:
+        {
+            SceneManager::DisplayFade(100, [this]() {
+                SceneManager::ChangeScene(GameScene::EDITOR);
                 });
-                break;
-            }
+            break;
+        }
 
-            case 3:
-            {
-                SceneManager::OverlayShow(GameOverlay::SETTINGS);
-                break;
-            }
+        case 3:
+        {
+            SceneManager::OverlayShow(GameOverlay::SETTINGS);
+            break;
+        }
 
-            case 4:
-            {
-                SDL_Event e = {};
-                e.type = SDL_QUIT;
+        case 4:
+        {
+            SDL_Event e = {};
+            e.type = SDL_QUIT;
 
-                SDL_PushEvent(&e);
-                break;
-            }
+            SDL_PushEvent(&e);
+            break;
+        }
         }
     }
 }
@@ -170,7 +178,7 @@ bool MainMenu::Attach()
         }
 
         if (bgm && !bgm->IsPlaying()) {
-            bgm->SetVolume(50);
+            bgm->SetVolume(100);
             bgm->Play(0, true);
         }
     }

@@ -1,4 +1,5 @@
 #include "SkinManager.hpp"
+#include "../EnvironmentSetup.hpp"
 
 SkinManager *SkinManager::m_instance = nullptr;
 
@@ -225,8 +226,20 @@ SkinManager::~SkinManager()
 
 void SkinManager::TryLoadGroup(SkinGroup group)
 {
-    m_skinConfigs[group] = std::make_unique<SkinConfig>(
-        GetPath() / m_expected_directory[group] / m_expected_skin_config[group], m_keyCount);
+    std::filesystem::path configPath;
+
+    if (group == SkinGroup::Notes && EnvironmentSetup::GetInt("NoteSkin") != 2) {
+        auto path = std::filesystem::current_path() / "Resources";
+        if (EnvironmentSetup::GetInt("NoteSkin") == 1) {
+            configPath = path / "Notes" / "Circle" / "Notes.ini";
+        } else {
+            configPath = path / "Notes" / "Square" / "Notes.ini";
+        }
+    } else {
+        configPath = GetPath() / m_expected_directory[group] / m_expected_skin_config[group];
+    }
+
+    m_skinConfigs[group] = std::make_unique<SkinConfig>(configPath, m_keyCount);
 }
 
 void SkinManager::Update(double delta)
