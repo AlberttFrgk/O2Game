@@ -152,7 +152,7 @@ void SettingsOverlay::Render(double delta)
             if (ImGui::BeginChild("###ChildSettingWnd", MathUtil::ScaleVec2(ImVec2(400, 250)))) {
                 if (ImGui::BeginTabBar("OptionTabBar")) {
                     if (ImGui::BeginTabItem("Inputs")) {
-                        ImGui::Text("7 Keys Configuration");
+                        ImGui::Text("Keys Configuration");
                         for (int i = 0; i < 7; i++) {
                             if (i != 0) {
                                 ImGui::SameLine();
@@ -168,7 +168,7 @@ void SettingsOverlay::Render(double delta)
 
                         ImGui::NewLine();
 
-                        ImGui::Text("6 Keys Configuration");
+                        /*ImGui::Text("6 Keys Configuration");
                         for (int i = 0; i < 6; i++) {
                             if (i != 0) {
                                 ImGui::SameLine();
@@ -212,7 +212,7 @@ void SettingsOverlay::Render(double delta)
                                 EnvironmentSetup::Set("Scene_KbLaneCount", "4_");
                                 EnvironmentSetup::Set("Scene_KbKey", std::to_string(i + 1));
                             }
-                        }
+                        }*/
 
                         ImGui::EndTabItem();
                     }
