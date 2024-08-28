@@ -4,8 +4,11 @@
 // STD Headers
 #include <algorithm>
 #include <filesystem>
-#include <locale>
-#include <windows.h>
+#include <iostream>
+
+#if __linux__
+#include <unistd.h>
+#endif
 
 // Game Headers
 #include "./Data/Util/Util.hpp"
@@ -17,9 +20,6 @@
 #include "Configuration.h"
 #include "MsgBox.h"
 
-// SDL Headers
-#include <SDL.h>
-
 #if _WIN32
 extern "C" {
     __declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
@@ -28,7 +28,7 @@ extern "C" {
 }
 #endif
 
-int Run(int argc, wchar_t** argv)
+int Run(int argc, wchar_t **argv)
 {
     try {
         Configuration::SetDefaultConfiguration(defaultConfiguration);
@@ -40,6 +40,8 @@ int Run(int argc, wchar_t** argv)
 
 #if _WIN32
         if (SetCurrentDirectoryW((LPWSTR)parentPath.wstring().c_str()) == FALSE) {
+            std::cout << "GetLastError(): " << GetLastError() << ", with path: " << parentPath.string();
+
             MessageBoxA(NULL, "Failed to set directory!", "EstGame Error", MB_ICONERROR);
             return -1;
         }
@@ -81,8 +83,7 @@ int Run(int argc, wchar_t** argv)
         }
 
         return 0;
-    }
-    catch (std::exception& e) {
+    } catch (std::exception &e) {
         MsgBox::ShowOut("EstGame Error", e.what(), MsgBoxType::OK, MsgBoxFlags::BTN_ERROR);
         return -1;
     }
@@ -94,37 +95,42 @@ int HandleStructualException(int code)
     MessageBoxA(NULL, ("Uncaught exception: " + std::to_string(code)).c_str(), "FATAL ERROR", MB_ICONERROR);
     return EXCEPTION_EXECUTE_HANDLER;
 }
+#endif
 
-// SDL expects an SDL_main function as the entry point
-int SDL_main(int argc, char* argv[])
+// // if not DEBUG
+// #if !defined(_DEBUG) && _WIN32
+// int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
+// 	const char* retVal = setlocale(LC_ALL, "en_US.UTF-8");
+// 	if (retVal == nullptr) {
+// 		MessageBoxA(NULL, "setlocale(): Failed to set locale!", "EstGame Error", MB_ICONERROR);
+// 		return -1;
+// 	}
+
+// 	int argc = 0;
+// 	wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+
+// 	int ret = 0;
+
+// 	__try {
+// 		ret = Run(argc, argv);
+// 	}
+
+// 	__except (HandleStructualException(GetExceptionCode())) {
+// 		ret = -1;
+// 	}
+
+// 	LocalFree(argv);
+
+// 	return ret;
+// }
+
+// #else
+
+// #endif
+
+int main(int argc, char *argv[])
 {
-    const char* retVal = setlocale(LC_ALL, "en_US.UTF-8");
-    if (retVal == nullptr) {
-        MessageBoxA(NULL, "setlocale(): Failed to set locale!", "EstGame Error", MB_ICONERROR);
-        return -1;
-    }
-
-    // Convert command line arguments
-    int wargc = 0;
-    wchar_t** wargv = CommandLineToArgvW(GetCommandLineW(), &wargc);
-
-    int ret = 0;
-
-    __try {
-        ret = Run(wargc, wargv);
-    }
-    __except (HandleStructualException(GetExceptionCode())) {
-        ret = -1;
-    }
-
-    LocalFree(wargv);
-
-    return ret;
-}
-#else
-int main(int argc, char* argv[])
-{
-    const char* retVal = setlocale(LC_ALL, "en_US.UTF-8");
+    const char *retVal = setlocale(LC_ALL, "en_US.UTF-8");
     if (retVal == nullptr) {
 #if _WIN32
         MessageBoxA(NULL, "setlocale(): Failed to set locale!", "EstGame Error", MB_ICONERROR);
@@ -134,7 +140,7 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    wchar_t** wargv = new wchar_t* [argc];
+    wchar_t **wargv = new wchar_t *[argc];
     for (int i = 0; i < argc; i++) {
         size_t len = mbstowcs(NULL, argv[i], 0) + 1;
         wargv[i] = new wchar_t[len];
@@ -143,10 +149,11 @@ int main(int argc, char* argv[])
 
     int ret = 0;
 
-#if _MSC_VER && !defined(NDEBUG)
+#if _WIN32 & _MSC_VER & NDEBUG
     __try {
         ret = Run(argc, wargv);
     }
+
     __except (HandleStructualException(GetExceptionCode())) {
         ret = -1;
     }
@@ -162,4 +169,13 @@ int main(int argc, char* argv[])
 
     return ret;
 }
-#endif
+
+// #include "./Engine/LuaScripting.h"
+
+// int main() {
+// 	LuaScripting lua = { std::filesystem::current_path() / "Skins" / "Default" / "Scripts" };
+// 	lua.Update(0.0);
+
+// 	auto val = lua.GetSprite(SkinGroup::Playing, "JamLogo");
+// 	return 0;
+// }
