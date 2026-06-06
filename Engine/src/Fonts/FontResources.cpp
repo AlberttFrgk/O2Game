@@ -1,4 +1,4 @@
-﻿#pragma warning(disable : 4838) // Goddamit
+#pragma warning(disable : 4838) // Goddamit
 #pragma warning(disable : 4309)
 
 #include <Misc/md5.h>
@@ -227,6 +227,7 @@ void FontResources::PreloadFontCaches()
     } else {
         ImGui_ImplSDLRenderer2_DestroyDeviceObjects();
         ImGui_ImplSDLRenderer2_DestroyFontsTexture();
+        ImGui_ImplSDLRenderer2_CreateFontsTexture();
     }
 
     gImFontRebuild = false;
