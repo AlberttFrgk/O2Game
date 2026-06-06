@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 #include "Inputs/InputManager.h"
 #include "Overlay.h"
 #include "Rendering/Renderer.h"
@@ -51,6 +52,7 @@ protected:
     virtual void Render(double deltaTime);
     virtual void Input(double deltaTime);
     virtual void Mouse(double deltaTime);
+    virtual void OnDropFile(std::string path);
 
     GameWindow   *m_window;
     Renderer     *m_renderer;

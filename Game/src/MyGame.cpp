@@ -209,3 +209,10 @@ void MyGame::Input(double delta)
 {
     m_sceneManager->Input(delta);
 }
+
+void MyGame::OnDropFile(std::string path)
+{
+    EnvironmentSetup::SetInt("FileOpen", 1);
+    EnvironmentSetup::SetPath("FILE", path);
+    SceneManager::ChangeScene(GameScene::SONGSELECT);
+}

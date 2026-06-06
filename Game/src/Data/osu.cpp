@@ -170,6 +170,10 @@ void Osu::Beatmap::ParseString(std::stringstream &ss)
                 ev.params.push_back(copy);
             }
 
+            if (ev.Type == OsuEventType::Background && ev.params.size() > 0) {
+                BackgroundFile = ev.params[0];
+            }
+
             Events.push_back(ev);
         }
 

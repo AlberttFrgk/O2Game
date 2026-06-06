@@ -17,4 +17,5 @@ protected:
     void Update(double deltaTime) override;
     void Render(double deltaTime) override;
     void Input(double deltaTime) override;
+    void OnDropFile(std::string path) override;
 };

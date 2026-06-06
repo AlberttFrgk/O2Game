@@ -9,8 +9,9 @@
 #include "../Engine/Button.hpp"
 #include "../Engine/SkinConfig.hpp"
 
+#include "../Resources/GameDatabase.h"
+
 struct MouseState;
-struct DB_MusicItem;
 
 class SongSelectScene : public Scene
 {
@@ -35,6 +36,7 @@ private:
     void SaveConfiguration();
     void SaveModifiers();
     void LoadChartImage();
+    void ParseExternalChart(std::filesystem::path file);
 
     int scene_index = 0;
     int index = -1;
@@ -88,4 +90,7 @@ private:
     std::filesystem::path              file;
     int                                m_tempMusicIndex;
     float                              m_lastTime;
+
+    std::filesystem::path              m_externalFilePath;
+    DB_MusicItem                       m_externalItem;
 };

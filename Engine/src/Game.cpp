@@ -254,6 +254,10 @@ void Game::Run()
             case SDL_QUIT:
                 MsgBox::Show("Quit", "Quit confirmation", "Are you sure you want to quit?", MsgBoxType::YESNO);
                 break;
+            case SDL_DROPFILE:
+                OnDropFile(event.drop.file);
+                SDL_free(event.drop.file);
+                break;
             }
 
             m_minimized = SDL_GetWindowFlags(m_window->GetWindow()) & SDL_WINDOW_MINIMIZED;
@@ -455,5 +459,9 @@ void Game::Input(double deltaTime)
 }
 
 void Game::Mouse(double deltaTime)
+{
+}
+
+void Game::OnDropFile(std::string path)
 {
 }
