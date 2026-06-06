@@ -1,17 +1,17 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.15)
 project(Game VERSION 0.1.0 LANGUAGES C CXX)
 
 file(GLOB_RECURSE HEADERS "./src/*.h")
 
-add_executable(Game 
-    ${HEADERS} 
+add_executable(Game
+    ${HEADERS}
 
     # MAIN
-	"src/main.cpp"
+    "src/main.cpp"
     "src/MyGame.cpp"
     "src/EnvironmentSetup.cpp"
 
-	# Data
+    # Data
     "src/Data/bms.cpp"
     "src/Data/Chart.cpp"
     "src/Data/OJM.cpp"
@@ -20,9 +20,9 @@ add_executable(Game
     "src/Data/Util/Util.cpp"
 
     # Engine
-	"src/Engine/BGMPreview.cpp"
+    "src/Engine/BGMPreview.cpp"
     "src/Engine/Button.cpp"
-    "src/Engine/Autoplay.cpp" 
+    "src/Engine/Autoplay.cpp"
     "src/Engine/DrawableNote.cpp"
     "src/Engine/DrawableTile.cpp"
     "src/Engine/FrameTimer.cpp"
@@ -34,26 +34,26 @@ add_executable(Game
     "src/Engine/O2Texture.cpp"
     "src/Engine/RhythmEngine.cpp"
     "src/Engine/ScoreManager.cpp"
-    "src/Engine/SkinConfig.cpp" 
-    "src/Engine/LuaScripting.cpp" 
-    "src/Engine/SkinManager.cpp" 
+    "src/Engine/SkinConfig.cpp"
+    "src/Engine/LuaScripting.cpp"
+    "src/Engine/SkinManager.cpp"
     "src/Engine/TimingLine.cpp"
     "src/Engine/TimingLineManager.cpp"
-	"src/Engine/Timing/StaticTiming.cpp"
-	"src/Engine/Timing/TimingBase.cpp"
+    "src/Engine/Timing/StaticTiming.cpp"
+    "src/Engine/Timing/TimingBase.cpp"
     "src/Engine/Timing/VelocityTiming.cpp"
     "src/Engine/Judgements/BeatBasedJudge.cpp"
     "src/Engine/Judgements/JudgeBase.cpp"
     "src/Engine/Judgements/MsBasedJudge.cpp"
 
-	# Resources
-	"src/Resources/GameResources.cpp"
+    # Resources
+    "src/Resources/GameResources.cpp"
     "src/Resources/GameDatabase.cpp"
     "src/Resources/MusicListMaker.cpp"
 
     # Scenes
     "src/Scenes/Converters/ToOsu.cpp"
-	"src/Scenes/EditorScene.cpp"
+    "src/Scenes/EditorScene.cpp"
     "src/Scenes/GameplayScene.cpp"
     "src/Scenes/IntroScene.cpp"
     "src/Scenes/LoadingScene.cpp"
@@ -69,10 +69,10 @@ add_executable(Game
 #include "../Engine/include"
 target_include_directories(Game PRIVATE "../Engine/include")
 
-if (WIN32)
+if(WIN32)
     add_custom_command(TARGET Game POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/third-party/bin/x64-windows/Debug
+        ${CMAKE_SOURCE_DIR}/third-party/bin/x64-windows/$<CONFIG>
         $<TARGET_FILE_DIR:Game>
     )
 
@@ -100,7 +100,7 @@ if (WIN32)
         ${CMAKE_SOURCE_DIR}/GameResources/Scripts
         $<TARGET_FILE_DIR:Game>/Resources/Notes/Scripts
     )
-else ()
+else()
     add_custom_command(TARGET Game POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory
         $<TARGET_FILE_DIR:Game>/Skins/Default
@@ -123,9 +123,9 @@ else ()
         ${CMAKE_SOURCE_DIR}/GameResources/Scripts
         $<TARGET_FILE_DIR:Game>/Resources/Notes/Scripts
     )
-endif ()
+endif()
 
-if (MSVC)
+if(MSVC)
     target_link_options(Game PRIVATE $<$<CONFIG:Debug>:/INCREMENTAL>)
     target_compile_options(Game PRIVATE $<$<CONFIG:Debug>:/ZI> "/MP")
 endif()

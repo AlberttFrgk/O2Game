@@ -118,8 +118,6 @@ public:
     std::vector<Sample>     m_samples;
     std::vector<AutoSample> m_autoSamples;
 
-    void CheckFor7K();
-
 private:
     double PredefinedAudioLength = -1;
 

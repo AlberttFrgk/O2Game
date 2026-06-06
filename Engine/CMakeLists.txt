@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.15)
 
 project(EstEngine VERSION 0.1.0 LANGUAGES C CXX)
 
@@ -99,12 +99,9 @@ add_library(EstEngine
 	"src/Game.cpp"
 )
 
-if (WIN32)
-	set(glslangValidator "$ENV{VULKAN_SDK}/Bin/glslangValidator.exe")
-elseif (UNIX AND NOT APPLE)
-	set(glslangValidator "$ENV{VULKAN_SDK}/Bin/glslangValidator")
-else()
-	message(FATAL_ERROR "Unsupported platform")
+find_program(glslangValidator NAMES glslangValidator PATHS "${CMAKE_SOURCE_DIR}/build/vcpkg_installed/x64-windows/tools/glslang" "$ENV{VULKAN_SDK}/Bin")
+if(NOT glslangValidator)
+	message(FATAL_ERROR "glslangValidator not found! Ensure it is installed via vcpkg or VULKAN_SDK.")
 endif()
 
 execute_process(

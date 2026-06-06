@@ -149,11 +149,12 @@ bool Renderer::Create(RendererMode mode, GameWindow *window, bool failed)
             try {
                 m_vulkan = VulkanEngine::GetInstance();
                 m_vulkan->init(window->GetWindow(), window->GetWidth(), window->GetHeight());
-            } catch (const std::runtime_error &) {
+            } catch (const std::exception &) {
                 m_vulkan = nullptr;
+                VulkanEngine::Release();
 
                 MsgBox::ShowOut("EstEngine Error", "Failed to load vulkan functions, fallback to OpenGL", MsgBoxType::OK, MsgBoxFlags::BTN_ERROR);
-                return Create(RendererMode::OPENGL, window);
+                return Create(RendererMode::OPENGL, window, true);
             }
 
             ImGuiIO &io = ImGui::GetIO();

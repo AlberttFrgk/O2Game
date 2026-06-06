@@ -125,7 +125,7 @@ bool Game::Init()
         return false;
     }
 
-    if (m_renderMode == RendererMode::OPENGL) {
+    if (m_renderMode == RendererMode::OPENGL || (!m_renderer->IsVulkan() && m_renderMode == RendererMode::VULKAN)) {
         m_threadMode = ThreadMode::SINGLE_THREAD; // OpenGL doesnt support multithreading
     }
 

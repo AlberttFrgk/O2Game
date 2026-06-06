@@ -10,6 +10,7 @@ class DrawableNote;
 class DrawableTile;
 class AudioSampleChannel;
 class ResizableImage;
+class FrameTimer;
 
 enum class NoteState {
 	NORMAL_NOTE,
@@ -77,6 +78,7 @@ public:
 	void SetDrawable(bool drawable);
 
 	void GetNoteSize();
+	int GetDynamicBPMFrameIndex(FrameTimer* frameTimer);
 
 	bool IsHoldEffectDrawable() const;
 	bool IsDrawable() const;

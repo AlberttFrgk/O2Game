@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.15)
 message("Unnamed O2 Game Clone Project - CMake Build System")
 
 # check if CXX_COMPILER is not cl.exe then set 
@@ -61,11 +61,10 @@ find_package(ZLIB REQUIRED)
 find_package(JPEG REQUIRED)
 find_package(BZip2 REQUIRED)
 find_package(Iconv REQUIRED)
-find_package(Sol2 REQUIRED)
-set(Sol2_LIBRARIES sol2)
+find_package(sol2 CONFIG REQUIRED)
+set(Sol2_LIBRARIES sol2::sol2)
 
 find_package(Lua REQUIRED)
-set(Lua_LIBRARIES lua)
 
 find_package(Vulkan)
 
@@ -87,57 +86,26 @@ include_directories(
     ${Iconv_INCLUDE_DIRS} 
 )
 
-# third-party libraries
-if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-set(LIB_INDEX 3)
-else()
-set(LIB_INDEX 1)
-endif()
-
-message("CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE} ${LIB_INDEX}")
-
 if (WIN32)
 	set(THIRD_PARTY_LIBS
-		"${PROJECT_SOURCE_DIR}/third-party/lib/${O2GAME_PLATFORM}-windows/${CMAKE_BUILD_TYPE}/bass.lib" 
-		"${PROJECT_SOURCE_DIR}/third-party/lib/${O2GAME_PLATFORM}-windows/${CMAKE_BUILD_TYPE}/bass_fx.lib" 
+		"${PROJECT_SOURCE_DIR}/third-party/lib/${O2GAME_PLATFORM}-windows/$<CONFIG>/bass.lib" 
+		"${PROJECT_SOURCE_DIR}/third-party/lib/${O2GAME_PLATFORM}-windows/$<CONFIG>/bass_fx.lib" 
 	)
 
 elseif (UNIX AND NOT APPLE)
     set(THIRD_PARTY_LIBS 
-        "${PROJECT_SOURCE_DIR}/third-party/lib/${O2GAME_PLATFORM}-linux/${CMAKE_BUILD_TYPE}/libbass.so"
-        "${PROJECT_SOURCE_DIR}/third-party/lib/${O2GAME_PLATFORM}-linux/${CMAKE_BUILD_TYPE}/libbass_fx.so"
+        "${PROJECT_SOURCE_DIR}/third-party/lib/${O2GAME_PLATFORM}-linux/$<CONFIG>/libbass.so"
+        "${PROJECT_SOURCE_DIR}/third-party/lib/${O2GAME_PLATFORM}-linux/$<CONFIG>/libbass_fx.so"
         dl 
         pthread 
         m 
     )
 endif()
 
-# check if FREETYPE_LIBRAIES is a list then check first index if optimized
-if (FREETYPE_LIBRARIES MATCHES ";")
-    list(GET FREETYPE_LIBRARIES ${LIB_INDEX} LIB_FREETYPE)
-else()
-    set(LIB_FREETYPE ${FREETYPE_LIBRARIES})
-endif()
-
-if (JPEG_LIBRARIES MATCHES ";")
-    list(GET JPEG_LIBRARIES ${LIB_INDEX} LIB_JPEG)
-else()
-    set(LIB_JPEG ${JPEG_LIBRARIES})
-endif()
-
-list(GET PNG_LIBRARIES ${LIB_INDEX} LIB_PNG)
-
-if (PNG_LIBRARIES MATCHES ";")
-    list(GET PNG_LIBRARIES ${LIB_INDEX} LIB_PNG)
-else()
-    set(LIB_PNG ${PNG_LIBRARIES})
-endif()
-
-if (BZIP2_LIBRARIES MATCHES ";")
-    list(GET BZIP2_LIBRARIES ${LIB_INDEX} LIB_BZIP2)
-else()
-    set(LIB_BZIP2 ${BZIP2_LIBRARIES})
-endif()
+set(LIB_FREETYPE Freetype::Freetype)
+set(LIB_JPEG JPEG::JPEG)
+set(LIB_PNG PNG::PNG)
+set(LIB_BZIP2 BZip2::BZip2)
 
 if (WIN32)
     set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR)
@@ -150,7 +118,7 @@ set(O2GAME_LIBRARIES
     ${SDL2_IMAGE_LIBRARIES} 
     ${SQLite3_LIBRARIES} 
     ${Sol2_LIBRARIES} 
-    ${Lua_LIBRARIES}
+    ${LUA_LIBRARIES}
     ${LIB_FREETYPE} 
     ${LIB_PNG} 
     ${LIB_JPEG} 

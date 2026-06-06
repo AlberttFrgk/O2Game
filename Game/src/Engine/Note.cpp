@@ -213,7 +213,7 @@ void Note::Update(double delta)
 // I ended refactor whole note code
 void Note::DrawHead(double delta, double headPosY, int guideLineLength, Rect &playRect) {
     m_head->Position = UDim2::fromOffset(m_laneOffset, headPosY);
-    m_head->SetIndexAt(m_engine->GetNoteImageIndex());
+    m_head->SetIndexAt(GetDynamicBPMFrameIndex(m_head));
     m_head->Draw(delta, &playRect);
 
     if (guideLineLength > 0) {
@@ -244,13 +244,13 @@ void Note::DrawHead(double delta, double headPosY, int guideLineLength, Rect &pl
 void Note::DrawBody(double delta, double bodyPosY, double bodyHeight, Rect &playRect) {
     m_body->Position = UDim2::fromOffset(m_laneOffset, bodyPosY - (m_head->AbsoluteSize.Y / 2.0));
     m_body->Size = { 1, 0, 0, bodyHeight };
-    m_body->SetIndexAt(m_engine->GetNoteImageIndex());
+    m_body->SetIndexAt(GetDynamicBPMFrameIndex(m_body));
     m_body->Draw(delta, &playRect);
 }
 
 void Note::DrawTail(double delta, double tailPosY, int guideLineLength, Rect &playRect) {
     m_tail->Position = UDim2::fromOffset(m_laneOffset, tailPosY);
-    m_tail->SetIndexAt(m_engine->GetNoteImageIndex());
+    m_tail->SetIndexAt(GetDynamicBPMFrameIndex(m_tail));
     m_tail->Draw(delta, &playRect);
 
     if (guideLineLength > 0) {
@@ -575,6 +575,19 @@ void Note::SetDrawable(bool drawable)
 void Note::GetNoteSize()
 {
     EnvironmentSetup::SetInt("NoteSize", static_cast<int>(m_head->AbsoluteSize.Y));
+}
+
+int Note::GetDynamicBPMFrameIndex(FrameTimer* frameTimer)
+{
+    int maxFrames = static_cast<int>(frameTimer->m_frames.size());
+    if (maxFrames <= 0) return 0;
+    double bpm = GetBPMTime();
+    if (bpm <= 0.0) return 0;
+    double beatDurationMs = 60000.0 / bpm;
+    double currentTimeMs = m_engine->GetGameAudioPosition();
+    double progress = fmod(currentTimeMs, beatDurationMs) / beatDurationMs;
+    if (progress < 0) progress += 1.0;
+    return static_cast<int>(progress * maxFrames) % maxFrames;
 }
 
 bool Note::IsHoldEffectDrawable() const

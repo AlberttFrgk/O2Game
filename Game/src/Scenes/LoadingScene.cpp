@@ -162,16 +162,8 @@ void LoadingScene::Update(double delta)
         if (IsFile) {
             EnvironmentSetup::SetObj("SongBackground", m_background);
         }
-        bool is7K = EnvironmentSetup::GetInt("KeyCount") == 7;
-        if (!is7K)
-        {
-            MsgBox::Show("Only7K", "Error", "Only 7K Mode Allowed!", MsgBoxType::OK);
-            SceneManager::ChangeScene(GameScene::SONGSELECT);
-        }
-        else {
-            SceneManager::ChangeScene(GameScene::GAMEPLAY);
-            EnvironmentSetup::SetInt("FillStart", 1);
-        }
+        SceneManager::ChangeScene(GameScene::GAMEPLAY);
+        EnvironmentSetup::SetInt("FillStart", 1);
     } else {
         if (fucked) {
             std::string songId = EnvironmentSetup::Get("Key");
