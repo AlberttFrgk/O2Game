@@ -9,7 +9,6 @@
 #include <random>
 #include <unordered_map>
 
-
 #include "Configuration.h"
 #include "Game.h"
 #include "MsgBox.h"
@@ -155,8 +154,33 @@ void GameplayScene::Render(double delta) {
   m_Playfield->Draw();
   m_Playfooter->Draw();
 
-  m_targetBar->Draw(delta);
-  m_targetBar->AlphaBlend = true;
+  if (m_targetBar && m_game) {
+    int maxFrames = m_targetBar->GetFrameCount();
+    if (maxFrames > 0) {
+      double bpm = m_game->GetCurrentBPM();
+      double sv = m_game->GetCurrentSVMultiplier();
+      if (sv > 0.0) {
+        bpm *= sv;
+      }
+      if (bpm > 0.0) {
+        while (bpm > 200.0) {
+          bpm /= 2.0;
+        }
+        double beatDurationMs = 60000.0 / bpm;
+        double currentTimeMs = m_game->GetGameAudioPosition();
+        double progress = fmod(currentTimeMs, beatDurationMs) / beatDurationMs;
+        if (progress < 0)
+          progress += 1.0;
+        m_targetBar->SetIndex(static_cast<int>(progress * maxFrames) %
+                              maxFrames);
+      }
+    }
+    m_targetBar->Draw(delta);
+    m_targetBar->AlphaBlend = true;
+  } else if (m_targetBar) {
+    m_targetBar->Draw(delta);
+    m_targetBar->AlphaBlend = true;
+  }
 
   for (auto &[lane, pressed] : m_keyState) {
     if (pressed) {
@@ -279,31 +303,15 @@ void GameplayScene::Render(double delta) {
   if (m_drawCombo &&
       std::get<7>(scores) > 0) { // O2Jam Replication by Albert Frengki!
     const double positionStart = 30.0;
-    double step = 6.0;
-    double animationSpeed = 90.0;
-    double maxStep = step;
-    double maxSpeed = animationSpeed;
 
-    if (m_comboTimer > 1.0) {
-      animationSpeed += 10.0 * delta;
-      step += 1.0 * delta;
+    // Animate over 0.10 seconds
+    double t = std::clamp(m_comboTimer / 0.10, 0.0, 1.0);
 
-    } else {
-      animationSpeed -= 10.0 * delta;
-      step -= 1.0 * delta;
-    }
+    // Ease-Out Cubic curve for a fast, clean stop without bouncing
+    double t_m_1 = t - 1.0;
+    double easeOut = 1.0 + (t_m_1 * t_m_1 * t_m_1);
 
-    if (animationSpeed > maxSpeed) {
-      animationSpeed = maxSpeed;
-    }
-
-    if (step > maxStep) {
-      step = maxStep;
-    }
-
-    double targetPosition =
-        positionStart - step * m_comboTimer * animationSpeed;
-    double currentPosition = (targetPosition > 0.0) ? targetPosition : 0.0;
+    double currentPosition = positionStart * (1.0 - easeOut);
 
     m_comboLogo->Position2 = UDim2::fromOffset(0, currentPosition / 3.0);
     m_comboNum->Position2 = UDim2::fromOffset(0, currentPosition);
@@ -321,30 +329,15 @@ void GameplayScene::Render(double delta) {
 
   if (m_drawLN && std::get<9>(scores) > 0) {
     const double positionStart = 5.0;
-    double step = 1.0;
-    double animationSpeed = 90.0;
-    double maxStep = step;
-    double maxSpeed = animationSpeed;
 
-    if (m_comboTimer > 1.0) {
-      animationSpeed += 10.0 * delta;
-      step += 0.1 * delta;
+    // Animate over 0.10 seconds
+    double t = std::clamp(m_lnTimer / 0.10, 0.0, 1.0);
 
-    } else {
-      animationSpeed -= 10.0 * delta;
-      step -= 0.1 * delta;
-    }
+    // Ease-Out Cubic curve for a fast, clean stop without bouncing
+    double t_m_1 = t - 1.0;
+    double easeOut = 1.0 + (t_m_1 * t_m_1 * t_m_1);
 
-    if (animationSpeed > maxSpeed) {
-      animationSpeed = maxSpeed;
-    }
-
-    if (step > maxStep) {
-      step = maxStep;
-    }
-
-    double targetPosition = positionStart - step * m_lnTimer * animationSpeed;
-    double currentPosition = (targetPosition > 0.0) ? targetPosition : 0.0;
+    double currentPosition = positionStart * (1.0 - easeOut);
 
     m_lnLogo->Position2 = UDim2::fromOffset(0, currentPosition);
     m_lnLogo->Draw(delta);
@@ -928,7 +921,7 @@ bool GameplayScene::Attach() {
     m_targetBar = std::make_unique<Sprite2D>(targetBarPaths);
     m_targetBar->Position = UDim2::fromOffset(targetPos.X, targetPos.Y);
     m_targetBar->AnchorPoint = {targetPos.AnchorPointX, targetPos.AnchorPointY};
-    m_targetBar->SetFPS(targetPos.FrameTime);
+    m_targetBar->SetFPS(0.0);
 
     m_minuteNum = std::make_unique<NumericTexture>(numTimerPaths);
     auto minutePos = manager->GetNumeric(

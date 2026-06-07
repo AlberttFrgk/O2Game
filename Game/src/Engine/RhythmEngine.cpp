@@ -568,6 +568,11 @@ double RhythmEngine::GetCurrentBPM() const
     return m_currentBPM;
 }
 
+float RhythmEngine::GetCurrentSVMultiplier() const
+{
+    return m_currentSVMultiplier;
+}
+
 double RhythmEngine::GetSongRate() const
 {
     return m_rate;

@@ -57,6 +57,7 @@ public:
     double GetNotespeed() const;
     double GetBPMAt(double offset) const;
     double GetCurrentBPM() const;
+    float  GetCurrentSVMultiplier() const;
     double GetSongRate() const;
     double GetAudioLength() const;
     int    GetGameVolume() const;

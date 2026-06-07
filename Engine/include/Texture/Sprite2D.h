@@ -39,6 +39,8 @@ public:
     Texture2D *GetTexture();
     void       SetFPS(double fps);
     void       Reset();
+    void       SetIndex(int index) { m_currentIndex = index; }
+    int        GetFrameCount() const { return static_cast<int>(m_textures.size()); }
 
     double m_spritespeed = 1.0;
 
