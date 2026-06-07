@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "Audio/AudioManager.h"
+#include <sstream>
 #include "Configuration.h"
 #include "Inputs/Keys.h"
 #include "MsgBox.h"
@@ -977,6 +978,23 @@ bool SongSelectScene::Attach() {
   auto rateValue = EnvironmentSetup::Get("SongRate");
   auto noteValue = Configuration::Load("Gameplay", "Notespeed");
 
+  for (int i = 0; i < Mods.size(); i++) {
+    EnvironmentSetup::SetInt(Mods[i], 0);
+  }
+  std::string selectedMods = Configuration::Load("Gameplay", "Modifiers");
+  std::istringstream iss(selectedMods);
+  std::string mod;
+  while (std::getline(iss, mod, ',')) {
+    EnvironmentSetup::SetInt(mod, 1);
+  }
+
+  std::string arenaValue = Configuration::Load("Gameplay", "Arena");
+  try {
+      EnvironmentSetup::SetInt("Arena", std::stoi(arenaValue));
+  } catch (const std::invalid_argument &) {
+      EnvironmentSetup::SetInt("Arena", 0);
+  }
+
   try {
     currentRate = std::stof(rateValue.c_str());
   } catch (const std::invalid_argument &) {
@@ -1072,6 +1090,7 @@ bool SongSelectScene::Detach() {
 }
 
 void SongSelectScene::SaveConfiguration() {
+  SaveModifiers();
   EnvironmentSetup::Set("SongRate", std::to_string(currentRate));
   Configuration::Set(
       "Gameplay", "Notespeed",
