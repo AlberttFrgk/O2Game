@@ -231,10 +231,9 @@ void SceneManager::ChangeScene(int idx)
     if (s_instance == nullptr)
         throw std::runtime_error(notInitialized);
 
-    // Load the next scene asynchronously
-    std::thread([idx]() {
+    GameExecuteAfter(ExecuteThread::UPDATE, 0, [idx]() {
         s_instance->IChangeScene(idx);
-        }).detach();
+    });
 }
 
 void SceneManager::AddOverlay(int Idx, Overlay *overlay)
