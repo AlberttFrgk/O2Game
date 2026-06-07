@@ -1,4 +1,4 @@
-﻿#include "Settings.h"
+#include "Settings.h"
 #include <Configuration.h>
 #include <Imgui/ImguiUtil.h>
 #include <Imgui/imgui.h>
@@ -35,7 +35,8 @@ static std::map<int, std::string> Graphics = {
     { 1, "Vulkan" },
 #if _WIN32
     { 2, "DirectX-9" },
-    { 3, "DirectX-12" },
+    { 3, "DirectX-11" },
+    { 4, "DirectX-12" },
 #endif
 #if __APPLE__
     { 4, "Metal" },

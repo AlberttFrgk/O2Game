@@ -10,6 +10,14 @@
 #include <filesystem>
 #include <iostream>
 
+#if defined(_WIN32)
+#include <SDL2/SDL_system.h>
+#include <d3d11.h>
+#include <dxgi.h>
+#pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "d3d11.lib")
+#endif
+
 constexpr auto MAIN_SPRITE_BATCH = 0;
 
 Renderer::Renderer()
@@ -52,11 +60,11 @@ bool Renderer::Create(RendererMode mode, GameWindow *window, bool failed)
                 break;
             }
 
-            /*case RendererMode::DIRECTX11:
+            case RendererMode::DIRECTX11:
             {
                 rendererName = "direct3d11";
                 break;
-            }*/
+            }
 
             case RendererMode::DIRECTX12:
             {
@@ -103,6 +111,19 @@ bool Renderer::Create(RendererMode mode, GameWindow *window, bool failed)
             if (!m_renderer) {
                 throw SDLException();
             }
+
+#if defined(_WIN32)
+            if (rendererName == "direct3d11") {
+                ID3D11Device* d3dDevice = SDL_RenderGetD3D11Device(m_renderer);
+                if (d3dDevice) {
+                    IDXGIDevice1* dxgiDevice = nullptr;
+                    if (SUCCEEDED(d3dDevice->QueryInterface(__uuidof(IDXGIDevice1), (void**)&dxgiDevice))) {
+                        dxgiDevice->SetMaximumFrameLatency(1);
+                        dxgiDevice->Release();
+                    }
+                }
+            }
+#endif
 
             if (failed) {
                 Logs::Puts("[Renderer] Failed to create renderer with backend: %s, and fallback to %s", rendererName.c_str(), SDL_GetCurrentVideoDriver());
