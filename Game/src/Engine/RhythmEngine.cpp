@@ -564,7 +564,8 @@ float RhythmEngine::GetCurrentSVMultiplier() const {
 }
 
 int RhythmEngine::GetGlobalBPMAnimationIndex(int maxFrames) const {
-  if (maxFrames <= 0) return 0;
+  if (maxFrames <= 0)
+    return 0;
   return static_cast<int>(m_bpmAnimationProgress * maxFrames);
 }
 
