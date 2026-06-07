@@ -40,23 +40,40 @@ namespace {
 
     double FrameLimit(double MaxFrameRate)
     {
-        const double targetFrameTime = 1000.0 / MaxFrameRate;
+        double newTick = static_cast<double>(SDL_GetPerformanceCounter()) * 1000.0 / SDL_GetPerformanceFrequency();
+        
+        if (MaxFrameRate > 0.0) {
+            const double targetFrameTime = 1000.0 / MaxFrameRate;
+            double frameTime = newTick - curTick;
 
-        double newTick = static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
-        double frameTime = newTick - curTick;
+            if (frameTime < targetFrameTime)
+            {
+                double delayTime = targetFrameTime - frameTime;
+                
+                // Sleep to save CPU if we have more than 2ms to wait
+                if (delayTime > 2.0) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<long long>(delayTime - 2.0)));
+                }
 
-        if (frameTime < targetFrameTime)
-        {
-            double delayTime = targetFrameTime - frameTime;
-            std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<long long>(delayTime)));
-            std::this_thread::yield();
-            newTick += delayTime;
+                // Spin-lock for precision
+                while (true) {
+                    newTick = static_cast<double>(SDL_GetPerformanceCounter()) * 1000.0 / SDL_GetPerformanceFrequency();
+                    if (newTick - curTick >= targetFrameTime) {
+                        break;
+                    }
+                    std::this_thread::yield();
+                }
+            }
         }
 
         double delta = (newTick - curTick) / 1000.0;
 
         lastTick = curTick;
         curTick = newTick;
+
+        // Prevent crazy large delta on pause or huge lag spike
+        if (delta > 0.1) delta = 0.1;
+        if (delta <= 0.0) delta = 0.0001; // Prevent zero delta
 
         return delta;
     }

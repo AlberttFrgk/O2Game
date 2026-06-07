@@ -440,6 +440,12 @@ void SongSelectScene::Render(double delta) {
     is_departing = true;
     SaveConfiguration();
 
+    // Force LoadingScene to load the external file
+    if (EnvironmentSetup::GetInt("FileOpen") == 1) {
+        EnvironmentSetup::SetInt("Key", -1);
+        EnvironmentSetup::SetObj("SONG", nullptr);
+    }
+
     if (m_songBackground) {
       EnvironmentSetup::SetObj("SongBackground", m_songBackground.get());
     }

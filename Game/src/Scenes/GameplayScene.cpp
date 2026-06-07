@@ -158,21 +158,8 @@ void GameplayScene::Render(double delta) {
     int maxFrames = m_targetBar->GetFrameCount();
     if (maxFrames > 0) {
       double bpm = m_game->GetCurrentBPM();
-      double sv = m_game->GetCurrentSVMultiplier();
-      if (sv > 0.0) {
-        bpm *= sv;
-      }
       if (bpm > 0.0) {
-        while (bpm > 200.0) {
-          bpm /= 2.0;
-        }
-        double beatDurationMs = 60000.0 / bpm;
-        double currentTimeMs = m_game->GetGameAudioPosition();
-        double progress = fmod(currentTimeMs, beatDurationMs) / beatDurationMs;
-        if (progress < 0)
-          progress += 1.0;
-        m_targetBar->SetIndex(static_cast<int>(progress * maxFrames) %
-                              maxFrames);
+        m_targetBar->SetIndex(m_game->GetGlobalBPMAnimationIndex(maxFrames));
       }
     }
     m_targetBar->Draw(delta);
@@ -223,14 +210,26 @@ void GameplayScene::Render(double delta) {
     m_pills[i]->Draw();
   }
 
+  if (m_lifeBar && m_game) {
+    int maxFrames = m_lifeBar->GetFrameCount();
+    if (maxFrames > 0) {
+      double bpm = m_game->GetCurrentBPM();
+      if (bpm > 0.0) {
+        m_lifeBar->SetIndex(m_game->GetGlobalBPMAnimationIndex(maxFrames));
+      }
+    }
+  }
+
   bool fillstart = EnvironmentSetup::GetInt("FillStart") == 1;
 
   if (fillstart) {
     lifeFillDuration += delta;
 
-    float fillRatio = ((lifeFillDuration - 0.5) / 1.0 < 1.0f)
-                          ? static_cast<float>((lifeFillDuration - 0.5) / 1.0)
-                          : 1.0f;
+    // Steady linear fill over 1.0 second
+    float progress = static_cast<float>(lifeFillDuration / 1.0);
+    if (progress > 1.0f) progress = 1.0f;
+    
+    float fillRatio = progress;
     float alpha = 1.0f - fillRatio;
 
     auto curLifeTex = m_lifeBar->GetTexture();
@@ -500,6 +499,7 @@ bool GameplayScene::Attach() {
   m_drawExitButton = false;
   m_resourceFucked = false;
   m_drawJudge = false;
+  lifeFillDuration = 0.0;
   m_autoPlay = EnvironmentSetup::GetInt("Autoplay") == 1;
 
   try {
@@ -747,7 +747,7 @@ bool GameplayScene::Attach() {
     m_lifeBar = std::make_unique<Sprite2D>(lifeBarFileName, 0.15f);
     m_lifeBar->Position = UDim2::fromOffset(lifeBarPos.X, lifeBarPos.Y);
     m_lifeBar->AnchorPoint = {lifeBarPos.AnchorPointX, lifeBarPos.AnchorPointY};
-    m_lifeBar->SetFPS(lifeBarPos.FrameTime);
+    m_lifeBar->SetFPS(0.0);
 
     std::vector<std::filesystem::path> lnComboFileName = {};
     for (int i = 0; i < 10; i++) {

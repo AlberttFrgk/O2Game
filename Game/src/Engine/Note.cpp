@@ -536,24 +536,8 @@ int Note::GetDynamicBPMFrameIndex(FrameTimer *frameTimer) {
   if (maxFrames <= 0)
     return 0;
   double bpm = GetBPMTime();
-  double sv = m_engine->GetCurrentSVMultiplier();
-  if (sv > 0.0) {
-    bpm *= sv;
-  }
 
-  if (bpm <= 0.0)
-    return 0;
-
-  while (bpm > 200.0) {
-    bpm /= 2.0;
-  }
-
-  double beatDurationMs = 60000.0 / bpm;
-  double currentTimeMs = m_engine->GetGameAudioPosition();
-  double progress = fmod(currentTimeMs, beatDurationMs) / beatDurationMs;
-  if (progress < 0)
-    progress += 1.0;
-  return static_cast<int>(progress * maxFrames) % maxFrames;
+  return m_engine->GetBPMAnimationIndex(bpm, maxFrames);
 }
 
 bool Note::IsHoldEffectDrawable() const { return m_shouldDrawHoldEffect; }

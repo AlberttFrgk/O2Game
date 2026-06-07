@@ -43,7 +43,7 @@ void LoadingScene::Update(double delta)
         if (!fucked) {
             std::filesystem::path file;
 
-            if (songId != -1) {
+            if (songId != -1 && EnvironmentSetup::GetInt("FileOpen") == 0) {
                 file = GameDatabase::GetInstance()->GetPath();
                 file /= "o2ma" + std::to_string(songId) + ".ojn";
             } else {
