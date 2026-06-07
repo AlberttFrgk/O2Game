@@ -588,9 +588,7 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
       std::vector<std::string> difficulty = {"EZ", "NM", "HD"};
 
       ImGui::Text("Note difficulty");
-      if (EnvironmentSetup::GetInt("FileOpen") == 1) {
-        ImGui::BeginDisabled(true);
-      }
+
       for (int i = 0; i < difficulty.size(); i++) {
         int index = currentDifficulty;
 
@@ -614,9 +612,7 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
           ImGui::SameLine();
         }
       }
-      if (EnvironmentSetup::GetInt("FileOpen") == 1) {
-        ImGui::EndDisabled();
-      }
+
 
       ImGui::Spacing();
       ImGui::PushItemWidth(ImGui::GetCurrentWindow()->Size.x - 15);

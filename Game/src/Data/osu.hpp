@@ -36,7 +36,8 @@ namespace Osu {
         Background,
         Videos,
         Break,
-        Sample
+        Sample,
+        Unknown
     };
 
     struct OsuEvent

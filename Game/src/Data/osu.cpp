@@ -135,6 +135,7 @@ void Osu::Beatmap::ParseString(std::stringstream &ss)
             }
 
             OsuEvent ev = {};
+            ev.Type = OsuEventType::Unknown;
             try {
                 ev.StartTime = std::stof(event[1]);
             } catch (const std::invalid_argument &) {
@@ -170,7 +171,7 @@ void Osu::Beatmap::ParseString(std::stringstream &ss)
                 ev.params.push_back(copy);
             }
 
-            if (ev.Type == OsuEventType::Background && ev.params.size() > 0) {
+            if (ev.Type == OsuEventType::Background && ev.params.size() > 0 && BackgroundFile.empty()) {
                 BackgroundFile = ev.params[0];
             }
 
