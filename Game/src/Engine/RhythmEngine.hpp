@@ -59,7 +59,6 @@ public:
     double GetCurrentBPM() const;
     float  GetCurrentSVMultiplier() const;
     int    GetBPMAnimationIndex(double bpm, int maxFrames) const;
-    int    GetGlobalBPMAnimationIndex(int maxFrames) const;
     double GetSongRate() const;
     double GetAudioLength() const;
     int    GetGameVolume() const;
@@ -104,7 +103,7 @@ private:
     double m_currentTrackPosition = 0.0;
     float  m_baseBPM, m_currentBPM = 0.0;
     float  m_currentSVMultiplier = 0.0;
-    double m_bpmAnimationProgress = 0.0;
+
 
     int    m_currentSampleIndex = 0;
     int    m_currentNoteIndex = 0;

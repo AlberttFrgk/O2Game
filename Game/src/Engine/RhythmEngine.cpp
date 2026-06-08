@@ -385,18 +385,7 @@ void RhythmEngine::Update(double delta) {
   UpdateVirtualResolution();
   UpdateGamePosition();
 
-  double effectiveBPM = m_currentBPM * m_currentSVMultiplier;
-  while (effectiveBPM > 240.0) {
-    effectiveBPM /= 2.0;
-  }
-  while (effectiveBPM < 120.0 && effectiveBPM > 0.0) {
-    effectiveBPM *= 2.0;
-  }
 
-  if (effectiveBPM > 0.0) {
-    m_bpmAnimationProgress += delta * (effectiveBPM / 60.0);
-    m_bpmAnimationProgress = fmod(m_bpmAnimationProgress, 1.0);
-  }
 
   UpdateNotes();
 
@@ -563,12 +552,6 @@ float RhythmEngine::GetCurrentSVMultiplier() const {
   return m_currentSVMultiplier;
 }
 
-int RhythmEngine::GetGlobalBPMAnimationIndex(int maxFrames) const {
-  if (maxFrames <= 0)
-    return 0;
-  return static_cast<int>(m_bpmAnimationProgress * maxFrames);
-}
-
 int RhythmEngine::GetBPMAnimationIndex(double bpm, int maxFrames) const {
   if (maxFrames <= 0 || bpm <= 0.0)
     return 0;
@@ -580,6 +563,9 @@ int RhythmEngine::GetBPMAnimationIndex(double bpm, int maxFrames) const {
 
   while (bpm > 240.0) {
     bpm /= 2.0;
+  }
+  while (bpm < 120.0 && bpm > 0.0) {
+    bpm *= 2.0;
   }
 
   double beatDurationMs = 60000.0 / bpm;
