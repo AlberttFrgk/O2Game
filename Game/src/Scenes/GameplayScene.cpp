@@ -1159,38 +1159,44 @@ bool GameplayScene::Attach() {
         std::string VisualModImage = "ModHidden.png";
         auto VisualModfilename = playingPath / VisualModImage;
 
-        auto visualModPos =
-            manager->GetPosition(SkinGroup::Playing, "VisualMods").front();
-        m_visualMod = std::make_unique<Texture2D>(VisualModfilename);
-        m_visualMod->Position =
-            UDim2::fromOffset(visualModPos.X, visualModPos.Y);
-        m_visualMod->AnchorPoint = {visualModPos.AnchorPointX,
-                                    visualModPos.AnchorPointY};
+        try {
+          auto visualModPos =
+              manager->GetPosition(SkinGroup::Playing, "VisualMods").front();
+          m_visualMod = std::make_unique<Texture2D>(VisualModfilename);
+          m_visualMod->Position =
+              UDim2::fromOffset(visualModPos.X, visualModPos.Y);
+          m_visualMod->AnchorPoint = {visualModPos.AnchorPointX,
+                                      visualModPos.AnchorPointY};
+        } catch (std::runtime_error&) {}
       }
 
       if (IsFL) {
         std::string VisualModImage = "ModFlashlight.png";
         auto VisualModfilename = playingPath / VisualModImage;
 
-        auto visualModPos =
-            manager->GetPosition(SkinGroup::Playing, "VisualMods").front();
-        m_visualMod = std::make_unique<Texture2D>(VisualModfilename);
-        m_visualMod->Position =
-            UDim2::fromOffset(visualModPos.X, visualModPos.Y);
-        m_visualMod->AnchorPoint = {visualModPos.AnchorPointX,
-                                    visualModPos.AnchorPointY};
+        try {
+          auto visualModPos =
+              manager->GetPosition(SkinGroup::Playing, "VisualMods").front();
+          m_visualMod = std::make_unique<Texture2D>(VisualModfilename);
+          m_visualMod->Position =
+              UDim2::fromOffset(visualModPos.X, visualModPos.Y);
+          m_visualMod->AnchorPoint = {visualModPos.AnchorPointX,
+                                      visualModPos.AnchorPointY};
+        } catch (std::runtime_error&) {}
       }
       if (IsSD) {
         std::string VisualModImage = "ModSudden.png";
         auto VisualModfilename = playingPath / VisualModImage;
 
-        auto visualModPos =
-            manager->GetPosition(SkinGroup::Playing, "VisualMods").front();
-        m_visualMod = std::make_unique<Texture2D>(VisualModfilename);
-        m_visualMod->Position =
-            UDim2::fromOffset(visualModPos.X, visualModPos.Y);
-        m_visualMod->AnchorPoint = {visualModPos.AnchorPointX,
-                                    visualModPos.AnchorPointY};
+        try {
+          auto visualModPos =
+              manager->GetPosition(SkinGroup::Playing, "VisualMods").front();
+          m_visualMod = std::make_unique<Texture2D>(VisualModfilename);
+          m_visualMod->Position =
+              UDim2::fromOffset(visualModPos.X, visualModPos.Y);
+          m_visualMod->AnchorPoint = {visualModPos.AnchorPointX,
+                                      visualModPos.AnchorPointY};
+        } catch (std::runtime_error&) {}
       }
     }
 
@@ -1199,35 +1205,41 @@ bool GameplayScene::Attach() {
         std::string NoteModImage = "ModMirror.png";
         auto NoteModfilename = playingPath / NoteModImage;
 
-        auto noteModPos =
-            manager->GetPosition(SkinGroup::Playing, "NoteMods").front();
-        m_noteMod = std::make_unique<Texture2D>(NoteModfilename);
-        m_noteMod->Position = UDim2::fromOffset(noteModPos.X, noteModPos.Y);
-        m_noteMod->AnchorPoint = {noteModPos.AnchorPointX,
-                                  noteModPos.AnchorPointY};
+        try {
+          auto noteModPos =
+              manager->GetPosition(SkinGroup::Playing, "NoteMods").front();
+          m_noteMod = std::make_unique<Texture2D>(NoteModfilename);
+          m_noteMod->Position = UDim2::fromOffset(noteModPos.X, noteModPos.Y);
+          m_noteMod->AnchorPoint = {noteModPos.AnchorPointX,
+                                    noteModPos.AnchorPointY};
+        } catch (std::runtime_error&) {}
       }
 
       if (IsRD) {
         std::string NoteModImage = "ModRandom.png";
         auto NoteModfilename = playingPath / NoteModImage;
 
-        auto noteModPos =
-            manager->GetPosition(SkinGroup::Playing, "NoteMods").front();
-        m_noteMod = std::make_unique<Texture2D>(NoteModfilename);
-        m_noteMod->Position = UDim2::fromOffset(noteModPos.X, noteModPos.Y);
-        m_noteMod->AnchorPoint = {noteModPos.AnchorPointX,
-                                  noteModPos.AnchorPointY};
+        try {
+          auto noteModPos =
+              manager->GetPosition(SkinGroup::Playing, "NoteMods").front();
+          m_noteMod = std::make_unique<Texture2D>(NoteModfilename);
+          m_noteMod->Position = UDim2::fromOffset(noteModPos.X, noteModPos.Y);
+          m_noteMod->AnchorPoint = {noteModPos.AnchorPointX,
+                                    noteModPos.AnchorPointY};
+        } catch (std::runtime_error&) {}
       }
       if (IsPC) {
         std::string NoteModImage = "ModPanic.png";
         auto NoteModfilename = playingPath / NoteModImage;
 
-        auto noteModPos =
-            manager->GetPosition(SkinGroup::Playing, "NoteMods").front();
-        m_noteMod = std::make_unique<Texture2D>(NoteModfilename);
-        m_noteMod->Position = UDim2::fromOffset(noteModPos.X, noteModPos.Y);
-        m_noteMod->AnchorPoint = {noteModPos.AnchorPointX,
-                                  noteModPos.AnchorPointY};
+        try {
+          auto noteModPos =
+              manager->GetPosition(SkinGroup::Playing, "NoteMods").front();
+          m_noteMod = std::make_unique<Texture2D>(NoteModfilename);
+          m_noteMod->Position = UDim2::fromOffset(noteModPos.X, noteModPos.Y);
+          m_noteMod->AnchorPoint = {noteModPos.AnchorPointX,
+                                    noteModPos.AnchorPointY};
+        } catch (std::runtime_error&) {}
       }
     }
 

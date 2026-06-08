@@ -36,6 +36,23 @@ std::string getFileExtension(const std::string &filename) {
 }
 } // namespace
 
+static std::vector<int> GetMappedLanes(int keyCount) {
+  static const std::map<int, std::vector<int>> mappedKeyIndex = {
+      {4, {0, 1, 5, 6}},
+      {5, {1, 2, 3, 4, 5}},
+      {6, {0, 1, 2, 4, 5, 6}},
+      {7, {0, 1, 2, 3, 4, 5, 6}},
+  };
+  if (mappedKeyIndex.find(keyCount) != mappedKeyIndex.end()) {
+    return mappedKeyIndex.at(keyCount);
+  } else {
+    std::vector<int> lanes;
+    for (int i = 0; i < keyCount; i++)
+      lanes.push_back(i);
+    return lanes;
+  }
+}
+
 double TimingInfo::CalculateBeat(double offset) const {
   if (Type == TimingType::SV) {
     return 0;
@@ -140,18 +157,7 @@ Chart::Chart(Osu::Beatmap &beatmap) // Refactor
     if (lane < 0 || lane >= beatmap.CircleSize)
       continue;
 
-    static const std::map<int, std::vector<int>> mappedKeyIndex = {
-        {4, {0, 1, 5, 6}},
-        {5, {1, 2, 3, 4, 5}},
-        {6, {0, 1, 2, 4, 5, 6}},
-        {7, {0, 1, 2, 3, 4, 5, 6}},
-    };
-
-    if (mappedKeyIndex.find(beatmap.CircleSize) != mappedKeyIndex.end()) {
-      info.LaneIndex = mappedKeyIndex.at(beatmap.CircleSize)[lane];
-    } else {
-      info.LaneIndex = lane;
-    }
+    info.LaneIndex = GetMappedLanes(beatmap.CircleSize)[lane];
     info.Volume =
         note.Volume > 0 ? static_cast<float>(note.Volume) / 100.0f : 1.0f;
     info.Pan = 0;
@@ -452,25 +458,23 @@ double Chart::GetLength() {
 }
 
 void Chart::ApplyMod(Mod mod, void *data) {
+  std::vector<int> mappedLanes = GetMappedLanes(m_keyCount);
+
+  // 1. Un-map notes to logical lanes
+  for (auto &note : m_notes) {
+    auto it = std::find(mappedLanes.begin(), mappedLanes.end(), note.LaneIndex);
+    if (it != mappedLanes.end()) {
+      note.LaneIndex = std::distance(mappedLanes.begin(), it);
+    } else {
+      note.LaneIndex = -1; // Unmapped/invalid
+    }
+  }
+
+  // 2. Apply Mod on logical lanes (0 to m_keyCount - 1)
   switch (mod) {
   case Mod::MIRROR: {
-    static const std::map<int, std::vector<int>> mappedKeyIndex = {
-        {4, {0, 1, 5, 6}},
-        {5, {1, 2, 3, 4, 5}},
-        {6, {0, 1, 2, 4, 5, 6}},
-        {7, {0, 1, 2, 3, 4, 5, 6}},
-    };
-    if (mappedKeyIndex.find(m_keyCount) != mappedKeyIndex.end()) {
-      const auto &lanes = mappedKeyIndex.at(m_keyCount);
-      for (auto &note : m_notes) {
-        auto it = std::find(lanes.begin(), lanes.end(), note.LaneIndex);
-        if (it != lanes.end()) {
-          int index = std::distance(lanes.begin(), it);
-          note.LaneIndex = lanes[lanes.size() - 1 - index];
-        }
-      }
-    } else {
-      for (auto &note : m_notes) {
+    for (auto &note : m_notes) {
+      if (note.LaneIndex >= 0 && note.LaneIndex < m_keyCount) {
         note.LaneIndex = m_keyCount - 1 - note.LaneIndex;
       }
     }
@@ -478,100 +482,136 @@ void Chart::ApplyMod(Mod mod, void *data) {
   }
 
   case Mod::RANDOM: {
-    static const std::map<int, std::vector<int>> mappedKeyIndex = {
-        {4, {0, 1, 5, 6}},
-        {5, {1, 2, 3, 4, 5}},
-        {6, {0, 1, 2, 4, 5, 6}},
-        {7, {0, 1, 2, 3, 4, 5, 6}},
-    };
-    std::vector<int> lanes;
-    if (mappedKeyIndex.find(m_keyCount) != mappedKeyIndex.end()) {
-      lanes = mappedKeyIndex.at(m_keyCount);
-    } else {
-      for (int i = 0; i < m_keyCount; i++)
-        lanes.push_back(i);
-    }
-    std::vector<int> shuffled = lanes;
-
+    std::vector<int> shuffled(m_keyCount);
+    std::iota(shuffled.begin(), shuffled.end(), 0);
     auto rng = std::default_random_engine{};
     rng.seed((uint32_t)time(NULL));
-
     std::shuffle(std::begin(shuffled), std::end(shuffled), rng);
 
     for (auto &note : m_notes) {
-      auto it = std::find(lanes.begin(), lanes.end(), note.LaneIndex);
-      if (it != lanes.end()) {
-        int index = std::distance(lanes.begin(), it);
-        note.LaneIndex = shuffled[index];
+      if (note.LaneIndex >= 0 && note.LaneIndex < m_keyCount) {
+        note.LaneIndex = shuffled[note.LaneIndex];
       }
     }
-
-    std::stringstream pattern;
-    for (int lane : lanes) {
-      pattern << lane;
-    }
-
-    Logs::Puts("[Chart] Set lane pattern to: %s", pattern.str().c_str());
-
     break;
   }
 
-  case Mod::PANIC: // TODO: o2jam panic mode causing overlapped notes
-  {
-    static const std::map<int, std::vector<int>> mappedKeyIndex = {
-        {4, {0, 1, 5, 6}},
-        {5, {1, 2, 3, 4, 5}},
-        {6, {0, 1, 2, 4, 5, 6}},
-        {7, {0, 1, 2, 3, 4, 5, 6}},
-    };
-    std::vector<int> lanes;
-    if (mappedKeyIndex.find(m_keyCount) != mappedKeyIndex.end()) {
-      lanes = mappedKeyIndex.at(m_keyCount);
-    } else {
-      for (int i = 0; i < m_keyCount; i++)
-        lanes.push_back(i);
-    }
-
+  case Mod::PANIC: { // Not sure if this correct? maybe a bit off
     auto rng = std::default_random_engine{};
     rng.seed((uint32_t)time(NULL));
 
-    std::unordered_map<int, std::vector<int>> measureLane;
+    std::sort(m_notes.begin(), m_notes.end(),
+              [](const NoteInfo &a, const NoteInfo &b) {
+                return a.StartTime < b.StartTime;
+              });
 
-    // Keep track of BPM changes
-    std::unordered_map<int, float> measureBPM;
-    for (const auto &bpm : m_bpms) {
-      int measure = static_cast<int>(bpm.StartTime / bpm.TimeSignature);
-      measureBPM[measure] = bpm.Value;
+    double maxTime = 0;
+    for (const auto &n : m_notes) {
+      maxTime = std::max(maxTime, n.StartTime);
+      if (n.Type == NoteType::HOLD)
+        maxTime = std::max(maxTime, n.EndTime);
     }
+
+    std::vector<double> measureBoundaries = m_customMeasures;
+    if (measureBoundaries.empty()) {
+      double currentTime = 0;
+      for (size_t i = 0; i < m_bpms.size(); i++) {
+        double bpm = m_bpms[i].Value;
+        double timeSig = m_bpms[i].TimeSignature;
+        if (timeSig <= 0)
+          timeSig = 4;
+        double measureDuration = (60000.0 / bpm) * timeSig;
+
+        double nextTimingTime =
+            (i + 1 < m_bpms.size()) ? m_bpms[i + 1].StartTime : maxTime + 5000;
+
+        while (currentTime < nextTimingTime) {
+          measureBoundaries.push_back(currentTime);
+          currentTime += measureDuration;
+        }
+      }
+    }
+
+    if (measureBoundaries.empty()) {
+      measureBoundaries.push_back(0);
+    }
+
+    while (measureBoundaries.back() <= maxTime + 5000) {
+      double last = measureBoundaries.back();
+      double step =
+          measureBoundaries.size() >= 2
+              ? (last - measureBoundaries[measureBoundaries.size() - 2])
+              : 2000.0;
+      if (step <= 0)
+        step = 2000.0;
+      measureBoundaries.push_back(last + step);
+    }
+
+    auto getMeasureIndex = [&](double time) -> int {
+      auto it = std::upper_bound(measureBoundaries.begin(),
+                                 measureBoundaries.end(), time);
+      if (it == measureBoundaries.begin())
+        return 0;
+      return std::distance(measureBoundaries.begin(), it) - 1;
+    };
+
+    std::unordered_map<int, std::vector<int>> measureMappings;
+    std::vector<double> holdEndTime(m_keyCount, -1.0);
+    std::vector<int> prevMapping(m_keyCount);
+    for (int i = 0; i < m_keyCount; i++)
+      prevMapping[i] = i;
+
+    int currentMeasure = -1;
 
     for (auto &note : m_notes) {
-      int measure = static_cast<int>(note.StartTime / m_bpms[0].TimeSignature);
+      if (note.LaneIndex < 0 || note.LaneIndex >= m_keyCount)
+        continue;
 
-      for (auto it = m_bpms.rbegin(); it != m_bpms.rend(); ++it) {
-        if (note.StartTime >= it->StartTime) {
-          measure = static_cast<int>((note.StartTime - it->StartTime) /
-                                     it->TimeSignature) +
-                    static_cast<int>(it->StartTime / m_bpms[0].TimeSignature);
-          break;
+      int measure = getMeasureIndex(note.StartTime);
+
+      while (currentMeasure < measure) {
+        currentMeasure++;
+        std::vector<int> newMapping(m_keyCount, -1);
+        std::vector<int> availableTargets;
+        std::vector<int> originalLanesToMap;
+
+        for (int i = 0; i < m_keyCount; i++) {
+          if (holdEndTime[i] > measureBoundaries[currentMeasure]) {
+            newMapping[i] = prevMapping[i];
+          } else {
+            originalLanesToMap.push_back(i);
+          }
         }
-      }
 
-      if (measureLane.find(measure) == measureLane.end()) {
-        std::vector<int> currentShuffle = lanes;
-        std::shuffle(std::begin(currentShuffle), std::end(currentShuffle), rng);
-        measureLane[measure] = currentShuffle;
-      }
-
-      note.LaneIndex = measureLane[measure][note.LaneIndex];
-
-      int nextMeasure = measure + 1;
-      if (note.EndTime > nextMeasure * measureBPM[nextMeasure]) {
-        if (measureLane.find(nextMeasure) == measureLane.end()) {
-          measureLane[nextMeasure] = measureLane[measure];
+        for (int i = 0; i < m_keyCount; i++) {
+          bool used = false;
+          for (int j = 0; j < m_keyCount; j++) {
+            if (newMapping[j] == i) {
+              used = true;
+              break;
+            }
+          }
+          if (!used)
+            availableTargets.push_back(i);
         }
+
+        std::shuffle(availableTargets.begin(), availableTargets.end(), rng);
+
+        for (size_t i = 0; i < originalLanesToMap.size(); i++) {
+          newMapping[originalLanesToMap[i]] = availableTargets[i];
+        }
+
+        measureMappings[currentMeasure] = newMapping;
+        prevMapping = newMapping;
       }
+
+      if (note.Type == NoteType::HOLD) {
+        holdEndTime[note.LaneIndex] =
+            std::max(holdEndTime[note.LaneIndex], note.EndTime);
+      }
+
+      note.LaneIndex = measureMappings[measure][note.LaneIndex];
     }
-
     break;
   }
 
@@ -579,11 +619,19 @@ void Chart::ApplyMod(Mod mod, void *data) {
     int *lanes = reinterpret_cast<int *>(data);
 
     for (auto &note : m_notes) {
-      note.LaneIndex = lanes[note.LaneIndex];
+      if (note.LaneIndex >= 0 && note.LaneIndex < m_keyCount) {
+        note.LaneIndex = lanes[note.LaneIndex];
+      }
     }
-
     break;
   }
+  }
+
+  // 3. Re-map notes to physical lanes
+  for (auto &note : m_notes) {
+    if (note.LaneIndex >= 0 && note.LaneIndex < m_keyCount) {
+      note.LaneIndex = mappedLanes[note.LaneIndex];
+    }
   }
 }
 
