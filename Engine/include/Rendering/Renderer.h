@@ -11,7 +11,6 @@ enum class RendererMode {
     OPENGL,    // 0
     VULKAN,    // 1
     DIRECTX,   // 2
-    DIRECTX11, // 3
     DIRECTX12, // 4
     METAL,     // 5
 };

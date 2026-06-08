@@ -6,6 +6,7 @@
 #include "MsgBox.h"
 #include "Rendering/Vulkan/VulkanEngine.h"
 #include <Logs.h>
+#include "Configuration.h"
 
 #if defined(_WIN32)
 #include <SDL2/SDL_system.h>
@@ -49,11 +50,6 @@ bool Renderer::Create(RendererMode mode, GameWindow *window, bool failed) {
       break;
     }
 
-    case RendererMode::DIRECTX11: {
-      rendererName = "direct3d11";
-      break;
-    }
-
     case RendererMode::DIRECTX12: {
       rendererName = "direct3d12";
       break;
@@ -93,25 +89,20 @@ bool Renderer::Create(RendererMode mode, GameWindow *window, bool failed) {
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "best");
       }
 
+      std::string frameLimitStr = Configuration::Load("Game", "FrameLimit");
+      Uint32 renderFlags = SDL_RENDERER_ACCELERATED;
+      if (frameLimitStr == "VSync") {
+          renderFlags |= SDL_RENDERER_PRESENTVSYNC;
+      }
+
       m_renderer = SDL_CreateRenderer(
           window->GetWindow(), -1,
-          SDL_RENDERER_ACCELERATED /*| SDL_RENDERER_PRESENTVSYNC*/);
+          renderFlags);
       if (!m_renderer) {
         throw SDLException();
       }
 
 #if defined(_WIN32)
-      if (rendererName == "direct3d11") {
-        ID3D11Device *d3dDevice = SDL_RenderGetD3D11Device(m_renderer);
-        if (d3dDevice) {
-          IDXGIDevice1 *dxgiDevice = nullptr;
-          if (SUCCEEDED(d3dDevice->QueryInterface(__uuidof(IDXGIDevice1),
-                                                  (void **)&dxgiDevice))) {
-            dxgiDevice->SetMaximumFrameLatency(1);
-            dxgiDevice->Release();
-          }
-        }
-      }
 #endif
 
       if (failed) {
@@ -157,6 +148,12 @@ bool Renderer::Create(RendererMode mode, GameWindow *window, bool failed) {
     } else {
       try {
         m_vulkan = VulkanEngine::GetInstance();
+        
+        std::string frameLimitStr = Configuration::Load("Game", "FrameLimit");
+        if (frameLimitStr == "VSync") {
+            m_vulkan->set_vsync(true);
+        }
+
         m_vulkan->init(window->GetWindow(), window->GetWidth(),
                        window->GetHeight());
       } catch (const std::exception &) {
@@ -293,12 +290,11 @@ void Renderer::Release() {
 
 RendererMode Renderer::GetBestRendererMode() {
 #if _WIN32
-  return RendererMode::DIRECTX11; // I hope, all windows user support this
+  return RendererMode::DIRECTX;
 #elif __APPLE__
   return RendererMode::METAL; // Not sure if this work
 #else
-  return RendererMode::OPENGL; // Also I'm not sure if linux users support
-                               // vulkan
+  return RendererMode::OPENGL; // Also I'm not sure if linux users support vulkan
 #endif
 }
 
