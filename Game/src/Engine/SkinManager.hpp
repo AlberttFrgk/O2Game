@@ -14,6 +14,8 @@ public:
     void LoadSkin(std::string skinName);
     void ReloadSkin();
 
+    const std::vector<std::string>& GetArenas();
+
     LaneInfo GetLaneInfo();
 
     std::string           GetSkinProp(std::string group, std::string key, std::string defaultValue = "");
@@ -54,6 +56,7 @@ private:
     std::string                 m_currentSkin;
     mINI::INIStructure          ini;
     std::unique_ptr<SkinConfig> m_arenaConfig;
+    std::vector<std::string>    m_arenas;
 
     int  m_keyCount, m_previousKeyCount;
     int  m_arena;

@@ -46,6 +46,35 @@ void SkinManager::LoadSkin(std::string skinName)
     if (m_useLua) {
         m_luaScripting = std::make_unique<LuaScripting>(selectedSkin / "Scripts");
     }
+
+    m_arenas.clear();
+    m_arenas.push_back("Random");
+
+    auto arenaPath = GetPath() / "Playing" / "Arena";
+    int max_arena = 0;
+    if (std::filesystem::exists(arenaPath)) {
+        for (const auto& entry : std::filesystem::directory_iterator(arenaPath)) {
+            if (entry.is_directory()) {
+                try {
+                    int num = std::stoi(entry.path().filename().string());
+                    if (num > max_arena) max_arena = num;
+                } catch (...) {}
+            }
+        }
+    }
+
+    for (int i = 1; i <= max_arena; i++) {
+        m_arenas.push_back("Arena " + std::to_string(i));
+    }
+
+    if (m_arenas.size() == 1) {
+        m_arenas.push_back("Arena 1");
+    }
+}
+
+const std::vector<std::string>& SkinManager::GetArenas()
+{
+    return m_arenas;
 }
 
 void SkinManager::ReloadSkin()

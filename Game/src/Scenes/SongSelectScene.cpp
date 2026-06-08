@@ -54,10 +54,7 @@ static std::wstring OpenFilePrompt() {
 static std::array<std::string, 7> Mods = {"Mirror",   "Random", "Rearrange",
                                           "Autoplay", "Hidden", "Flashlight",
                                           "Sudden"};
-static std::array<std::string, 13> Arena = {
-    "Random",   "Arena 1",  "Arena 2", "Arena 3", "Arena 4",
-    "Arena 5",  "Arena 6",  "Arena 7", "Arena 8", "Arena 9",
-    "Arena 10", "Arena 11", "Arena 12"};
+
 
 SongSelectScene::SongSelectScene() {
   index = -1;
@@ -700,11 +697,13 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
       ImGui::Text("Arena");
 
       // select
+      m_arenas = SkinManager::GetInstance()->GetArenas();
       int value = EnvironmentSetup::GetInt("Arena");
-      if (ImGui::BeginCombo("###ComboBox1Arena", Arena[value].c_str(), 0)) {
-        for (int i = 0; i < Arena.size(); i++) {
+      if (value >= m_arenas.size()) value = 0;
+      if (ImGui::BeginCombo("###ComboBox1Arena", m_arenas[value].c_str(), 0)) {
+        for (int i = 0; i < m_arenas.size(); i++) {
           bool is_selected = i == value;
-          if (ImGui::Selectable(Arena[i].c_str(), is_selected)) {
+          if (ImGui::Selectable(m_arenas[i].c_str(), is_selected)) {
             EnvironmentSetup::SetInt("Arena", i);
           }
         }
@@ -990,9 +989,13 @@ bool SongSelectScene::Attach() {
     EnvironmentSetup::SetInt(mod, 1);
   }
 
+  m_arenas = SkinManager::GetInstance()->GetArenas();
+
   std::string arenaValue = Configuration::Load("Gameplay", "Arena");
   try {
-      EnvironmentSetup::SetInt("Arena", std::stoi(arenaValue));
+      int arenaInt = std::stoi(arenaValue);
+      if (arenaInt >= m_arenas.size()) arenaInt = 0;
+      EnvironmentSetup::SetInt("Arena", arenaInt);
   } catch (const std::invalid_argument &) {
       EnvironmentSetup::SetInt("Arena", 0);
   }

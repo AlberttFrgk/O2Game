@@ -526,7 +526,10 @@ bool GameplayScene::Attach() {
       std::random_device dev;
       std::mt19937 rng(dev());
 
-      std::uniform_int_distribution<> dist(1, 12);
+      int max_arena = SkinManager::GetInstance()->GetArenas().size() - 1;
+      if (max_arena < 1) max_arena = 1;
+
+      std::uniform_int_distribution<> dist(1, max_arena);
 
       arena = dist(rng);
     }

@@ -81,6 +81,7 @@ private:
 
     std::vector<std::string>  m_resolutions;
     std::vector<std::string>  m_fps;
+    std::vector<std::string>  m_arenas;
     std::vector<UDim2>        m_songListRect;
     std::vector<Button>       m_buttons;
     std::vector<DB_MusicItem> m_musicList;
