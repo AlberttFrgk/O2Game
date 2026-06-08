@@ -557,8 +557,27 @@ int RhythmEngine::GetBPMAnimationIndex(int maxFrames) const {
   double currentPos = GetTrackPosition();
   double cycleLength = 6000000.0 / m_baseBPM;
 
+  bool ignoreSV = false; // I don't know if this accurate or not
+  if (m_currentChart) {
+    int svIdx = m_currentSVIndex - 1;
+    int bpmIdx = m_currentBPMIndex - 1;
+
+    if (svIdx >= 0 && bpmIdx >= 0) {
+      if (m_currentChart->m_svs[svIdx].StartTime ==
+          m_currentChart->m_bpms[bpmIdx].StartTime) {
+        ignoreSV = true;
+      }
+    }
+  }
+
+  if (ignoreSV && m_timings) {
+    currentPos = m_timings->GetBeatAt(m_currentVisualPosition) * cycleLength;
+  }
+
   if (m_timings) {
-    double endPos = m_timings->GetOffsetAt(m_audioLength);
+    double endPos = ignoreSV
+                        ? (m_timings->GetBeatAt(m_audioLength) * cycleLength)
+                        : m_timings->GetOffsetAt(m_audioLength);
     double endCyclePos = ceil(endPos / cycleLength) * cycleLength;
 
     if (currentPos >= endCyclePos) {

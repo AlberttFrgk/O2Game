@@ -225,8 +225,10 @@ void GameplayScene::Render(double delta) {
   if (fillstart) {
     lifeFillDuration += delta;
 
-    // Steady linear fill over 1.0 second
-    float progress = static_cast<float>(lifeFillDuration / 1.0);
+    float progress = 0.0f;
+    if (lifeFillDuration > 0.500) {
+      progress = static_cast<float>((lifeFillDuration - 0.500) / 1.0);
+    }
     if (progress > 1.0f)
       progress = 1.0f;
 
@@ -245,7 +247,7 @@ void GameplayScene::Render(double delta) {
 
     m_lifeBar->Draw(delta, &rc);
 
-    if (lifeFillDuration > 1) {
+    if (lifeFillDuration > 1.50) {
       EnvironmentSetup::SetInt("FillStart", 0);
     }
   } else {
@@ -257,19 +259,27 @@ void GameplayScene::Render(double delta) {
     auto curLifeTex = m_lifeBar->GetTexture();
     curLifeTex->CalculateSize();
 
-    float offset = 10.0f;
+    float offset =
+        10.0f +
+        (static_cast<float>(rand()) / static_cast<float>(RAND_MAX)) * 5.0f;
 
     Rect rc = {};
     rc.left = static_cast<int>(curLifeTex->AbsolutePosition.X);
     rc.top = static_cast<int>(curLifeTex->AbsolutePosition.Y);
     rc.right = static_cast<int>(rc.left + curLifeTex->AbsoluteSize.X);
-    rc.bottom = static_cast<int>(rc.top + curLifeTex->AbsoluteSize.Y + offset);
+    rc.bottom = static_cast<int>(rc.top + curLifeTex->AbsoluteSize.Y);
 
     double wiggle =
         sinf(static_cast<float>(m_game->GetGameFrame()) * 60.0f) * offset;
 
-    int topCur = (int)::round((1.0f - alpha) * rc.top + alpha * rc.bottom);
+    int maxTop = static_cast<int>(curLifeTex->AbsolutePosition.Y);
+    int topCur = (int)::round((1.0f - alpha) * maxTop + alpha * rc.bottom);
+
     rc.top = topCur + static_cast<int>(::round(wiggle));
+
+    if (rc.top < maxTop) {
+      rc.top = maxTop;
+    }
     if (rc.top >= rc.bottom) {
       rc.top = rc.bottom - 1;
     }
@@ -527,7 +537,8 @@ bool GameplayScene::Attach() {
       std::mt19937 rng(dev());
 
       int max_arena = SkinManager::GetInstance()->GetArenas().size() - 1;
-      if (max_arena < 1) max_arena = 1;
+      if (max_arena < 1)
+        max_arena = 1;
 
       std::uniform_int_distribution<> dist(1, max_arena);
 
