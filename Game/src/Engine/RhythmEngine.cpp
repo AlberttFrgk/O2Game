@@ -385,8 +385,6 @@ void RhythmEngine::Update(double delta) {
   UpdateVirtualResolution();
   UpdateGamePosition();
 
-
-
   UpdateNotes();
 
   m_timingLineManager->Update(delta);
@@ -558,6 +556,15 @@ int RhythmEngine::GetBPMAnimationIndex(int maxFrames) const {
 
   double currentPos = GetTrackPosition();
   double cycleLength = 6000000.0 / m_baseBPM;
+
+  if (m_timings) {
+    double endPos = m_timings->GetOffsetAt(m_audioLength);
+    double endCyclePos = ceil(endPos / cycleLength) * cycleLength + cycleLength;
+
+    if (currentPos >= endCyclePos) {
+      return maxFrames - 1;
+    }
+  }
 
   double progress = fmod(currentPos, cycleLength) / cycleLength;
   if (progress < 0)
