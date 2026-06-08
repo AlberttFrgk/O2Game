@@ -559,7 +559,7 @@ int RhythmEngine::GetBPMAnimationIndex(int maxFrames) const {
 
   if (m_timings) {
     double endPos = m_timings->GetOffsetAt(m_audioLength);
-    double endCyclePos = ceil(endPos / cycleLength) * cycleLength + cycleLength;
+    double endCyclePos = ceil(endPos / cycleLength) * cycleLength;
 
     if (currentPos >= endCyclePos) {
       return maxFrames - 1;
