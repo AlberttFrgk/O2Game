@@ -227,8 +227,9 @@ void GameplayScene::Render(double delta) {
 
     // Steady linear fill over 1.0 second
     float progress = static_cast<float>(lifeFillDuration / 1.0);
-    if (progress > 1.0f) progress = 1.0f;
-    
+    if (progress > 1.0f)
+      progress = 1.0f;
+
     float fillRatio = progress;
     float alpha = 1.0f - fillRatio;
 
@@ -244,7 +245,7 @@ void GameplayScene::Render(double delta) {
 
     m_lifeBar->Draw(delta, &rc);
 
-    if (lifeFillDuration > 1.5) {
+    if (lifeFillDuration > 1) {
       EnvironmentSetup::SetInt("FillStart", 0);
     }
   } else {

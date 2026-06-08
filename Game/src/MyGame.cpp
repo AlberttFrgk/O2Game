@@ -116,9 +116,7 @@ bool MyGame::LoadConfiguration()
                         SetRenderMode(RendererMode::DIRECTX);
                         break;
 
-
-
-                    case 4:
+                    case 3:
                         SetRenderMode(RendererMode::DIRECTX12);
                         break;
 

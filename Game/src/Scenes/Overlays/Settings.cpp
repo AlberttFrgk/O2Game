@@ -33,7 +33,7 @@ SettingsOverlay::SettingsOverlay() {
 static std::map<int, std::string> Graphics = {
     {0, "OpenGL"},    {1, "Vulkan"},
 #if _WIN32
-    {2, "DirectX-9"}, {3, "DirectX-11"}, {4, "DirectX-12"},
+    {2, "DirectX-9"}, {3, "DirectX-12"},
 #endif
 #if __APPLE__
     {4, "Metal"},
