@@ -414,21 +414,28 @@ void SongSelectScene::Render(double delta) {
     if (EnvironmentSetup::GetInt("FileOpen") == 0) {
       m_bgm->Load();
     } else {
-      Audio *bgm = AudioManager::GetInstance()->Get("BGM");
-      if (bgm)
-        bgm->FadeOut();
+      std::string ext = EnvironmentSetup::GetPath("FILE").extension().string();
+      std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
-      std::string currentFile = EnvironmentSetup::GetPath("FILE").string();
-      SceneManager::ExecuteAfter(1500, [currentFile]() {
-        if (EnvironmentSetup::GetInt("FileOpen") == 1 &&
-            EnvironmentSetup::GetPath("FILE").string() == currentFile) {
-          Audio *extBgm = AudioManager::GetInstance()->Get("ExternalBGM");
-          if (extBgm) {
-            extBgm->SetVolume(100);
-            extBgm->Play();
-          }
-        }
-      });
+      if (ext == ".ojn" || ext == ".bms" || ext == ".bme" || ext == ".bml") {
+          m_bgm->Load();
+      } else {
+          Audio *bgm = AudioManager::GetInstance()->Get("BGM");
+          if (bgm)
+            bgm->FadeOut();
+
+          std::string currentFile = EnvironmentSetup::GetPath("FILE").string();
+          SceneManager::ExecuteAfter(1500, [currentFile]() {
+            if (EnvironmentSetup::GetInt("FileOpen") == 1 &&
+                EnvironmentSetup::GetPath("FILE").string() == currentFile) {
+              Audio *extBgm = AudioManager::GetInstance()->Get("ExternalBGM");
+              if (extBgm) {
+                extBgm->SetVolume(100);
+                extBgm->Play();
+              }
+            }
+          });
+      }
     }
   }
 
@@ -1155,6 +1162,21 @@ void SongSelectScene::LoadChartImage() {
       if (bms.IsValid() && !bms.StageFile.empty()) {
         bgFile = (file.parent_path() / bms.StageFile).string();
       }
+    } else if (ext == ".ojn") {
+      O2::OJN ojn;
+      ojn.Load(file, false);
+      if (ojn.IsValid() && ojn.BackgroundImage.size() > 0) {
+        GameWindow *wnd = GameWindow::GetInstance();
+        try {
+          m_songBackground = std::make_unique<Texture2D>(
+              reinterpret_cast<uint8_t*>(ojn.BackgroundImage.data()), 
+              ojn.BackgroundImage.size()
+          );
+          m_songBackground->Size =
+              UDim2::fromOffset(wnd->GetBufferWidth(), wnd->GetBufferHeight());
+        } catch (...) {
+        }
+      }
     }
 
     if (!bgFile.empty()) {
@@ -1270,6 +1292,24 @@ void SongSelectScene::ParseExternalChart(std::filesystem::path file) {
       m_externalItem.MaxNotes[2] = totalNotes;
 
       m_externalItem.BPM = bms.BPM;
+    }
+  } else if (ext == ".ojn") {
+    O2::OJN ojn;
+    ojn.Load(file, false);
+    if (ojn.IsValid()) {
+      std::u8string title = CodepageToUtf8(ojn.Header.title, sizeof(ojn.Header.title), "euc-kr");
+      std::u8string artist = CodepageToUtf8(ojn.Header.artist, sizeof(ojn.Header.artist), "euc-kr");
+      std::u8string noter = CodepageToUtf8(ojn.Header.noter, sizeof(ojn.Header.noter), "euc-kr");
+
+      snprintf((char *)m_externalItem.Title, sizeof(m_externalItem.Title), "%s", (const char*)title.c_str());
+      snprintf((char *)m_externalItem.Artist, sizeof(m_externalItem.Artist), "%s", (const char*)artist.c_str());
+      snprintf((char *)m_externalItem.Noter, sizeof(m_externalItem.Noter), "%s", (const char*)noter.c_str());
+
+      m_externalItem.MaxNotes[0] = ojn.Header.note_count[0];
+      m_externalItem.MaxNotes[1] = ojn.Header.note_count[1];
+      m_externalItem.MaxNotes[2] = ojn.Header.note_count[2];
+
+      m_externalItem.BPM = ojn.Header.bpm;
     }
   }
 }

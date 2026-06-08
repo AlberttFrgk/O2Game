@@ -42,27 +42,49 @@ void BGMPreview::Load()
         std::lock_guard<std::mutex> lock(*m_mutex);
         Ready = false;
 
-        int          index = EnvironmentSetup::GetInt("Key");
-        DB_MusicItem item = GameDatabase::GetInstance()->Find(index);
+        std::filesystem::path file;
+        if (EnvironmentSetup::GetInt("FileOpen") == 1) {
+            file = EnvironmentSetup::GetPath("FILE");
+        } else {
+            int          index = EnvironmentSetup::GetInt("Key");
+            DB_MusicItem item = GameDatabase::GetInstance()->Find(index);
 
-        std::filesystem::path file = GameDatabase::GetInstance()->GetPath();
-        file /= "o2ma" + std::to_string(index) + ".ojn";
+            file = GameDatabase::GetInstance()->GetPath();
+            file /= "o2ma" + std::to_string(index) + ".ojn";
+        }
 
         if (file.string() != m_currentFilePath || GameAudioSampleCache::SetRate() != 1.0 || GameAudioSampleCache::IsEmpty()) {
             try {
-                O2::OJN o2jamFile;
-                o2jamFile.Load(file);
-
-                if (!o2jamFile.IsValid()) {
-                    return;
-                }
+                std::string ext = file.extension().string();
+                std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
                 if (m_currentChart != nullptr && file.string() != m_currentFilePath) {
                     delete m_currentChart;
+                    m_currentChart = nullptr;
+                }
+
+                if (ext == ".ojn") {
+                    O2::OJN o2jamFile;
+                    o2jamFile.Load(file);
+                    if (!o2jamFile.IsValid()) {
+                        if (m_callback && m_currentState == state) m_callback(false);
+                        return;
+                    }
+                    m_currentChart = new Chart(o2jamFile, 2);
+                } else if (ext == ".bms" || ext == ".bme" || ext == ".bml") {
+                    BMS::BMSFile bmsFile;
+                    bmsFile.Load(file);
+                    if (!bmsFile.IsValid()) {
+                        if (m_callback && m_currentState == state) m_callback(false);
+                        return;
+                    }
+                    m_currentChart = new Chart(bmsFile);
+                } else {
+                    if (m_callback && m_currentState == state) m_callback(false);
+                    return;
                 }
 
                 m_currentFilePath = file.string();
-                m_currentChart = new Chart(o2jamFile, 2);
             } catch (std::exception &e) {
                 Logs::Puts("[BGMPreview] Failed to load the audio chart: %s", e.what());
                 return;
