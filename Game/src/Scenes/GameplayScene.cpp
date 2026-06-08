@@ -159,7 +159,7 @@ void GameplayScene::Render(double delta) {
     if (maxFrames > 0) {
       double bpm = m_game->GetCurrentBPM();
       if (bpm > 0.0) {
-        m_targetBar->SetIndex(m_game->GetBPMAnimationIndex(bpm, maxFrames));
+        m_targetBar->SetIndex(m_game->GetBPMAnimationIndex(maxFrames));
       }
     }
     m_targetBar->Draw(delta);
@@ -215,7 +215,7 @@ void GameplayScene::Render(double delta) {
     if (maxFrames > 0) {
       double bpm = m_game->GetCurrentBPM();
       if (bpm > 0.0) {
-        m_lifeBar->SetIndex(m_game->GetBPMAnimationIndex(bpm, maxFrames));
+        m_lifeBar->SetIndex(m_game->GetBPMAnimationIndex(maxFrames));
       }
     }
   }

@@ -552,25 +552,16 @@ float RhythmEngine::GetCurrentSVMultiplier() const {
   return m_currentSVMultiplier;
 }
 
-int RhythmEngine::GetBPMAnimationIndex(double bpm, int maxFrames) const {
-  if (maxFrames <= 0 || bpm <= 0.0)
+int RhythmEngine::GetBPMAnimationIndex(int maxFrames) const {
+  if (maxFrames <= 0)
     return 0;
 
-  double sv = GetCurrentSVMultiplier();
-  if (sv > 0.0) {
-    bpm *= sv;
-  }
+  if (!m_currentChart || m_currentChart->m_bpms.empty()) return 0;
 
-  while (bpm > 240.0) {
-    bpm /= 2.0;
-  }
-  while (bpm < 120.0 && bpm > 0.0) {
-    bpm *= 2.0;
-  }
+  auto& current_bpm_point = m_currentChart->m_bpms[m_currentBPMIndex];
+  double currentBeat = current_bpm_point.CalculateBeat(GetGameAudioPosition());
 
-  double beatDurationMs = 60000.0 / bpm;
-  double currentTimeMs = GetGameAudioPosition();
-  double progress = fmod(currentTimeMs, beatDurationMs) / beatDurationMs;
+  double progress = fmod(currentBeat, 1.0);
   if (progress < 0)
     progress += 1.0;
 

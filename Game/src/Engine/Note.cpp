@@ -535,9 +535,8 @@ int Note::GetDynamicBPMFrameIndex(FrameTimer *frameTimer) {
   int maxFrames = static_cast<int>(frameTimer->m_frames.size());
   if (maxFrames <= 0)
     return 0;
-  double bpm = GetBPMTime();
 
-  return m_engine->GetBPMAnimationIndex(bpm, maxFrames);
+  return m_engine->GetBPMAnimationIndex(maxFrames);
 }
 
 bool Note::IsHoldEffectDrawable() const { return m_shouldDrawHoldEffect; }

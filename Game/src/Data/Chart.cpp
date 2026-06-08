@@ -119,7 +119,7 @@ Chart::Chart(Osu::Beatmap &beatmap) // Refactor
   }
 
   AutoSample autoSample = {};
-  if (beatmap.AudioLeadIn = 0) {
+  if (beatmap.AudioLeadIn == 0) {
     autoSample.StartTime =
         beatmap.AudioLeadIn - 1; // Handle if offset 0 that causing audio delay
   } else {
@@ -439,9 +439,16 @@ double Chart::GetLength() {
     return PredefinedAudioLength;
   }
 
-  return m_notes[m_notes.size() - 1].EndTime != 0
-             ? m_notes[m_notes.size() - 1].EndTime
-             : m_notes[m_notes.size() - 1].StartTime;
+  double max_length = 0;
+  for (const auto &note : m_notes) {
+    double note_end =
+        (note.Type == NoteType::HOLD) ? note.EndTime : note.StartTime;
+    if (note_end > max_length) {
+      max_length = note_end;
+    }
+  }
+
+  return max_length;
 }
 
 void Chart::ApplyMod(Mod mod, void *data) {
@@ -499,17 +506,17 @@ void Chart::ApplyMod(Mod mod, void *data) {
       }
     }
 
-    /*std::stringstream pattern;
+    std::stringstream pattern;
     for (int lane : lanes) {
-        pattern << lane;
+      pattern << lane;
     }
 
-    Logs::Puts("[Chart] Set lane pattern to: %s", pattern.str().c_str());*/
+    Logs::Puts("[Chart] Set lane pattern to: %s", pattern.str().c_str());
 
     break;
   }
 
-  case Mod::PANIC: // pler
+  case Mod::PANIC: // TODO: o2jam panic mode causing overlapped notes
   {
     static const std::map<int, std::vector<int>> mappedKeyIndex = {
         {4, {0, 1, 5, 6}},
