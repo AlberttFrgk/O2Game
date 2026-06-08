@@ -5,13 +5,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(Windows) Attach",
-            "type": "cppdbg",
-            "request": "attach",
-            "MIMode": "gdb",
-            "miDebuggerPath": "gdb.exe"
-        },
-        {
             "program": "${workspaceFolder}/build/Game/Game",
             "name": "Game - Linux Debug",
             "type": "cppdbg",
@@ -21,38 +14,12 @@
         },
         {
             "program": "${workspaceFolder}/build/Game/Debug/Game.exe",
-            "name": "Game - Windows Debug",
-            "type": "cppdbg",
+            "name": "Game - Windows Debug (LLDB)",
+            "type": "lldb",
             "request": "launch",
             "args": [],
             "cwd": "${workspaceFolder}/build/Game/Debug",
-            "MIMode": "gdb",
-            "miDebuggerPath": "gdb.exe",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ]
-        },
-        {
-            "name": "Game - Compile and Debug",
-            "type": "cppdbg",
-            "request": "launch",
-            "preLaunchTask": "cmake-msvc-build",
-            "program": "${workspaceFolder}/build/Game/Debug/Game.exe",
-            "cwd": "${workspaceFolder}/build/Game/Debug",
-            "args": [],
-            "MIMode": "gdb",
-            "miDebuggerPath": "gdb.exe",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ]
+            "console": "integratedTerminal"
         }
     ]
 }
