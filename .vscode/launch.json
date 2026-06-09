@@ -10,7 +10,17 @@
             "type": "cppdbg",
             "request": "launch",
             "args": [],
-            "cwd": "${workspaceFolder}/build/Game"
+            "cwd": "${workspaceFolder}/build/Game",
+            "preLaunchTask": "cmake-gcc-build"
+        },
+        {
+            "program": "${workspaceFolder}/build/Game/Game",
+            "name": "Game - Linux Release",
+            "type": "cppdbg",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder}/build/Game",
+            "preLaunchTask": "cmake-gcc-build"
         },
         {
             "program": "${workspaceFolder}/build/Game/Debug/Game.exe",
@@ -19,7 +29,18 @@
             "request": "launch",
             "args": [],
             "cwd": "${workspaceFolder}/build/Game/Debug",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "preLaunchTask": "cmake-msvc-build"
+        },
+        {
+            "program": "${workspaceFolder}/build/Game/Release/Game.exe",
+            "name": "Game - Windows Release (LLDB)",
+            "type": "lldb",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder}/build/Game/Release",
+            "console": "integratedTerminal",
+            "preLaunchTask": "cmake-msvc-build"
         }
     ]
 }
