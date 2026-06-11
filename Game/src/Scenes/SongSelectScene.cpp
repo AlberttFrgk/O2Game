@@ -1272,7 +1272,63 @@ void SongSelectScene::ParseExternalChart(std::filesystem::path file) {
       m_externalItem.MaxNotes[2] = totalNotes;
 
       if (!beatmap.TimingPoints.empty()) {
-        m_externalItem.BPM = 60000.0f / beatmap.TimingPoints[0].BeatLength;
+        std::vector<Osu::OsuTimingPoint> bpms;
+        for (auto &timing : beatmap.TimingPoints) {
+          if (timing.Inherited == 0 || timing.BeatLength < 0) {
+            continue;
+          }
+          bpms.push_back(timing);
+        }
+
+        if (bpms.empty()) {
+          m_externalItem.BPM = 0;
+        } else if (bpms.size() == 1) {
+          m_externalItem.BPM = 60000.0f / bpms[0].BeatLength;
+        } else {
+          double lastTime = 0;
+          if (!beatmap.HitObjects.empty()) {
+            auto &lastObj = beatmap.HitObjects.back();
+            lastTime = (lastObj.Type == 128) ? lastObj.EndTime : lastObj.StartTime;
+          }
+
+          std::unordered_map<float, int> durations;
+          double currentLastTime = lastTime;
+
+          for (int i = (int)bpms.size() - 1; i >= 0; i--) {
+            auto &tp = bpms[i];
+
+            if (tp.Offset > currentLastTime) {
+              continue;
+            }
+
+            int duration = (int)(currentLastTime - (i == 0 ? 0 : tp.Offset));
+            currentLastTime = tp.Offset;
+
+            float bpmValue = 60000.0f / tp.BeatLength;
+            
+            if (durations.find(bpmValue) != durations.end()) {
+              durations[bpmValue] += duration;
+            } else {
+              durations[bpmValue] = duration;
+            }
+          }
+
+          if (durations.empty()) {
+            m_externalItem.BPM = 60000.0f / bpms[0].BeatLength;
+          } else {
+            int currentDuration = 0;
+            float currentBPM = 0.0f;
+
+            for (auto &[bpm, duration] : durations) {
+              if (duration > currentDuration) {
+                currentDuration = duration;
+                currentBPM = bpm;
+              }
+            }
+
+            m_externalItem.BPM = currentBPM;
+          }
+        }
       } else {
         m_externalItem.BPM = 0;
       }
