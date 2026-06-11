@@ -498,7 +498,7 @@ void Chart::ApplyMod(Mod mod, void *data) {
     break;
   }
 
-  case Mod::PANIC: { // Not sure if this correct? maybe a bit off
+  case Mod::PANIC: {
     auto rng = std::default_random_engine{};
     rng.seed((uint32_t)time(NULL));
 
@@ -573,38 +573,27 @@ void Chart::ApplyMod(Mod mod, void *data) {
 
       while (currentMeasure < measure) {
         currentMeasure++;
-        std::vector<int> newMapping(m_keyCount, -1);
-        std::vector<int> availableTargets;
-        std::vector<int> originalLanesToMap;
 
+        // O2Jam behavior: if ANY hold note extends into this measure, skip the
+        // entire shuffle and reuse the previous mapping
+        bool hasActiveHold = false;
         for (int i = 0; i < m_keyCount; i++) {
           if (holdEndTime[i] > measureBoundaries[currentMeasure]) {
-            newMapping[i] = prevMapping[i];
-          } else {
-            originalLanesToMap.push_back(i);
+            hasActiveHold = true;
+            break;
           }
         }
 
-        for (int i = 0; i < m_keyCount; i++) {
-          bool used = false;
-          for (int j = 0; j < m_keyCount; j++) {
-            if (newMapping[j] == i) {
-              used = true;
-              break;
-            }
-          }
-          if (!used)
-            availableTargets.push_back(i);
+        if (hasActiveHold) {
+          measureMappings[currentMeasure] = prevMapping;
+        } else {
+          std::vector<int> newMapping(m_keyCount);
+          std::iota(newMapping.begin(), newMapping.end(), 0);
+          std::shuffle(newMapping.begin(), newMapping.end(), rng);
+
+          measureMappings[currentMeasure] = newMapping;
+          prevMapping = newMapping;
         }
-
-        std::shuffle(availableTargets.begin(), availableTargets.end(), rng);
-
-        for (size_t i = 0; i < originalLanesToMap.size(); i++) {
-          newMapping[originalLanesToMap[i]] = availableTargets[i];
-        }
-
-        measureMappings[currentMeasure] = newMapping;
-        prevMapping = newMapping;
       }
 
       if (note.Type == NoteType::HOLD) {

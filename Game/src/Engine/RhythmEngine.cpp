@@ -575,27 +575,33 @@ int RhythmEngine::GetBPMAnimationIndex(int maxFrames) const {
   if (maxFrames <= 0 || m_baseBPM <= 0.0)
     return 0;
 
-  double currentPos = GetTrackPosition();
   double cycleLength = 6000000.0 / m_baseBPM;
 
-  bool ignoreSV = false;
-  if (m_currentChart && m_currentChart->m_bpms.size() > 1) {
-    ignoreSV = true;
-  }
+  bool hasBPMChanges = m_currentChart && m_currentChart->m_bpms.size() > 1;
 
-  if (ignoreSV && m_timings) {
-    currentPos = m_timings->GetBeatAt(m_currentVisualPosition) * cycleLength;
-  }
-
+  double currentPos = 0;
   if (m_timings) {
-    double endPos = ignoreSV
-                        ? (m_timings->GetBeatAt(m_audioLength) * cycleLength)
-                        : m_timings->GetOffsetAt(m_audioLength);
-    double endCyclePos = ceil(endPos / cycleLength) * cycleLength;
+    if (hasBPMChanges) {
+      currentPos = m_timings->GetBeatAt(m_currentVisualPosition) * cycleLength;
 
-    if (currentPos >= endCyclePos) {
-      return maxFrames - 1;
+      double endPos = m_timings->GetBeatAt(m_audioLength) * cycleLength;
+      double endCyclePos = ceil(endPos / cycleLength) * cycleLength;
+
+      if (currentPos >= endCyclePos) {
+        return maxFrames - 1;
+      }
+    } else {
+      currentPos = GetTrackPosition();
+
+      double endPos = m_timings->GetOffsetAt(m_audioLength);
+      double endCyclePos = ceil(endPos / cycleLength) * cycleLength;
+
+      if (currentPos >= endCyclePos) {
+        return maxFrames - 1;
+      }
     }
+  } else {
+    currentPos = GetTrackPosition();
   }
 
   double progress = fmod(currentPos, cycleLength) / cycleLength;
