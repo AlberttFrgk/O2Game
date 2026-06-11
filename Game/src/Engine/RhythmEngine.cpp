@@ -328,7 +328,7 @@ void RhythmEngine::SetKeys(Keys *keys) {
 
 bool RhythmEngine::Start() { // no, use update event instead
   EnvironmentSetup::SetInt("NowPlaying", 1);
-  m_currentAudioPosition -= 5000;
+  m_currentAudioPosition -= 3000;
   m_state = GameState::Playing;
   // m_startClock = std::chrono::system_clock::now();
   return true;
@@ -375,13 +375,12 @@ void RhythmEngine::Update(double delta) {
     double lastEventTime = 0;
     if (!m_noteDescs.empty()) {
       auto &lastNote = m_noteDescs.back();
-      lastEventTime = (std::max)(lastEventTime,
-                                 lastNote.EndTime > 0 ? lastNote.EndTime
-                                                      : lastNote.StartTime);
+      lastEventTime =
+          (std::max)(lastEventTime, lastNote.EndTime > 0 ? lastNote.EndTime
+                                                         : lastNote.StartTime);
     }
     if (!m_autoSamples.empty()) {
-      lastEventTime =
-          (std::max)(lastEventTime, m_autoSamples.back().StartTime);
+      lastEventTime = (std::max)(lastEventTime, m_autoSamples.back().StartTime);
     }
 
     // Wait at least 1 second past the last event before checking audio state
@@ -579,17 +578,9 @@ int RhythmEngine::GetBPMAnimationIndex(int maxFrames) const {
   double currentPos = GetTrackPosition();
   double cycleLength = 6000000.0 / m_baseBPM;
 
-  bool ignoreSV = false; // I don't know if this accurate or not
-  if (m_currentChart) {
-    int svIdx = m_currentSVIndex - 1;
-    int bpmIdx = m_currentBPMIndex - 1;
-
-    if (svIdx >= 0 && bpmIdx >= 0) {
-      if (m_currentChart->m_svs[svIdx].StartTime ==
-          m_currentChart->m_bpms[bpmIdx].StartTime) {
-        ignoreSV = true;
-      }
-    }
+  bool ignoreSV = false;
+  if (m_currentChart && m_currentChart->m_bpms.size() > 1) {
+    ignoreSV = true;
   }
 
   if (ignoreSV && m_timings) {
