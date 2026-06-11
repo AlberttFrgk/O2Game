@@ -62,7 +62,7 @@ void FrameTimer::Draw(double delta, Rect* clip)
 {
     m_currentTime += delta;
 
-    if (m_currentTime >= m_frameTime) {
+    while (m_currentTime >= m_frameTime) {
         m_currentTime -= m_frameTime;
         m_currentFrame++;
     }

@@ -17,6 +17,7 @@ namespace GameAudioSampleCache {
     void   ResumeAll();
     void   PauseAll();
     void   StopAll();
+    bool   IsAnyPlaying();
 
     std::vector<float> QueryMixerData();
 

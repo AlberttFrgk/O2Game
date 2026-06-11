@@ -127,6 +127,7 @@ endif()
 
 if(MSVC)
     target_link_options(Game PRIVATE $<$<CONFIG:Debug>:/INCREMENTAL>)
+    target_link_options(Game PRIVATE $<$<CONFIG:Release>:/SUBSYSTEM:WINDOWS> $<$<CONFIG:Release>:/ENTRY:mainCRTStartup>)
     target_compile_options(Game PRIVATE $<$<CONFIG:Debug>:/ZI> "/MP")
 endif()
 

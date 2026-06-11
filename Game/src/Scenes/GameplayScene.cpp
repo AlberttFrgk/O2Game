@@ -1121,7 +1121,7 @@ bool GameplayScene::Attach() {
                     {0.50f, 1.00f, {0, 0, 0, 255}, {0, 0, 0, 255}}};
       }
       if (IsFL) {
-        segments = {{0.00f, 0.20f, {0, 0, 0, 255}, {0, 0, 0, 255}},
+        segments = {{0.00f, 0.33f, {0, 0, 0, 255}, {0, 0, 0, 255}},
                     {0.33f, 0.38f, {0, 0, 0, 255}, {0, 0, 0, 0}},
                     {0.38f, 0.61f, {0, 0, 0, 0}, {0, 0, 0, 0}},
                     {0.61f, 0.67f, {0, 0, 0, 0}, {0, 0, 0, 255}},
@@ -1167,7 +1167,8 @@ bool GameplayScene::Attach() {
               UDim2::fromOffset(visualModPos.X, visualModPos.Y);
           m_visualMod->AnchorPoint = {visualModPos.AnchorPointX,
                                       visualModPos.AnchorPointY};
-        } catch (std::runtime_error&) {}
+        } catch (std::runtime_error &) {
+        }
       }
 
       if (IsFL) {
@@ -1182,7 +1183,8 @@ bool GameplayScene::Attach() {
               UDim2::fromOffset(visualModPos.X, visualModPos.Y);
           m_visualMod->AnchorPoint = {visualModPos.AnchorPointX,
                                       visualModPos.AnchorPointY};
-        } catch (std::runtime_error&) {}
+        } catch (std::runtime_error &) {
+        }
       }
       if (IsSD) {
         std::string VisualModImage = "ModSudden.png";
@@ -1196,7 +1198,8 @@ bool GameplayScene::Attach() {
               UDim2::fromOffset(visualModPos.X, visualModPos.Y);
           m_visualMod->AnchorPoint = {visualModPos.AnchorPointX,
                                       visualModPos.AnchorPointY};
-        } catch (std::runtime_error&) {}
+        } catch (std::runtime_error &) {
+        }
       }
     }
 
@@ -1212,7 +1215,8 @@ bool GameplayScene::Attach() {
           m_noteMod->Position = UDim2::fromOffset(noteModPos.X, noteModPos.Y);
           m_noteMod->AnchorPoint = {noteModPos.AnchorPointX,
                                     noteModPos.AnchorPointY};
-        } catch (std::runtime_error&) {}
+        } catch (std::runtime_error &) {
+        }
       }
 
       if (IsRD) {
@@ -1226,7 +1230,8 @@ bool GameplayScene::Attach() {
           m_noteMod->Position = UDim2::fromOffset(noteModPos.X, noteModPos.Y);
           m_noteMod->AnchorPoint = {noteModPos.AnchorPointX,
                                     noteModPos.AnchorPointY};
-        } catch (std::runtime_error&) {}
+        } catch (std::runtime_error &) {
+        }
       }
       if (IsPC) {
         std::string NoteModImage = "ModPanic.png";
@@ -1239,7 +1244,8 @@ bool GameplayScene::Attach() {
           m_noteMod->Position = UDim2::fromOffset(noteModPos.X, noteModPos.Y);
           m_noteMod->AnchorPoint = {noteModPos.AnchorPointX,
                                     noteModPos.AnchorPointY};
-        } catch (std::runtime_error&) {}
+        } catch (std::runtime_error &) {
+        }
       }
     }
 

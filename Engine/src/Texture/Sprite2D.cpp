@@ -95,14 +95,15 @@ void Sprite2D::DrawInternal(double delta, bool playOnce, Rect* rect, bool manual
 
     if (m_spritespeed > 0.0) {
         m_currentTime += static_cast<float>(delta);
-        if (m_currentTime >= m_spritespeed) {
-            m_currentTime = 0.0;
+        while (m_currentTime >= m_spritespeed) {
+            m_currentTime -= static_cast<float>(m_spritespeed);
             m_currentIndex++;
 
             if (m_currentIndex >= m_textures.size()) {
                 if (playOnce) {
                     m_currentIndex = m_textures.size() - 1; // Stop at the last frame if playing once
-                    return;
+                    m_currentTime = 0.0; // Prevent infinite loop buildup if stuck at the end
+                    break;
                 } else {
                     m_currentIndex = 0; // Loop back to the first frame
                 }

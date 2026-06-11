@@ -281,6 +281,19 @@ void GameAudioSampleCache::StopAll()
     sampleIndex.clear();
 }
 
+bool GameAudioSampleCache::IsAnyPlaying()
+{
+    std::lock_guard<std::mutex> lock(m_lock);
+
+    for (auto &kv : sampleIndex) {
+        if (kv.second != nullptr && kv.second->IsPlaying()) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 std::vector<float> GameAudioSampleCache::QueryMixerData()
 {
     throw std::runtime_error("Not implemented");

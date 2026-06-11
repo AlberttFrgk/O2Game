@@ -365,10 +365,32 @@ void RhythmEngine::Update(double delta) {
     // assert(false); // TODO: Handle this
   }
 
-  if (m_currentAudioPosition >
-      m_audioLength + 3000) { // Avoid game ended too early
-    GameAudioSampleCache::StopAll();
-    m_state = GameState::PosGame;
+  // Check if game should end: all notes and autosamples dispatched,
+  // past the last event time, and no audio is still playing
+  bool allNotesDispatched = m_currentNoteIndex >= m_noteDescs.size();
+  bool allSamplesDispatched = m_currentSampleIndex >= m_autoSamples.size();
+
+  if (allNotesDispatched && allSamplesDispatched) {
+    // Get the time of the last event (note or autosample)
+    double lastEventTime = 0;
+    if (!m_noteDescs.empty()) {
+      auto &lastNote = m_noteDescs.back();
+      lastEventTime = (std::max)(lastEventTime,
+                                 lastNote.EndTime > 0 ? lastNote.EndTime
+                                                      : lastNote.StartTime);
+    }
+    if (!m_autoSamples.empty()) {
+      lastEventTime =
+          (std::max)(lastEventTime, m_autoSamples.back().StartTime);
+    }
+
+    // Wait at least 1 second past the last event before checking audio state
+    if (m_currentAudioPosition > lastEventTime + 1000) {
+      if (!GameAudioSampleCache::IsAnyPlaying()) {
+        GameAudioSampleCache::StopAll();
+        m_state = GameState::PosGame;
+      }
+    }
   }
 
   static std::chrono::steady_clock::time_point lastUpdateTime =

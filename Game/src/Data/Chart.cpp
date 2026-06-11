@@ -441,16 +441,18 @@ Chart::~Chart() {}
 int Chart::GetO2JamId() { return O2JamId; }
 
 double Chart::GetLength() {
-  if (PredefinedAudioLength != -1) {
-    return PredefinedAudioLength;
-  }
-
   double max_length = 0;
   for (const auto &note : m_notes) {
     double note_end =
         (note.Type == NoteType::HOLD) ? note.EndTime : note.StartTime;
     if (note_end > max_length) {
       max_length = note_end;
+    }
+  }
+
+  for (const auto &sample : m_autoSamples) {
+    if (sample.StartTime > max_length) {
+      max_length = sample.StartTime;
     }
   }
 
