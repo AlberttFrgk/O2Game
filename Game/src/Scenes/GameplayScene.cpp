@@ -77,7 +77,7 @@ void GameplayScene::Update(double delta) {
     m_counter += delta;
     m_drawExitButton = false;
     m_doExit = false;
-    if (m_counter > 5.0) {
+    if (m_counter > 1.0) {
       m_ended = true;
       m_counter = 0.0; // Reset
       SceneManager::DisplayFade(
