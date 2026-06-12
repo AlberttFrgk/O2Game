@@ -22,8 +22,11 @@ namespace vkTexture {
 
     Texture2D_Vulkan *TexLoadImage(std::filesystem::path imagePath);
     Texture2D_Vulkan *TexLoadImage(void *buffer, size_t size);
+    Texture2D_Vulkan *AllocateTexture(int width, int height);
     Texture2D_Vulkan *GetDummyImage();
     VkDescriptorSet   GetVkDescriptorSet(Texture2D_Vulkan *image);
+
+    void UpdateTexture(Texture2D_Vulkan *handle, void *buffer, int pitch);
 
     void QueryTexture(Texture2D_Vulkan *handle, int &outWidth, int &outHeight);
     void ReleaseTexture(Texture2D_Vulkan *handle);

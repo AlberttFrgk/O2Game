@@ -110,6 +110,9 @@ public:
     std::string           m_audio;
     std::filesystem::path m_beatmapDirectory;
 
+    std::string m_videoFile = "";
+    double m_videoOffset = 0;
+
     std::vector<NoteInfo>   m_notes;
     std::vector<TimingInfo> m_bpms;
     std::vector<TimingInfo> m_svs;

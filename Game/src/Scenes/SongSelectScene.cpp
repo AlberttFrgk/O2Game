@@ -181,7 +181,6 @@ void SongSelectScene::Render(double delta) {
         ImGui::Text("Select Song");
       }
 
-      /*std::string text = "No Account!";*/
       std::string text = "Base game by Estrol, Effect by Albet";
       auto textWidth = ImGui::CalcTextSize(text.c_str()).x;
 
@@ -1065,9 +1064,7 @@ bool SongSelectScene::Attach() {
   return true;
 }
 
-void SongSelectScene::RestartGame() { // HACK: This is the only way to use Open
-  // File function by restart the game to
-  // use the file opened without path issues
+void SongSelectScene::RestartGame() {
   wchar_t moduleFileName[MAX_PATH];
   GetModuleFileNameW(NULL, moduleFileName, MAX_PATH);
 

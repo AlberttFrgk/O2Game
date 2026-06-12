@@ -273,6 +273,28 @@ Texture2D_Vulkan* vkTexture::TexLoadImage(void* buffer, size_t size)
     return tex_data;
 }
 
+Texture2D_Vulkan* vkTexture::AllocateTexture(int width, int height)
+{
+    auto vulkan_driver = VulkanEngine::GetInstance();
+    auto tex_data = CreateTexture();
+    tex_data->Channels = 4;
+    tex_data->Width = width;
+    tex_data->Height = height;
+
+    size_t image_size = width * height * 4;
+    unsigned char* empty_data = (unsigned char*)calloc(image_size, 1);
+    
+    InternalLoad(vulkan_driver, tex_data, empty_data);
+    
+    // InternalLoad frees image_data using stbi_image_free. Since we used calloc, 
+    // we need to be careful. Wait, InternalLoad calls stbi_image_free(image_data);
+    // So we MUST use STBI allocation or override it!
+    // Wait, stbi_image_free is essentially free() in most implementations.
+    // Yes, stbi_image_free is just free().
+    
+    return tex_data;
+}
+
 Texture2D_Vulkan* vkTexture::GetDummyImage()
 {
     if (m_dummyTexture) {
@@ -308,6 +330,80 @@ Texture2D_Vulkan* vkTexture::GetDummyImage()
 VkDescriptorSet vkTexture::GetVkDescriptorSet(Texture2D_Vulkan* handle)
 {
     return handle->DS;
+}
+
+void vkTexture::UpdateTexture(Texture2D_Vulkan* handle, void* buffer, int pitch)
+{
+    if (!handle) return;
+
+    auto vulkan_driver = VulkanEngine::GetInstance();
+    size_t image_size = static_cast<size_t>(handle->Width) * static_cast<size_t>(handle->Height) * handle->Channels;
+
+    void* map = NULL;
+    VkResult err = vkMapMemory(vulkan_driver->_device, handle->UploadBufferMemory, 0, image_size, 0, &map);
+    if (err != VK_SUCCESS) {
+        std::cerr << "Vulkan: Failed to map image memory for update!" << std::endl;
+        return;
+    }
+
+    // If pitch matches our expected width * channels, we can do a single memcpy
+    if (pitch == handle->Width * handle->Channels) {
+        memcpy(map, buffer, image_size);
+    } else {
+        // Copy line by line
+        uint8_t* dst = static_cast<uint8_t*>(map);
+        uint8_t* src = static_cast<uint8_t*>(buffer);
+        size_t rowSize = static_cast<size_t>(handle->Width) * handle->Channels;
+        for (int y = 0; y < handle->Height; y++) {
+            memcpy(dst, src, rowSize);
+            dst += rowSize;
+            src += pitch;
+        }
+    }
+
+    VkMappedMemoryRange range[1] = {};
+    range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+    range[0].memory = handle->UploadBufferMemory;
+    range[0].size = image_size;
+    vkFlushMappedMemoryRanges(vulkan_driver->_device, 1, range);
+    vkUnmapMemory(vulkan_driver->_device, handle->UploadBufferMemory);
+
+    vulkan_driver->immediate_submit([&](VkCommandBuffer cmd) {
+        VkImageMemoryBarrier copy_barrier[1] = {};
+        copy_barrier[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        copy_barrier[0].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        copy_barrier[0].oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // Expected current layout
+        copy_barrier[0].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        copy_barrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        copy_barrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        copy_barrier[0].image = handle->Image;
+        copy_barrier[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        copy_barrier[0].subresourceRange.levelCount = 1;
+        copy_barrier[0].subresourceRange.layerCount = 1;
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 1, copy_barrier);
+
+        VkBufferImageCopy region = {};
+        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.layerCount = 1;
+        region.imageExtent.width = handle->Width;
+        region.imageExtent.height = handle->Height;
+        region.imageExtent.depth = 1;
+        vkCmdCopyBufferToImage(cmd, handle->UploadBuffer, handle->Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+        VkImageMemoryBarrier use_barrier[1] = {};
+        use_barrier[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        use_barrier[0].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        use_barrier[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        use_barrier[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        use_barrier[0].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        use_barrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        use_barrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        use_barrier[0].image = handle->Image;
+        use_barrier[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        use_barrier[0].subresourceRange.levelCount = 1;
+        use_barrier[0].subresourceRange.layerCount = 1;
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, use_barrier);
+    });
 }
 
 void vkTexture::QueryTexture(Texture2D_Vulkan* handle, int& outWidth, int& outHeight)

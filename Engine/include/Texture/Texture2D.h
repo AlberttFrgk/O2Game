@@ -21,6 +21,7 @@ class Texture2D
 public:
     Texture2D();
     Texture2D(const std::string& fileName);
+    Texture2D(int width, int height);
     Texture2D(const std::filesystem::path& path);
     Texture2D(const uint8_t *fileData, size_t size);
     Texture2D(SDL_Texture *texture);
@@ -33,6 +34,7 @@ public:
     void Draw(Rect *clipRect, bool manualDraw);
 
     void CalculateSize();
+    void UpdateTexture(uint8_t* buffer, int width, int height, int pitch);
 
     float Transparency;
     float Rotation;

@@ -37,6 +37,7 @@ add_executable(Game
     "src/Engine/SkinConfig.cpp"
     "src/Engine/LuaScripting.cpp"
     "src/Engine/SkinManager.cpp"
+    "src/Engine/VideoPlayer.cpp"
     "src/Engine/TimingLine.cpp"
     "src/Engine/TimingLineManager.cpp"
     "src/Engine/Timing/StaticTiming.cpp"
@@ -66,8 +67,11 @@ add_executable(Game
     "src/Scenes/Overlays/Settings.cpp"
 )
 
-#include "../Engine/include"
 target_include_directories(Game PRIVATE "../Engine/include")
+target_include_directories(Game PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+# Hide console window in Release mode
+set_target_properties(Game PROPERTIES WIN32_EXECUTABLE $<CONFIG:Release>)
 
 if(WIN32)
     add_custom_command(TARGET Game POST_BUILD

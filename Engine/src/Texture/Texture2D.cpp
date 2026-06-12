@@ -113,6 +113,23 @@ Texture2D::Texture2D(const uint8_t* fileData, size_t size) : Texture2D()
     LoadImageResources(buffer.data(), size);
 }
 
+Texture2D::Texture2D(int width, int height) : Texture2D()
+{
+    if (Renderer::GetInstance()->IsVulkan()) {
+        m_vk_tex = vkTexture::AllocateTexture(width, height);
+        m_actualSize = {0, 0, width, height};
+        m_bDisposeTexture = true;
+        m_ready = true;
+    } else {
+        m_sdl_surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_ABGR8888);
+        m_sdl_tex = SDL_CreateTexture(Renderer::GetInstance()->GetSDLRenderer(), SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, width, height);
+        SDL_SetTextureBlendMode(m_sdl_tex, SDL_BLENDMODE_BLEND);
+        m_actualSize = {0, 0, width, height};
+        m_bDisposeTexture = true;
+        m_ready = true;
+    }
+}
+
 Texture2D::Texture2D(SDL_Texture *texture) : Texture2D()
 {
     m_bDisposeTexture = false;
@@ -219,7 +236,7 @@ void Texture2D::Draw(Rect* clipRect, bool manualDraw)
         ImVec2 uv3(1.0f, 1.0f); // Bottom-right UV coordinate
         ImVec2 uv4(0.0f, 1.0f); // Bottom-left UV coordinate
 
-        ImU32 color = IM_COL32((uint8_t)(TintColor.R * 255), (uint8_t)(TintColor.G * 255), (uint8_t)(TintColor.B * 255), 255);
+        ImU32 color = IM_COL32((uint8_t)(TintColor.R * 255), (uint8_t)(TintColor.G * 255), (uint8_t)(TintColor.B * 255), (uint8_t)(255 - (Transparency / 100.0) * 255));
 
         std::array<ImDrawVert, 6> vertexData = {{
             {ImVec2(x1, y1), uv1, color},
@@ -319,6 +336,17 @@ void Texture2D::CalculateSize()
 
     AbsolutePosition = {xPos, yPos};
     AbsoluteSize = {width, height};
+}
+
+void Texture2D::UpdateTexture(uint8_t* buffer, int width, int height, int pitch)
+{
+    if (!m_ready) return;
+
+    if (Renderer::GetInstance()->IsVulkan() && m_vk_tex) {
+        vkTexture::UpdateTexture(m_vk_tex, buffer, pitch);
+    } else if (m_sdl_tex) {
+        SDL_UpdateTexture(m_sdl_tex, nullptr, buffer, pitch);
+    }
 }
 
 Rect Texture2D::GetOriginalRECT()

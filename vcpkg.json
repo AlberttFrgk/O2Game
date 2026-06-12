@@ -40,6 +40,9 @@
     {
       "name": "glslang",
       "features": ["tools"]
+    },
+    {
+      "name": "ffmpeg"
     }
   ]
 }

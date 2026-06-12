@@ -93,13 +93,23 @@ Chart::Chart(Osu::Beatmap &beatmap) // Refactor
       fileName.erase(std::remove(fileName.begin(), fileName.end(), '\"'),
                      fileName.end());
       m_backgroundFile = fileName;
-      break;
+    } else if (event.Type == Osu::OsuEventType::Videos) {
+      if (!event.params.empty()) {
+        std::string fileName = event.params[0];
+        fileName.erase(std::remove(fileName.begin(), fileName.end(), '\"'),
+                       fileName.end());
+        m_videoFile = fileName;
+        m_videoOffset = event.StartTime;
+      }
     }
   }
 
   for (auto &event : beatmap.Events) {
     if (event.Type == Osu::OsuEventType::Sample) {
       std::string fileName = event.params[1];
+      if (fileName.empty()) {
+        continue;
+      }
       if (fileName.front() == '\"' && fileName.back() == '\"') {
         fileName = fileName.substr(1, fileName.size() - 2);
       }
@@ -136,12 +146,7 @@ Chart::Chart(Osu::Beatmap &beatmap) // Refactor
   }
 
   AutoSample autoSample = {};
-  if (beatmap.AudioLeadIn == 0) {
-    autoSample.StartTime =
-        beatmap.AudioLeadIn - 1; // Handle if offset 0 that causing audio delay
-  } else {
-    autoSample.StartTime = beatmap.AudioLeadIn;
-  }
+  autoSample.StartTime = -1; // The main BGM always starts at time 0. AudioLeadIn is just extra silence before time 0, it shouldn't shift the actual BGM trigger time.
   autoSample.Index = beatmap.GetCustomSampleIndex(beatmap.AudioFilename);
   autoSample.Volume = 1.0f;
   autoSample.Pan = 0;

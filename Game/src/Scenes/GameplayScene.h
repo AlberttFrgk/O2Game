@@ -1,4 +1,5 @@
 #pragma once
+#include <memory>
 #include "Scene.h"
 #include "Texture/NumericTexture.h"
 #include "Texture/Sprite2D.h"
@@ -17,10 +18,13 @@ struct ManiaKeyState
     bool isPressed;
 };
 
+class VideoPlayer;
+
 class GameplayScene : public Scene
 {
 public:
     GameplayScene();
+    ~GameplayScene() override;
 
     void Update(double delta) override;
     void Render(double delta) override;
@@ -99,7 +103,9 @@ private:
     double m_counter;
 
     /* other stuff */
-    double m_judgeSize;
+    std::unique_ptr<VideoPlayer> m_videoPlayer;
+
+    float  m_judgeSize = 0.5f;
 
     /* Hit/Hold Effect */
     bool m_drawHold[7];

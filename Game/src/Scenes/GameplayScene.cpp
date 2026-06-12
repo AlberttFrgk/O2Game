@@ -23,6 +23,7 @@
 #include "../Engine/NoteImageCacheManager.hpp"
 #include "../Engine/SkinConfig.hpp"
 #include "../Engine/SkinManager.hpp"
+#include "../Engine/VideoPlayer.hpp"
 #include "../EnvironmentSetup.hpp"
 #include "../GameScenes.h"
 
@@ -50,6 +51,8 @@ GameplayScene::GameplayScene() : Scene::Scene() {
   lifeFillDuration = 0.0;
 }
 
+GameplayScene::~GameplayScene() = default;
+
 void GameplayScene::Update(double delta) {
   if (m_resourceFucked) {
     if (!m_ended) {
@@ -73,10 +76,12 @@ void GameplayScene::Update(double delta) {
     lifeFillDuration = 0.0;
   }
 
-  if (m_starting && EnvironmentSetup::GetInt("FillStart") == 1) {
+  if (m_starting && m_game->GetState() == GameState::NotGame) {
     lifeFillDuration += delta;
-    if (lifeFillDuration > 1.50) {
+    if (lifeFillDuration > 1.50 && EnvironmentSetup::GetInt("FillStart") == 1) {
       EnvironmentSetup::SetInt("FillStart", 0);
+    }
+    if (lifeFillDuration > 2.50) {
       m_game->Start();
     }
   }
@@ -147,16 +152,27 @@ void GameplayScene::Render(double delta) {
 
   int arena = EnvironmentSetup::GetInt("Arena");
 
-  if (EnvironmentSetup::GetInt("Background") == 1) {
-    auto songBG = (Texture2D *)EnvironmentSetup::GetObj("SongBackground");
-    if (songBG) {
-      songBG->TintColor = Color3::FromRGB(128, 128, 128);
-      songBG->Draw();
-    }
-  } else if (EnvironmentSetup::GetInt("Background") == 2) {
-    // Do nothing
-  } else {
-    m_PlayBG->Draw();
+  Chart *chart = (Chart *)EnvironmentSetup::GetObj("SONG");
+  bool isGameActive = m_game && (m_game->GetState() == GameState::Playing || m_game->GetState() == GameState::PosGame);
+  bool hasActiveVisuals = isGameActive && (m_videoPlayer && m_videoPlayer->IsValid());
+
+  if (!hasActiveVisuals) {
+      if (EnvironmentSetup::GetInt("Background") == 1) {
+        auto songBG = (Texture2D *)EnvironmentSetup::GetObj("SongBackground");
+        if (songBG) {
+          songBG->TintColor = Color3::FromRGB(128, 128, 128);
+          songBG->Draw();
+        }
+      } else if (EnvironmentSetup::GetInt("Background") == 2) {
+        // Do nothing
+      } else {
+        m_PlayBG->Draw();
+      }
+  }
+
+  if (m_videoPlayer && m_videoPlayer->IsValid() && chart && isGameActive) {
+      m_videoPlayer->Update(m_game->GetGameAudioPosition() - chart->m_videoOffset);
+      m_videoPlayer->Render();
   }
 
   m_Playfield->Draw();
@@ -253,7 +269,6 @@ void GameplayScene::Render(double delta) {
 
     m_lifeBar->Draw(delta, &rc);
   } else {
-    lifeFillDuration = 0.0;
 
     float alpha =
         (float)(kMaxLife - m_game->GetScoreManager()->GetLife()) / kMaxLife;
@@ -977,7 +992,38 @@ bool GameplayScene::Attach() {
       throw std::runtime_error("Fatal error: Chart is null");
     }
 
-    m_game = std::make_unique<RhythmEngine>();
+    std::filesystem::path beatmapFile = EnvironmentSetup::GetPath("FILE");
+    if (!beatmapFile.empty() && std::filesystem::exists(beatmapFile)) {
+        // Storyboard parsing was here, now removed
+    }
+
+    m_videoPlayer.reset();
+
+    // Attempt to find and load video
+    if (!chart->m_videoFile.empty()) {
+        std::filesystem::path videoPath = chart->m_beatmapDirectory / chart->m_videoFile;
+        Logs::Puts("[GameplayScene] Found video in chart: %s", chart->m_videoFile.c_str());
+        Logs::Puts("[GameplayScene] Full path: %s", videoPath.string().c_str());
+        if (std::filesystem::exists(videoPath)) {
+            Logs::Puts("[GameplayScene] Video file exists, loading...");
+            m_videoPlayer.reset(new VideoPlayer());
+            auto pathU8 = videoPath.u8string();
+            std::string u8PathStr(pathU8.begin(), pathU8.end());
+            if (m_videoPlayer->Load(u8PathStr)) {
+                Logs::Puts("[GameplayScene] Video loaded successfully and started playing. Offset: %f", chart->m_videoOffset);
+                m_videoPlayer->Play();
+            } else {
+                Logs::Puts("[GameplayScene] Failed to load video via FFmpeg.");
+                m_videoPlayer.reset();
+            }
+        } else {
+            Logs::Puts("[GameplayScene] Video file does NOT exist on disk!");
+        }
+    } else {
+        Logs::Puts("[GameplayScene] Chart m_videoFile is EMPTY!");
+    }
+
+    m_game.reset(new RhythmEngine());
 
     if (!m_game) {
       throw std::runtime_error("Failed to load game!");

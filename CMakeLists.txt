@@ -66,6 +66,9 @@ set(Sol2_LIBRARIES sol2::sol2)
 
 find_package(Lua REQUIRED)
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET libavcodec libavformat libavutil libswscale)
+
 find_package(Vulkan)
 
 if (NOT DEFINED Vulkan_INCLUDE_DIRS)
@@ -125,6 +128,7 @@ set(O2GAME_LIBRARIES
     ${LIB_BZIP2} 
     ${THIRD_PARTY_LIBS} 
     ${Iconv_LIBRARIES}
+    PkgConfig::FFMPEG
 )
 
 message("Libraries: ${O2GAME_LIBRARIES}")
