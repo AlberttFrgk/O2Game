@@ -420,8 +420,10 @@ void SongSelectScene::Render(double delta) {
         m_bgm->Load();
       } else {
         Audio *bgm = AudioManager::GetInstance()->Get("BGM");
-        if (bgm)
+        if (bgm) {
+          bgm->SetVolume(100);
           bgm->FadeOut();
+        }
 
         std::string currentFile = EnvironmentSetup::GetPath("FILE").string();
         SceneManager::ExecuteAfter(1500, [currentFile]() {
