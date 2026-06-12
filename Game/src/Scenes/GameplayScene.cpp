@@ -70,14 +70,22 @@ void GameplayScene::Update(double delta) {
   if (!m_starting) {
     EnvironmentSetup::SetInt("FillStart", 1);
     m_starting = true;
-    m_game->Start();
+    lifeFillDuration = 0.0;
+  }
+
+  if (m_starting && EnvironmentSetup::GetInt("FillStart") == 1) {
+    lifeFillDuration += delta;
+    if (lifeFillDuration > 1.50) {
+      EnvironmentSetup::SetInt("FillStart", 0);
+      m_game->Start();
+    }
   }
 
   if (m_game->GetState() == GameState::PosGame && !m_ended) {
     m_counter += delta;
     m_drawExitButton = false;
     m_doExit = false;
-    if (m_counter > 1.0) {
+    if (m_counter > 2.0) {
       m_ended = true;
       m_counter = 0.0; // Reset
       SceneManager::DisplayFade(
@@ -223,8 +231,6 @@ void GameplayScene::Render(double delta) {
   bool fillstart = EnvironmentSetup::GetInt("FillStart") == 1;
 
   if (fillstart) {
-    lifeFillDuration += delta;
-
     float progress = 0.0f;
     if (lifeFillDuration > 0.500) {
       progress = static_cast<float>((lifeFillDuration - 0.500) / 1.0);
@@ -246,10 +252,6 @@ void GameplayScene::Render(double delta) {
     rc.bottom = static_cast<int>(rc.top + curLifeTex->AbsoluteSize.Y);
 
     m_lifeBar->Draw(delta, &rc);
-
-    if (lifeFillDuration > 1.50) {
-      EnvironmentSetup::SetInt("FillStart", 0);
-    }
   } else {
     lifeFillDuration = 0.0;
 

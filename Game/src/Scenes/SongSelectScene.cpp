@@ -3,13 +3,13 @@
 #include <iostream>
 
 #include "Audio/AudioManager.h"
-#include <sstream>
 #include "Configuration.h"
 #include "Inputs/Keys.h"
 #include "MsgBox.h"
 #include "Rendering/Window.h"
 #include "SceneManager.h"
 #include "Texture/MathUtils.h"
+#include <sstream>
 
 #include "Imgui/ImguiUtil.h"
 #include "Imgui/imgui.h"
@@ -51,10 +51,9 @@ static std::wstring OpenFilePrompt() {
   }
 }
 
-static std::array<std::string, 8> Mods = {"Mirror",   "Random", "Panic", "Rearrange",
-                                          "Autoplay", "Hidden", "Flashlight",
-                                          "Sudden"};
-
+static std::array<std::string, 8> Mods = {"Mirror",     "Random",   "Panic",
+                                          "Rearrange",  "Autoplay", "Hidden",
+                                          "Flashlight", "Sudden"};
 
 SongSelectScene::SongSelectScene() {
   index = -1;
@@ -133,15 +132,16 @@ void SongSelectScene::Render(double delta) {
           if (index != -1) {
             DB_MusicItem item = GameDatabase::GetInstance()->Find(index);
             if (item.Id != -1 && item.CoverSize > 0) {
-              std::filesystem::path file = GameDatabase::GetInstance()->GetPath();
+              std::filesystem::path file =
+                  GameDatabase::GetInstance()->GetPath();
               file /= "o2ma" + std::to_string(item.Id) + ".ojn";
               try {
                 auto buffer = O2::OJN::LoadOJNFile(file);
                 buffer.seekg(item.CoverOffset);
                 std::vector<uint8_t> coverData(item.CoverSize);
                 buffer.read((char *)coverData.data(), item.CoverSize);
-                m_songBackground = std::make_unique<Texture2D>(
-                    coverData.data(), item.CoverSize);
+                m_songBackground = std::make_unique<Texture2D>(coverData.data(),
+                                                               item.CoverSize);
                 m_songBackground->Size = UDim2::fromOffset(
                     GameWindow::GetInstance()->GetBufferWidth(),
                     GameWindow::GetInstance()->GetBufferHeight());
@@ -418,23 +418,23 @@ void SongSelectScene::Render(double delta) {
       std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
       if (ext == ".ojn" || ext == ".bms" || ext == ".bme" || ext == ".bml") {
-          m_bgm->Load();
+        m_bgm->Load();
       } else {
-          Audio *bgm = AudioManager::GetInstance()->Get("BGM");
-          if (bgm)
-            bgm->FadeOut();
+        Audio *bgm = AudioManager::GetInstance()->Get("BGM");
+        if (bgm)
+          bgm->FadeOut();
 
-          std::string currentFile = EnvironmentSetup::GetPath("FILE").string();
-          SceneManager::ExecuteAfter(1500, [currentFile]() {
-            if (EnvironmentSetup::GetInt("FileOpen") == 1 &&
-                EnvironmentSetup::GetPath("FILE").string() == currentFile) {
-              Audio *extBgm = AudioManager::GetInstance()->Get("ExternalBGM");
-              if (extBgm) {
-                extBgm->SetVolume(100);
-                extBgm->Play();
-              }
+        std::string currentFile = EnvironmentSetup::GetPath("FILE").string();
+        SceneManager::ExecuteAfter(1500, [currentFile]() {
+          if (EnvironmentSetup::GetInt("FileOpen") == 1 &&
+              EnvironmentSetup::GetPath("FILE").string() == currentFile) {
+            Audio *extBgm = AudioManager::GetInstance()->Get("ExternalBGM");
+            if (extBgm) {
+              extBgm->SetVolume(100);
+              extBgm->Play();
             }
-          });
+          }
+        });
       }
     }
   }
@@ -446,8 +446,8 @@ void SongSelectScene::Render(double delta) {
 
     // Force LoadingScene to load the external file
     if (EnvironmentSetup::GetInt("FileOpen") == 1) {
-        EnvironmentSetup::SetInt("Key", -1);
-        EnvironmentSetup::SetObj("SONG", nullptr);
+      EnvironmentSetup::SetInt("Key", -1);
+      EnvironmentSetup::SetObj("SONG", nullptr);
     }
 
     if (m_songBackground) {
@@ -623,7 +623,6 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
         }
       }
 
-
       ImGui::Spacing();
       ImGui::PushItemWidth(ImGui::GetCurrentWindow()->Size.x - 15);
 
@@ -714,7 +713,8 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
       // select
       m_arenas = SkinManager::GetInstance()->GetArenas();
       int value = EnvironmentSetup::GetInt("Arena");
-      if (value >= m_arenas.size()) value = 0;
+      if (value >= m_arenas.size())
+        value = 0;
       if (ImGui::BeginCombo("###ComboBox1Arena", m_arenas[value].c_str(), 0)) {
         for (int i = 0; i < m_arenas.size(); i++) {
           bool is_selected = i == value;
@@ -800,8 +800,8 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
         }
 
         /*
-            FIXME: Goddamit!, this is hack because for some reason
-            ImGui::IsMouseClicked won't work if ImGui::ButtonEx handled it.
+                FIXME: Goddamit!, this is hack because for some reason
+                ImGui::IsMouseClicked won't work if ImGui::ButtonEx handled it.
         */
         content += "_Context";
         if (ImGui::BeginPopupContextWindow((const char *)content.c_str())) {
@@ -1008,11 +1008,12 @@ bool SongSelectScene::Attach() {
 
   std::string arenaValue = Configuration::Load("Gameplay", "Arena");
   try {
-      int arenaInt = std::stoi(arenaValue);
-      if (arenaInt >= m_arenas.size()) arenaInt = 0;
-      EnvironmentSetup::SetInt("Arena", arenaInt);
+    int arenaInt = std::stoi(arenaValue);
+    if (arenaInt >= m_arenas.size())
+      arenaInt = 0;
+    EnvironmentSetup::SetInt("Arena", arenaInt);
   } catch (const std::invalid_argument &) {
-      EnvironmentSetup::SetInt("Arena", 0);
+    EnvironmentSetup::SetInt("Arena", 0);
   }
 
   try {
@@ -1065,8 +1066,8 @@ bool SongSelectScene::Attach() {
 }
 
 void SongSelectScene::RestartGame() { // HACK: This is the only way to use Open
-                                      // File function by restart the game to
-                                      // use the file opened without path issues
+  // File function by restart the game to
+  // use the file opened without path issues
   wchar_t moduleFileName[MAX_PATH];
   GetModuleFileNameW(NULL, moduleFileName, MAX_PATH);
 
@@ -1177,9 +1178,8 @@ void SongSelectScene::LoadChartImage() {
         GameWindow *wnd = GameWindow::GetInstance();
         try {
           m_songBackground = std::make_unique<Texture2D>(
-              reinterpret_cast<uint8_t*>(ojn.BackgroundImage.data()), 
-              ojn.BackgroundImage.size()
-          );
+              reinterpret_cast<uint8_t *>(ojn.BackgroundImage.data()),
+              ojn.BackgroundImage.size());
           m_songBackground->Size =
               UDim2::fromOffset(wnd->GetBufferWidth(), wnd->GetBufferHeight());
         } catch (...) {
@@ -1288,7 +1288,8 @@ void SongSelectScene::ParseExternalChart(std::filesystem::path file) {
           double lastTime = 0;
           if (!beatmap.HitObjects.empty()) {
             auto &lastObj = beatmap.HitObjects.back();
-            lastTime = (lastObj.Type == 128) ? lastObj.EndTime : lastObj.StartTime;
+            lastTime =
+                (lastObj.Type == 128) ? lastObj.EndTime : lastObj.StartTime;
           }
 
           std::unordered_map<float, int> durations;
@@ -1305,7 +1306,7 @@ void SongSelectScene::ParseExternalChart(std::filesystem::path file) {
             currentLastTime = tp.Offset;
 
             float bpmValue = 60000.0f / tp.BeatLength;
-            
+
             if (durations.find(bpmValue) != durations.end()) {
               durations[bpmValue] += duration;
             } else {
@@ -1361,13 +1362,19 @@ void SongSelectScene::ParseExternalChart(std::filesystem::path file) {
     O2::OJN ojn;
     ojn.Load(file, false);
     if (ojn.IsValid()) {
-      std::u8string title = CodepageToUtf8(ojn.Header.title, sizeof(ojn.Header.title), "euc-kr");
-      std::u8string artist = CodepageToUtf8(ojn.Header.artist, sizeof(ojn.Header.artist), "euc-kr");
-      std::u8string noter = CodepageToUtf8(ojn.Header.noter, sizeof(ojn.Header.noter), "euc-kr");
+      std::u8string title =
+          CodepageToUtf8(ojn.Header.title, sizeof(ojn.Header.title), "euc-kr");
+      std::u8string artist = CodepageToUtf8(
+          ojn.Header.artist, sizeof(ojn.Header.artist), "euc-kr");
+      std::u8string noter =
+          CodepageToUtf8(ojn.Header.noter, sizeof(ojn.Header.noter), "euc-kr");
 
-      snprintf((char *)m_externalItem.Title, sizeof(m_externalItem.Title), "%s", (const char*)title.c_str());
-      snprintf((char *)m_externalItem.Artist, sizeof(m_externalItem.Artist), "%s", (const char*)artist.c_str());
-      snprintf((char *)m_externalItem.Noter, sizeof(m_externalItem.Noter), "%s", (const char*)noter.c_str());
+      snprintf((char *)m_externalItem.Title, sizeof(m_externalItem.Title), "%s",
+               (const char *)title.c_str());
+      snprintf((char *)m_externalItem.Artist, sizeof(m_externalItem.Artist),
+               "%s", (const char *)artist.c_str());
+      snprintf((char *)m_externalItem.Noter, sizeof(m_externalItem.Noter), "%s",
+               (const char *)noter.c_str());
 
       m_externalItem.MaxNotes[0] = ojn.Header.note_count[0];
       m_externalItem.MaxNotes[1] = ojn.Header.note_count[1];
