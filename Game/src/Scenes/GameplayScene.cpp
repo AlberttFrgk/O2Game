@@ -160,7 +160,11 @@ void GameplayScene::Render(double delta) {
       if (EnvironmentSetup::GetInt("Background") == 1) {
         auto songBG = (Texture2D *)EnvironmentSetup::GetObj("SongBackground");
         if (songBG) {
-          songBG->TintColor = Color3::FromRGB(128, 128, 128);
+          int dim = EnvironmentSetup::GetInt("BackgroundDim");
+          if (dim < 0) dim = 0;
+          if (dim > 100) dim = 100;
+          int colorVal = (int)(255.0f * (100.0f - dim) / 100.0f);
+          songBG->TintColor = Color3::FromRGB(colorVal, colorVal, colorVal);
           songBG->Draw();
         }
       } else if (EnvironmentSetup::GetInt("Background") == 2) {
@@ -999,8 +1003,10 @@ bool GameplayScene::Attach() {
 
     m_videoPlayer.reset();
 
+    int loadVideo = EnvironmentSetup::GetInt("LoadVideo");
+
     // Attempt to find and load video
-    if (!chart->m_videoFile.empty()) {
+    if (loadVideo == 1 && !chart->m_videoFile.empty()) {
         std::filesystem::path videoPath = chart->m_beatmapDirectory / chart->m_videoFile;
         Logs::Puts("[GameplayScene] Found video in chart: %s", chart->m_videoFile.c_str());
         Logs::Puts("[GameplayScene] Full path: %s", videoPath.string().c_str());

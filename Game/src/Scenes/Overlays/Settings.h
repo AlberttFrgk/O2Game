@@ -31,6 +31,8 @@ private:
     int NoteIndex = 0;
     bool NewLongNote = false;
     bool convertAutoSound = false;
+    int BackgroundDim = 50;
+    bool LoadVideo = false;
 
     std::string              currentSkin = "";
     std::vector<std::string> skins = {};

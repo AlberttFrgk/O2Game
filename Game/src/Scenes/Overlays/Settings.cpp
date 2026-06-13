@@ -61,7 +61,7 @@ int GetScreenRefreshRate() {
 
 std::vector<std::string> GetFpsOptions() {
   int refreshRate = GetScreenRefreshRate();
-  std::vector<int> multipliers = {1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16, 20};
+  std::vector<int> multipliers = {1, 2, 3, 4, 5, 6, 8, 10, 15, 20};
   std::vector<std::string> fpsOptions;
 
   for (int multiplier : multipliers) {
@@ -333,6 +333,26 @@ void SettingsOverlay::Render(double delta) {
         }
 
         if (ImGui::BeginTabItem("Game")) {
+          ImGui::Text("Background Dim");
+          if (ImGui::SliderInt("###SliderDim", &BackgroundDim, 0, 100)) {
+            EnvironmentSetup::SetInt("BackgroundDim", BackgroundDim);
+          }
+          if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Adjust background brightness (0%% = full brightness, 100%% = completely black)");
+          }
+
+          ImGui::NewLine();
+          ImGui::Checkbox("Enable Video###CheckboxVideo", &LoadVideo);
+          if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Enable or disable video loading for beatmaps");
+          }
+          if (LoadVideo) {
+            EnvironmentSetup::SetInt("LoadVideo", 1);
+          } else {
+            EnvironmentSetup::SetInt("LoadVideo", 0);
+          }
+
+          ImGui::NewLine();
           ImGui::Text("Guide Line Length");
 
           for (int i = (int)LongNote.size() - 1; i >= 0; i--) {
@@ -703,6 +723,20 @@ void SettingsOverlay::LoadConfiguration() {
     EnvironmentSetup::SetInt("LNBodyOnTop", 0);
   }
 
+  try {
+    BackgroundDim = std::stoi(Configuration::Load("Game", "BackgroundDim"));
+  } catch (const std::invalid_argument &) {
+    BackgroundDim = 50;
+  }
+  EnvironmentSetup::SetInt("BackgroundDim", BackgroundDim);
+
+  try {
+    LoadVideo = std::stoi(Configuration::Load("Game", "LoadVideo")) == 1;
+  } catch (const std::invalid_argument &) {
+    LoadVideo = false;
+  }
+  EnvironmentSetup::SetInt("LoadVideo", LoadVideo ? 1 : 0);
+
   currentSkin = Configuration::Load("Game", "Skin");
   PreloadSkin();
 }
@@ -724,6 +758,8 @@ void SettingsOverlay::SaveConfiguration() {
                      std::to_string(LNBodyOnTop ? 1 : 0));
   Configuration::Set("Game", "NewLongNote",
                      std::to_string(NewLongNote ? 1 : 0));
+  Configuration::Set("Game", "BackgroundDim", std::to_string(BackgroundDim));
+  Configuration::Set("Game", "LoadVideo", std::to_string(LoadVideo ? 1 : 0));
 
   if (currentFPSIndex == GetFpsOptions().size() - 1 && customFPS > 0) {
     Configuration::Set("Game", "FrameLimit", std::to_string(customFPS));

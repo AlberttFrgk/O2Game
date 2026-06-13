@@ -43,6 +43,9 @@ bool VideoPlayer::Load(const std::string& path) {
     m_codecCtx = avcodec_alloc_context3(codec);
     avcodec_parameters_to_context(m_codecCtx, m_formatCtx->streams[m_videoStreamIndex]->codecpar);
 
+    m_codecCtx->thread_count = 0;
+    m_codecCtx->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE;
+
     if (avcodec_open2(m_codecCtx, codec, nullptr) < 0) {
         avcodec_free_context(&m_codecCtx);
         avformat_close_input(&m_formatCtx);
@@ -56,14 +59,14 @@ bool VideoPlayer::Load(const std::string& path) {
     m_frameRGB = av_frame_alloc();
     m_packet = av_packet_alloc();
 
-    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGBA, m_width, m_height, 1);
+    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGBA, m_width, m_height, 32);
     m_buffer = (uint8_t*)av_malloc(numBytes * sizeof(uint8_t));
 
-    av_image_fill_arrays(m_frameRGB->data, m_frameRGB->linesize, m_buffer, AV_PIX_FMT_RGBA, m_width, m_height, 1);
+    av_image_fill_arrays(m_frameRGB->data, m_frameRGB->linesize, m_buffer, AV_PIX_FMT_RGBA, m_width, m_height, 32);
 
     m_swsCtx = sws_getContext(m_width, m_height, m_codecCtx->pix_fmt,
                               m_width, m_height, AV_PIX_FMT_RGBA,
-                              SWS_BILINEAR, nullptr, nullptr, nullptr);
+                              SWS_FAST_BILINEAR, nullptr, nullptr, nullptr);
 
     m_texture = std::make_unique<Texture2D>(m_width, m_height);
 
@@ -115,7 +118,7 @@ void VideoPlayer::DecodeThread() {
         if (av_read_frame(m_formatCtx, m_packet) >= 0) {
             if (m_packet->stream_index == m_videoStreamIndex) {
                 if (avcodec_send_packet(m_codecCtx, m_packet) == 0) {
-                    if (avcodec_receive_frame(m_codecCtx, m_frame) == 0) {
+                    while (avcodec_receive_frame(m_codecCtx, m_frame) == 0) {
                         
                         double pts = 0;
                         if (m_frame->pts != AV_NOPTS_VALUE) {
@@ -127,7 +130,6 @@ void VideoPlayer::DecodeThread() {
                         
                         // Drop frame if we are way behind
                         if (frameTimeMs < m_currentAudioTime - 50.0) {
-                            av_packet_unref(m_packet);
                             continue;
                         }
 

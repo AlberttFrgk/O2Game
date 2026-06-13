@@ -285,13 +285,6 @@ Texture2D_Vulkan* vkTexture::AllocateTexture(int width, int height)
     unsigned char* empty_data = (unsigned char*)calloc(image_size, 1);
     
     InternalLoad(vulkan_driver, tex_data, empty_data);
-    
-    // InternalLoad frees image_data using stbi_image_free. Since we used calloc, 
-    // we need to be careful. Wait, InternalLoad calls stbi_image_free(image_data);
-    // So we MUST use STBI allocation or override it!
-    // Wait, stbi_image_free is essentially free() in most implementations.
-    // Yes, stbi_image_free is just free().
-    
     return tex_data;
 }
 
@@ -346,7 +339,7 @@ void vkTexture::UpdateTexture(Texture2D_Vulkan* handle, void* buffer, int pitch)
         return;
     }
 
-    // If pitch matches our expected width * channels, we can do a single memcpy
+    // If pitch matches expected width * channels, do a single memcpy
     if (pitch == handle->Width * handle->Channels) {
         memcpy(map, buffer, image_size);
     } else {

@@ -407,7 +407,7 @@ void SongSelectScene::Render(double delta) {
 
     Audio *extBgm = AudioManager::GetInstance()->Get("ExternalBGM");
     if (extBgm) {
-      extBgm->Stop();
+      extBgm->FadeOut();
     }
 
     if (EnvironmentSetup::GetInt("FileOpen") == 0) {
