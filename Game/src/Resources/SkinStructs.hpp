@@ -23,12 +23,13 @@ struct LaneInfo
     int LaneOffset;
 };
 
-// Value Format: X, Y, AnchorPointX?, AnchorPointY?, TintColor?
+// Value Format: X, Y, AnchorPointX?, AnchorPointY?, FPS?, TintColor?
 struct PositionValue
 {
     double        X, Y;
-    float         AnchorPointX, AnchorPointY;
-    unsigned char RGB[3];
+    float         AnchorPointX = 0, AnchorPointY = 0;
+    float         FPS = 0.0f;
+    unsigned char RGB[3] = {255, 255, 255};
 };
 
 // Value format: X, Y, MaxDigits?, Direction?, FillWithZero?

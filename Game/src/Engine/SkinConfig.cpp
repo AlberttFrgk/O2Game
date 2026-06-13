@@ -111,10 +111,27 @@ void SkinConfig::Load(std::filesystem::path path, int keyCount)
             }
 
             if (split.size() > 4) {
-                auto splitRGB = splitString(split[4], ':');
-                e.RGB[0] = std::stoi(splitRGB[0]);
-                e.RGB[1] = std::stoi(splitRGB[1]);
-                e.RGB[2] = std::stoi(splitRGB[2]);
+                if (split[4].find(':') != std::string::npos) {
+                    auto splitRGB = splitString(split[4], ':');
+                    if (splitRGB.size() >= 3) {
+                        e.RGB[0] = std::stoi(splitRGB[0]);
+                        e.RGB[1] = std::stoi(splitRGB[1]);
+                        e.RGB[2] = std::stoi(splitRGB[2]);
+                    }
+                } else {
+                    e.FPS = std::stof(split[4]);
+                }
+            }
+
+            if (split.size() > 5) {
+                if (split[5].find(':') != std::string::npos) {
+                    auto splitRGB = splitString(split[5], ':');
+                    if (splitRGB.size() >= 3) {
+                        e.RGB[0] = std::stoi(splitRGB[0]);
+                        e.RGB[1] = std::stoi(splitRGB[1]);
+                        e.RGB[2] = std::stoi(splitRGB[2]);
+                    }
+                }
             }
 
             m_positionValues[key].push_back(std::move(e));
@@ -139,10 +156,27 @@ void SkinConfig::Load(std::filesystem::path path, int keyCount)
             }
 
             if (split.size() > 4) {
-                auto splitRGB = splitString(split[4], ':');
-                e.RGB[0] = std::stoi(splitRGB[0]);
-                e.RGB[1] = std::stoi(splitRGB[1]);
-                e.RGB[2] = std::stoi(splitRGB[2]);
+                if (split[4].find(':') != std::string::npos) {
+                    auto splitRGB = splitString(split[4], ':');
+                    if (splitRGB.size() >= 3) {
+                        e.RGB[0] = std::stoi(splitRGB[0]);
+                        e.RGB[1] = std::stoi(splitRGB[1]);
+                        e.RGB[2] = std::stoi(splitRGB[2]);
+                    }
+                } else {
+                    e.FPS = std::stof(split[4]);
+                }
+            }
+
+            if (split.size() > 5) {
+                if (split[5].find(':') != std::string::npos) {
+                    auto splitRGB = splitString(split[5], ':');
+                    if (splitRGB.size() >= 3) {
+                        e.RGB[0] = std::stoi(splitRGB[0]);
+                        e.RGB[1] = std::stoi(splitRGB[1]);
+                        e.RGB[2] = std::stoi(splitRGB[2]);
+                    }
+                }
             }
 
             m_positionValues[key].push_back(std::move(e));
@@ -239,10 +273,27 @@ void SkinConfig::Load(std::filesystem::path path, int keyCount)
             }
 
             if (split.size() > 4) {
-                auto splitRGB = splitString(split[4], ':');
-                p.RGB[0] = std::stoi(splitRGB[0]);
-                p.RGB[1] = std::stoi(splitRGB[1]);
-                p.RGB[2] = std::stoi(splitRGB[2]);
+                if (split[4].find(':') != std::string::npos) {
+                    auto splitRGB = splitString(split[4], ':');
+                    if (splitRGB.size() >= 3) {
+                        p.RGB[0] = std::stoi(splitRGB[0]);
+                        p.RGB[1] = std::stoi(splitRGB[1]);
+                        p.RGB[2] = std::stoi(splitRGB[2]);
+                    }
+                } else {
+                    p.FPS = std::stof(split[4]);
+                }
+            }
+
+            if (split.size() > 5) {
+                if (split[5].find(':') != std::string::npos) {
+                    auto splitRGB = splitString(split[5], ':');
+                    if (splitRGB.size() >= 3) {
+                        p.RGB[0] = std::stoi(splitRGB[0]);
+                        p.RGB[1] = std::stoi(splitRGB[1]);
+                        p.RGB[2] = std::stoi(splitRGB[2]);
+                    }
+                }
             }
 
             m_positionValues[key].push_back(std::move(p));

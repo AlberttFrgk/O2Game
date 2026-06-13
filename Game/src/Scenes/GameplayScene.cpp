@@ -828,7 +828,12 @@ bool GameplayScene::Attach() {
               frame++;
           }
 
-          m_judgementSprite[i] = std::make_unique<Sprite2D>(animPaths, 0.02f);
+          float frameTime = 0.02f;
+          if (judgePos[posIndex].FPS > 0.0f) {
+              frameTime = 1.0f / judgePos[posIndex].FPS;
+          }
+
+          m_judgementSprite[i] = std::make_unique<Sprite2D>(animPaths, frameTime);
           m_judgementSprite[i]->Position = UDim2::fromOffset(judgePos[posIndex].X, judgePos[posIndex].Y);
           m_judgementSprite[i]->AlphaBlend = true;
       } else {
