@@ -41,10 +41,9 @@ struct NumericValue
     unsigned char RGB[3];
 };
 
-// Value format: X, Y, AnchorPointX, AnchorPointY
+// Value format: X, Y, AnchorPointX, AnchorPointY, FrameTime
 struct SpriteValue
 {
-    int           numOfFrames;
     double        X, Y;
     float         AnchorPointX, AnchorPointY;
     float         FrameTime;

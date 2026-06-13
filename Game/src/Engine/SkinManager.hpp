@@ -28,11 +28,7 @@ public:
     NoteValue                  GetNote(SkinGroup group, std::string key);
     SpriteValue                GetSprite(SkinGroup group, std::string key);
 
-    void                       Arena_SetIndex(int index);
-    std::vector<NumericValue>  Arena_GetNumeric(std::string key);
-    std::vector<PositionValue> Arena_GetPosition(std::string key);
-    std::vector<RectInfo>      Arena_GetRect(std::string key);
-    SpriteValue                Arena_GetSprite(std::string key);
+
 
     void Update(double delta);
 

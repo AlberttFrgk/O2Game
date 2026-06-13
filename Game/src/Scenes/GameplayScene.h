@@ -40,12 +40,14 @@ public:
 private:
     void *CreateScreenshotWin32();
 
-    std::unordered_map<int, std::shared_ptr<Texture2D>>  m_keyLighting;
-    std::unordered_map<int, std::shared_ptr<Texture2D>>  m_keyButtons;
+    std::unordered_map<int, std::shared_ptr<Sprite2D>>  m_keyLighting;
+    std::unordered_map<int, std::shared_ptr<Sprite2D>>  m_keyButtons;
+    std::unordered_map<int, std::shared_ptr<Sprite2D>>  m_keyDowns;
     std::unordered_map<int, std::shared_ptr<Texture2D>>  m_judgement;
+    std::unordered_map<int, std::shared_ptr<Sprite2D>>   m_judgementSprite;
     std::unordered_map<int, std::shared_ptr<Texture2D>>  m_pills;
-    std::unordered_map<int, std::shared_ptr<FrameTimer>> m_hitEffect;
-    std::unordered_map<int, std::shared_ptr<FrameTimer>> m_holdEffect;
+    std::unordered_map<int, std::shared_ptr<Sprite2D>> m_hitEffect;
+    std::unordered_map<int, std::shared_ptr<Sprite2D>> m_holdEffect;
     std::unordered_map<int, bool>                        m_keyState;
     std::unordered_map<int, UDim2>                       m_statsPos;
 

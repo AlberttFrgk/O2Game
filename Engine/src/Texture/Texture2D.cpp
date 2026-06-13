@@ -236,6 +236,15 @@ void Texture2D::Draw(Rect* clipRect, bool manualDraw)
         ImVec2 uv3(1.0f, 1.0f); // Bottom-right UV coordinate
         ImVec2 uv4(0.0f, 1.0f); // Bottom-left UV coordinate
 
+        if (FlipX) {
+            std::swap(uv1.x, uv2.x);
+            std::swap(uv3.x, uv4.x);
+        }
+        if (FlipY) {
+            std::swap(uv1.y, uv4.y);
+            std::swap(uv2.y, uv3.y);
+        }
+
         ImU32 color = IM_COL32((uint8_t)(TintColor.R * 255), (uint8_t)(TintColor.G * 255), (uint8_t)(TintColor.B * 255), (uint8_t)(255 - (Transparency / 100.0) * 255));
 
         std::array<ImDrawVert, 6> vertexData = {{
@@ -294,7 +303,11 @@ void Texture2D::Draw(Rect* clipRect, bool manualDraw)
         SDL_SetTextureColorMod(m_sdl_tex, color.r, color.g, color.b);
         SDL_SetTextureAlphaMod(m_sdl_tex, static_cast<uint8_t>(255 - (Transparency / 100.0) * 255));
 
-        int error = SDL_RenderCopyExF(renderer->GetSDLRenderer(), m_sdl_tex, nullptr, &destRect, Rotation, nullptr, SDL_FLIP_NONE);
+        int flipMode = SDL_FLIP_NONE;
+        if (FlipX) flipMode |= SDL_FLIP_HORIZONTAL;
+        if (FlipY) flipMode |= SDL_FLIP_VERTICAL;
+
+        int error = SDL_RenderCopyExF(renderer->GetSDLRenderer(), m_sdl_tex, nullptr, &destRect, Rotation, nullptr, (SDL_RendererFlip)flipMode);
 
         if (error != 0) {
             throw SDLException();

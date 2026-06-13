@@ -137,20 +137,40 @@ void SkinConfig::Load(std::filesystem::path path, int keyCount)
         auto split = splitString(value, ',');
 
         SpriteValue e = {};
-        e.numOfFrames = std::stoi(split[0]);
-        e.X = std::stoi(split[1]);
-        e.Y = std::stoi(split[2]);
+        e.X = std::stoi(split[0]);
+        e.Y = std::stoi(split[1]);
+
+        if (split.size() > 2) {
+            e.AnchorPointX = std::stof(split[2]);
+        }
 
         if (split.size() > 3) {
-            e.AnchorPointX = std::stof(split[3]);
+            e.AnchorPointY = std::stof(split[3]);
         }
 
         if (split.size() > 4) {
-            e.AnchorPointY = std::stof(split[4]);
+            e.FrameTime = std::stof(split[4]);
         }
 
-        if (split.size() > 5) {
-            e.FrameTime = std::stof(split[5]);
+        m_spriteValues[key] = std::move(e);
+    }
+
+    for (auto const &[key, value] : ini["Effects"]) {
+        auto split = splitString(value, ',');
+
+        SpriteValue e = {};
+        e.X = std::stoi(split[0]);
+        e.Y = std::stoi(split[1]);
+        
+        // Effects default to 0.5, 0.5 AnchorPoint as they are centered on the lane
+        e.AnchorPointX = 0.5f;
+        e.AnchorPointY = 0.5f;
+
+        // Effects format: X, Y, FPS?, TintColor?
+        if (split.size() > 2) {
+            e.FrameTime = std::stof(split[2]);
+        } else {
+            e.FrameTime = 30.0f; // Default FPS for effects
         }
 
         m_spriteValues[key] = std::move(e);

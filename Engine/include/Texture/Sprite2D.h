@@ -26,6 +26,8 @@ public:
     ~Sprite2D();
 
     bool    AlphaBlend;
+    bool    FlipX = false;
+    bool    FlipY = false;
     Vector2 AnchorPoint;
     UDim2   Position;
     UDim2   Position2;

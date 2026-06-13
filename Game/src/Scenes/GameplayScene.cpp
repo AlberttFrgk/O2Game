@@ -170,7 +170,9 @@ void GameplayScene::Render(double delta) {
       } else if (EnvironmentSetup::GetInt("Background") == 2) {
         // Do nothing
       } else {
-        m_PlayBG->Draw();
+        if (m_PlayBG) {
+            m_PlayBG->Draw();
+        }
       }
   }
 
@@ -200,8 +202,10 @@ void GameplayScene::Render(double delta) {
   for (auto &[lane, pressed] : m_keyState) {
     if (pressed) {
       m_keyLighting[lane]->AlphaBlend = true;
-      m_keyLighting[lane]->Draw();
-      m_keyButtons[lane]->Draw();
+      m_keyLighting[lane]->Draw(delta);
+      m_keyDowns[lane]->Draw(delta);
+    } else {
+      m_keyButtons[lane]->Draw(delta);
     }
   }
 
@@ -308,15 +312,24 @@ void GameplayScene::Render(double delta) {
     m_lifeBar->Draw(delta, &rc);
   }
 
-  if (m_drawJudge && m_judgement[m_judgeIndex] != nullptr) {
-    m_judgement[m_judgeIndex]->Size =
-        UDim2::fromScale(m_judgeSize, m_judgeSize);
-    m_judgement[m_judgeIndex]->AnchorPoint = {0.5, 0.5};
-    m_judgement[m_judgeIndex]->Draw();
+  if (m_drawJudge) {
+    if (m_judgementSprite.find(m_judgeIndex) != m_judgementSprite.end() && m_judgementSprite[m_judgeIndex] != nullptr) {
+        m_judgementSprite[m_judgeIndex]->AnchorPoint = {0.5, 0.5};
+        m_judgementSprite[m_judgeIndex]->DrawOnce(delta);
 
-    m_judgeSize = std::clamp(m_judgeSize + (delta * 6), 0.4, 1.0); // Nice
-    if ((m_judgeTimer += delta) > 0.60) {
-      m_drawJudge = false;
+        if ((m_judgeTimer += delta) > 0.60) {
+            m_drawJudge = false;
+        }
+    } else if (m_judgement[m_judgeIndex] != nullptr) {
+        m_judgement[m_judgeIndex]->Size =
+            UDim2::fromScale(m_judgeSize, m_judgeSize);
+        m_judgement[m_judgeIndex]->AnchorPoint = {0.5, 0.5};
+        m_judgement[m_judgeIndex]->Draw();
+
+        m_judgeSize = std::clamp(m_judgeSize + (delta * 6), 0.4, 1.0); // Nice
+        if ((m_judgeTimer += delta) > 0.60) {
+          m_drawJudge = false;
+        }
     }
   }
 
@@ -455,16 +468,18 @@ void GameplayScene::Render(double delta) {
 
   for (int i = 0; i < 7; i++) {
     if (EnvironmentSetup::GetInt("NowPlaying") == 1) {
-      m_hitEffect[i]->Draw(delta);
+      if (m_drawHit[i]) {
+        m_hitEffect[i]->DrawOnce(delta);
+      }
 
       if (m_drawHold[i]) {
         m_holdEffect[i]->Draw(delta);
       }
     } else {
-      m_hitEffect[i]->LastIndex();
+      m_hitEffect[i]->SetIndex(m_hitEffect[i]->GetFrameCount() - 1);
 
       if (m_drawHold[i]) {
-        m_holdEffect[i]->LastIndex();
+        m_holdEffect[i]->SetIndex(m_holdEffect[i]->GetFrameCount() - 1);
       }
     }
   }
@@ -567,7 +582,11 @@ bool GameplayScene::Attach() {
     }
 
     // HACK: arena -1 is Music Arena
-    arenaPath /= std::to_string(arena);
+    auto numberedArenaPath = arenaPath / std::to_string(arena);
+    if (std::filesystem::exists(numberedArenaPath)) {
+        arenaPath = numberedArenaPath;
+    }
+
     EnvironmentSetup::SetInt("CurrentArena", arena);
 
     if (!std::filesystem::exists(arenaPath)) {
@@ -576,7 +595,7 @@ bool GameplayScene::Attach() {
           " is missing from folder: " + (playingPath / "Arena").string());
     }
     manager->SetKeyCount(7);
-    manager->Arena_SetIndex(arena != -1 ? arena : 0);
+    // Arena Index logic is removed since Arena.ini is merged into Playing.ini
 
     for (int i = 0; i < 7; i++) {
       m_keyState[i] = false;
@@ -605,12 +624,29 @@ bool GameplayScene::Attach() {
         UDim2::fromOffset(/*GameWindow::GetInstance()->GetBufferWidth()*/ 0,
                           GameWindow::GetInstance()->GetBufferHeight() - 10);
 
-    m_PlayBG = std::make_unique<Texture2D>(arenaPath / ("PlayingBG.png"));
-    auto PlayBGPos = manager->Arena_GetPosition(
-        "PlayingBG"); // arena_conf.GetPosition("PlayingBG");
-    m_PlayBG->Position = UDim2::fromOffset(PlayBGPos[0].X, PlayBGPos[0].Y);
-    m_PlayBG->AnchorPoint = {PlayBGPos[0].AnchorPointX,
-                             PlayBGPos[0].AnchorPointY};
+    std::filesystem::path playBgPath = arenaPath / "PlayingBG.png";
+    bool hasBg = true;
+    if (!std::filesystem::exists(playBgPath)) {
+        Chart *chartCheck = (Chart *)EnvironmentSetup::GetObj("SONG");
+        if (chartCheck && !chartCheck->m_backgroundFile.empty()) {
+            playBgPath = chartCheck->m_beatmapDirectory / chartCheck->m_backgroundFile;
+            if (!std::filesystem::exists(playBgPath)) {
+                hasBg = false;
+            }
+        } else {
+            hasBg = false;
+        }
+    }
+
+    if (hasBg) {
+        m_PlayBG = std::make_unique<Texture2D>(playBgPath);
+        auto PlayBGPos = manager->GetPosition(SkinGroup::Playing, "PlayingBG");
+        m_PlayBG->Position = UDim2::fromOffset(PlayBGPos[0].X, PlayBGPos[0].Y);
+        m_PlayBG->AnchorPoint = {PlayBGPos[0].AnchorPointX,
+                                 PlayBGPos[0].AnchorPointY};
+    } else {
+        m_PlayBG = nullptr;
+    }
 
     auto conKeyLight = manager->GetPosition(
         SkinGroup::Playing, "KeyLighting"); // conf.GetPosition("KeyLighting");
@@ -631,16 +667,68 @@ bool GameplayScene::Attach() {
     m_Playfield->AnchorPoint = {playfieldPos[0].AnchorPointX,
                                 playfieldPos[0].AnchorPointY};
 
+    std::string keyMap[7] = { "1", "2", "1", "S", "1", "2", "1" };
     for (int i = 0; i < 7; i++) {
-      m_keyLighting[i] = std::move(std::make_unique<Texture2D>(
-          playingPath / ("KeyLighting" + std::to_string(i) + ".png")));
-      m_keyButtons[i] = std::move(std::make_unique<Texture2D>(
-          playingPath / ("KeyButton" + std::to_string(i) + ".png")));
+        std::string btnBase = "KeyButton" + keyMap[i];
+        std::string dwnBase = "KeyDown" + keyMap[i];
+        std::string lgtBase = "KeyLighting" + keyMap[i];
 
-      m_keyLighting[i]->Position =
-          UDim2::fromOffset(conKeyLight[i].X, conKeyLight[i].Y);
-      m_keyButtons[i]->Position =
-          UDim2::fromOffset(conKeyButton[i].X, conKeyButton[i].Y);
+        std::vector<std::filesystem::path> btnPaths;
+        std::vector<std::filesystem::path> dwnPaths;
+        std::vector<std::filesystem::path> lgtPaths;
+
+        if (std::filesystem::exists(playingPath / (btnBase + "-0.png"))) {
+            int frame = 0;
+            while (std::filesystem::exists(playingPath / (btnBase + "-" + std::to_string(frame) + ".png"))) {
+                btnPaths.push_back(playingPath / (btnBase + "-" + std::to_string(frame) + ".png"));
+                frame++;
+            }
+        } else {
+            btnPaths.push_back(playingPath / (btnBase + ".png"));
+        }
+
+        if (std::filesystem::exists(playingPath / (dwnBase + "-0.png"))) {
+            int frame = 0;
+            while (std::filesystem::exists(playingPath / (dwnBase + "-" + std::to_string(frame) + ".png"))) {
+                dwnPaths.push_back(playingPath / (dwnBase + "-" + std::to_string(frame) + ".png"));
+                frame++;
+            }
+        } else if (std::filesystem::exists(playingPath / (dwnBase + ".png"))) {
+            dwnPaths.push_back(playingPath / (dwnBase + ".png"));
+        } else {
+            dwnPaths = btnPaths; // Fallback to KeyButton if KeyDown doesn't exist
+        }
+
+        if (std::filesystem::exists(playingPath / (lgtBase + "-0.png"))) {
+            int frame = 0;
+            while (std::filesystem::exists(playingPath / (lgtBase + "-" + std::to_string(frame) + ".png"))) {
+                lgtPaths.push_back(playingPath / (lgtBase + "-" + std::to_string(frame) + ".png"));
+                frame++;
+            }
+        } else {
+            lgtPaths.push_back(playingPath / (lgtBase + ".png"));
+        }
+
+        m_keyButtons[i] = std::make_unique<Sprite2D>(btnPaths, 0.016f);
+        m_keyDowns[i] = std::make_unique<Sprite2D>(dwnPaths, 0.016f);
+        m_keyLighting[i] = std::make_unique<Sprite2D>(lgtPaths, 0.016f);
+
+        if (i == 2 || i == 5 || i == 6) {
+            m_keyButtons[i]->FlipX = true;
+            m_keyDowns[i]->FlipX = true;
+            m_keyLighting[i]->FlipX = true;
+        }
+
+        m_keyLighting[i]->Position = UDim2::fromOffset(conKeyLight[i].X, conKeyLight[i].Y);
+        m_keyButtons[i]->Position = UDim2::fromOffset(conKeyButton[i].X, conKeyButton[i].Y);
+        
+        // Try to get KeyDown position, fallback to KeyButton position if not found
+        try {
+            auto conKeyDown = manager->GetPosition(SkinGroup::Playing, "KeyDown");
+            m_keyDowns[i]->Position = UDim2::fromOffset(conKeyDown[i].X, conKeyDown[i].Y);
+        } catch (const std::runtime_error&) {
+            m_keyDowns[i]->Position = m_keyButtons[i]->Position;
+        }
     }
 
     std::vector<std::filesystem::path> numComboPaths = {};
@@ -658,8 +746,7 @@ bool GameplayScene::Attach() {
     }
 
     m_comboNum = std::make_unique<NumericTexture>(numComboPaths);
-    auto numPos = manager->Arena_GetNumeric("Combo")
-                      .front(); // arena_conf.GetNumeric("Combo").front();
+    auto numPos = manager->GetNumeric(SkinGroup::Playing, "Combo").front();
 
     m_comboNum->Position = UDim2::fromOffset(numPos.X, numPos.Y);
     m_comboNum->NumberPosition = IntToPos(numPos.Direction);
@@ -714,23 +801,37 @@ bool GameplayScene::Attach() {
 
     std::vector<std::string> judgeFileName = {"Miss", "Bad", "Good", "Cool"};
     auto judgePos =
-        manager->Arena_GetPosition("Judge"); // arena_conf.GetPosition("Judge");
+        manager->GetPosition(SkinGroup::Playing, "Judge");
     if (judgePos.size() < 4) {
       throw std::runtime_error("Playing.ini : Positions : Judge : Not enough "
                                "positions! (count < 4)");
     }
 
     for (int i = 0; i < 4; i++) {
-      auto filePath = arenaPath / ("Judge" + judgeFileName[i] + ".png");
+      auto filePathBase = arenaPath / ("Judge" + judgeFileName[i]);
 
-      if (!CheckSkinComponent(filePath)) {
-        throw std::runtime_error("Failed to load Judge image!");
+      if (std::filesystem::exists(filePathBase.string() + "0.png")) {
+          std::vector<std::filesystem::path> animPaths;
+          int frame = 0;
+          while (std::filesystem::exists(filePathBase.string() + std::to_string(frame) + ".png")) {
+              animPaths.push_back(filePathBase.string() + std::to_string(frame) + ".png");
+              frame++;
+          }
+          m_judgementSprite[i] = std::make_unique<Sprite2D>(animPaths, 0.02f);
+          m_judgementSprite[i]->Position = UDim2::fromOffset(judgePos[i].X, judgePos[i].Y);
+          m_judgementSprite[i]->AlphaBlend = true;
+      } else {
+          auto filePath = arenaPath / ("Judge" + judgeFileName[i] + ".png");
+
+          if (!CheckSkinComponent(filePath)) {
+            throw std::runtime_error("Failed to load Judge image!");
+          }
+
+          m_judgement[i] = std::move(std::make_unique<Texture2D>(filePath));
+          m_judgement[i]->Position =
+              UDim2::fromOffset(judgePos[i].X, judgePos[i].Y);
+          m_judgement[i]->AlphaBlend = true;
       }
-
-      m_judgement[i] = std::move(std::make_unique<Texture2D>(filePath));
-      m_judgement[i]->Position =
-          UDim2::fromOffset(judgePos[i].X, judgePos[i].Y);
-      m_judgement[i]->AlphaBlend = true;
     }
 
     m_jamGauge = std::make_unique<Texture2D>(playingPath / "JamGauge.png");
@@ -748,16 +849,22 @@ bool GameplayScene::Attach() {
     auto jamLogoPos = manager->GetSprite(
         SkinGroup::Playing, "JamLogo"); // conf.GetSprite("JamLogo");
     std::vector<std::filesystem::path> jamLogoFileName = {};
-    for (int i = 0; i < jamLogoPos.numOfFrames; i++) {
-      auto filePath = playingPath / ("JamLogo" + std::to_string(i) + ".png");
-
-      if (!CheckSkinComponent(filePath)) {
-        std::cout << "Missing: " << filePath.filename() << std::endl;
-
+    if (std::filesystem::exists(playingPath / "JamLogo-0.png")) {
+        int frame = 0;
+        while (std::filesystem::exists(playingPath / ("JamLogo-" + std::to_string(frame) + ".png"))) {
+            jamLogoFileName.emplace_back(playingPath / ("JamLogo-" + std::to_string(frame) + ".png"));
+            frame++;
+        }
+    } else if (std::filesystem::exists(playingPath / "JamLogo0.png")) {
+        int frame = 0;
+        while (std::filesystem::exists(playingPath / ("JamLogo" + std::to_string(frame) + ".png"))) {
+            jamLogoFileName.emplace_back(playingPath / ("JamLogo" + std::to_string(frame) + ".png"));
+            frame++;
+        }
+    } else if (std::filesystem::exists(playingPath / "JamLogo.png")) {
+        jamLogoFileName.emplace_back(playingPath / "JamLogo.png");
+    } else {
         throw std::runtime_error("Failed to load Jam Logo image!");
-      }
-
-      jamLogoFileName.emplace_back(filePath);
     }
 
     m_jamLogo = std::make_unique<Sprite2D>(jamLogoFileName, 0.25f);
@@ -769,15 +876,22 @@ bool GameplayScene::Attach() {
     auto lifeBarPos = manager->GetSprite(
         SkinGroup::Playing, "LifeBar"); // conf.GetSprite("LifeBar");
     std::vector<std::filesystem::path> lifeBarFileName = {};
-    for (int i = 0; i < lifeBarPos.numOfFrames; i++) {
-      auto filePath = playingPath / ("LifeBar" + std::to_string(i) + ".png");
-
-      if (!CheckSkinComponent(filePath)) {
-        std::cout << "Missing: " << filePath.filename() << std::endl;
+    if (std::filesystem::exists(playingPath / "LifeBar-0.png")) {
+        int frame = 0;
+        while (std::filesystem::exists(playingPath / ("LifeBar-" + std::to_string(frame) + ".png"))) {
+            lifeBarFileName.emplace_back(playingPath / ("LifeBar-" + std::to_string(frame) + ".png"));
+            frame++;
+        }
+    } else if (std::filesystem::exists(playingPath / "LifeBar0.png")) {
+        int frame = 0;
+        while (std::filesystem::exists(playingPath / ("LifeBar" + std::to_string(frame) + ".png"))) {
+            lifeBarFileName.emplace_back(playingPath / ("LifeBar" + std::to_string(frame) + ".png"));
+            frame++;
+        }
+    } else if (std::filesystem::exists(playingPath / "LifeBar.png")) {
+        lifeBarFileName.emplace_back(playingPath / "LifeBar.png");
+    } else {
         throw std::runtime_error("Failed to load Life Bar image!");
-      }
-
-      lifeBarFileName.emplace_back(filePath);
     }
 
     m_lifeBar = std::make_unique<Sprite2D>(lifeBarFileName, 0.15f);
@@ -875,16 +989,22 @@ bool GameplayScene::Attach() {
     auto lnLogoPos = manager->GetSprite(
         SkinGroup::Playing, "LongNoteLogo"); // conf.GetSprite("LongNoteLogo");
     std::vector<std::filesystem::path> lnLogoFileName = {};
-    for (int i = 0; i < lnLogoPos.numOfFrames; i++) {
-      auto filePath =
-          playingPath / ("LongNoteLogo" + std::to_string(i) + ".png");
-
-      if (!CheckSkinComponent(filePath)) {
-        std::cout << "Missing: " << filePath.filename() << std::endl;
+    if (std::filesystem::exists(playingPath / "LongNoteLogo-0.png")) {
+        int frame = 0;
+        while (std::filesystem::exists(playingPath / ("LongNoteLogo-" + std::to_string(frame) + ".png"))) {
+            lnLogoFileName.emplace_back(playingPath / ("LongNoteLogo-" + std::to_string(frame) + ".png"));
+            frame++;
+        }
+    } else if (std::filesystem::exists(playingPath / "LongNoteLogo0.png")) {
+        int frame = 0;
+        while (std::filesystem::exists(playingPath / ("LongNoteLogo" + std::to_string(frame) + ".png"))) {
+            lnLogoFileName.emplace_back(playingPath / ("LongNoteLogo" + std::to_string(frame) + ".png"));
+            frame++;
+        }
+    } else if (std::filesystem::exists(playingPath / "LongNoteLogo.png")) {
+        lnLogoFileName.emplace_back(playingPath / "LongNoteLogo.png");
+    } else {
         throw std::runtime_error("Failed to load Long Note Logo image!");
-      }
-
-      lnLogoFileName.emplace_back(filePath);
     }
 
     m_lnLogo = std::make_unique<Sprite2D>(lnLogoFileName, 0.25f);
@@ -893,17 +1013,24 @@ bool GameplayScene::Attach() {
     m_lnLogo->SetFPS(lnLogoPos.FrameTime);
     m_lnLogo->AlphaBlend = true;
 
-    auto comboLogoPos = manager->Arena_GetSprite(
-        "ComboLogo"); // arena_conf.GetSprite("ComboLogo");
+    auto comboLogoPos = manager->GetSprite(SkinGroup::Playing, "ComboLogo");
     std::vector<std::filesystem::path> comboFileName = {};
-    for (int i = 0; i < comboLogoPos.numOfFrames; i++) {
-      auto file = arenaPath / ("ComboLogo" + std::to_string(i) + ".png");
-
-      if (!CheckSkinComponent(file)) {
-        break;
-      }
-
-      comboFileName.emplace_back(file);
+    if (std::filesystem::exists(arenaPath / "ComboLogo-0.png")) {
+        int frame = 0;
+        while (std::filesystem::exists(arenaPath / ("ComboLogo-" + std::to_string(frame) + ".png"))) {
+            comboFileName.emplace_back(arenaPath / ("ComboLogo-" + std::to_string(frame) + ".png"));
+            frame++;
+        }
+    } else if (std::filesystem::exists(arenaPath / "ComboLogo0.png")) {
+        int frame = 0;
+        while (std::filesystem::exists(arenaPath / ("ComboLogo" + std::to_string(frame) + ".png"))) {
+            comboFileName.emplace_back(arenaPath / ("ComboLogo" + std::to_string(frame) + ".png"));
+            frame++;
+        }
+    } else if (std::filesystem::exists(arenaPath / "ComboLogo.png")) {
+        comboFileName.emplace_back(arenaPath / "ComboLogo.png");
+    } else {
+        // Some arenas might not have a ComboLogo
     }
 
     m_comboLogo = std::make_unique<Sprite2D>(comboFileName, 0.25f);
@@ -934,15 +1061,22 @@ bool GameplayScene::Attach() {
     auto targetPos = manager->GetSprite(
         SkinGroup::Playing, "TargetBar"); // conf.GetSprite("TargetBar");
     std::vector<std::filesystem::path> targetBarPaths = {};
-    for (int i = 0; i < targetPos.numOfFrames; i++) {
-      auto filePath = playingPath / ("TargetBar" + std::to_string(i) + ".png");
-
-      if (!CheckSkinComponent(filePath)) {
-        throw std::runtime_error(
-            "Failed to load TargetBar Images, please check your skin folder.");
-      }
-
-      targetBarPaths.emplace_back(filePath);
+    if (std::filesystem::exists(playingPath / "TargetBar-0.png")) {
+        int frame = 0;
+        while (std::filesystem::exists(playingPath / ("TargetBar-" + std::to_string(frame) + ".png"))) {
+            targetBarPaths.emplace_back(playingPath / ("TargetBar-" + std::to_string(frame) + ".png"));
+            frame++;
+        }
+    } else if (std::filesystem::exists(playingPath / "TargetBar0.png")) {
+        int frame = 0;
+        while (std::filesystem::exists(playingPath / ("TargetBar" + std::to_string(frame) + ".png"))) {
+            targetBarPaths.emplace_back(playingPath / ("TargetBar" + std::to_string(frame) + ".png"));
+            frame++;
+        }
+    } else if (std::filesystem::exists(playingPath / "TargetBar.png")) {
+        targetBarPaths.emplace_back(playingPath / "TargetBar.png");
+    } else {
+        throw std::runtime_error("Failed to load TargetBar Images, please check your skin folder.");
     }
 
     auto playfooterPos =
@@ -964,7 +1098,7 @@ bool GameplayScene::Attach() {
         SkinGroup::Playing, "Minute"); // conf.GetNumeric("Minute");
     m_minuteNum->NumberPosition = IntToPos(minutePos[0].Direction);
     m_minuteNum->MaxDigits = minutePos[0].MaxDigit;
-    m_minuteNum->FillWithZeros = minutePos[0].FillWithZero;
+    m_minuteNum->FillWithZeros = false;
     m_minuteNum->Position = UDim2::fromOffset(minutePos[0].X, minutePos[0].Y);
 
     m_secondNum = std::make_unique<NumericTexture>(numTimerPaths);
@@ -972,7 +1106,7 @@ bool GameplayScene::Attach() {
         SkinGroup::Playing, "Second"); // conf.GetNumeric("Second");
     m_secondNum->NumberPosition = IntToPos(secondPos[0].Direction);
     m_secondNum->MaxDigits = secondPos[0].MaxDigit;
-    m_secondNum->FillWithZeros = secondPos[0].FillWithZero;
+    m_secondNum->FillWithZeros = true;
     m_secondNum->Position = UDim2::fromOffset(secondPos[0].X, secondPos[0].Y);
 
     auto pillsPosition = manager->GetPosition(
@@ -1053,16 +1187,16 @@ bool GameplayScene::Attach() {
       } else {
         if (e.IsHitEvent) {
           if (e.IsHitLongEvent) {
-            m_holdEffect[e.Lane]->ResetIndex();
+            m_holdEffect[e.Lane]->Reset();
             m_drawHit[e.Lane] = false;
             m_drawHold[e.Lane] = e.State;
 
             if (!e.State) {
-              m_hitEffect[e.Lane]->ResetIndex();
+              m_hitEffect[e.Lane]->Reset();
               m_drawHit[e.Lane] = true;
             }
           } else {
-            m_hitEffect[e.Lane]->ResetIndex();
+            m_hitEffect[e.Lane]->Reset();
             m_drawHit[e.Lane] = true;
             m_drawHold[e.Lane] = false;
           }
@@ -1105,43 +1239,59 @@ bool GameplayScene::Attach() {
 
     m_game->SetKeys(keys);
 
-    auto hitEffectPos = manager->Arena_GetSprite(
-        "HitEffect"); // arena_conf.GetSprite("HitEffect");
-    auto holdEffectPos = manager->Arena_GetSprite(
-        "HoldEffect"); // arena_conf.GetSprite("HoldEffect");
+    auto hitEffectPos = manager->GetSprite(SkinGroup::Playing, "HitEffect");
+    auto holdEffectPos = manager->GetSprite(SkinGroup::Playing, "HoldEffect");
 
     std::vector<std::filesystem::path> HitEffect = {};
-    for (int i = 0; i < hitEffectPos.numOfFrames; i++) {
-      auto path = arenaPath / ("HitEffect" + std::to_string(i) + ".png");
-
-      if (!CheckSkinComponent(path)) {
-        break;
-      }
-
-      HitEffect.emplace_back(path);
+    if (std::filesystem::exists(arenaPath / "HitEffect-0.png")) {
+        int frame = 0;
+        while (std::filesystem::exists(arenaPath / ("HitEffect-" + std::to_string(frame) + ".png"))) {
+            HitEffect.emplace_back(arenaPath / ("HitEffect-" + std::to_string(frame) + ".png"));
+            frame++;
+        }
+    } else if (std::filesystem::exists(arenaPath / "HitEffect0.png")) {
+        int frame = 0;
+        while (std::filesystem::exists(arenaPath / ("HitEffect" + std::to_string(frame) + ".png"))) {
+            HitEffect.emplace_back(arenaPath / ("HitEffect" + std::to_string(frame) + ".png"));
+            frame++;
+        }
+    } else if (std::filesystem::exists(arenaPath / "HitEffect.png")) {
+        HitEffect.emplace_back(arenaPath / "HitEffect.png");
     }
 
     std::vector<std::filesystem::path> holdEffect = {};
-    for (int i = 0; i < holdEffectPos.numOfFrames; i++) {
-      auto path = arenaPath / ("HoldEffect" + std::to_string(i) + ".png");
-
-      if (!CheckSkinComponent(path)) {
-        break;
-      }
-
-      holdEffect.emplace_back(path);
+    if (std::filesystem::exists(arenaPath / "HoldEffect-0.png")) {
+        int frame = 0;
+        while (std::filesystem::exists(arenaPath / ("HoldEffect-" + std::to_string(frame) + ".png"))) {
+            holdEffect.emplace_back(arenaPath / ("HoldEffect-" + std::to_string(frame) + ".png"));
+            frame++;
+        }
+    } else if (std::filesystem::exists(arenaPath / "HoldEffect0.png")) {
+        int frame = 0;
+        while (std::filesystem::exists(arenaPath / ("HoldEffect" + std::to_string(frame) + ".png"))) {
+            holdEffect.emplace_back(arenaPath / ("HoldEffect" + std::to_string(frame) + ".png"));
+            frame++;
+        }
+    } else if (std::filesystem::exists(arenaPath / "HoldEffect.png")) {
+        holdEffect.emplace_back(arenaPath / "HoldEffect.png");
     }
 
     auto lanePos = m_game->GetLanePos();
     auto laneSize = m_game->GetLaneSizes();
     for (int i = 0; i < 7; i++) {
-      m_hitEffect[i] = std::move(std::make_unique<FrameTimer>(HitEffect));
-      m_holdEffect[i] = std::move(std::make_unique<FrameTimer>(holdEffect));
+      m_hitEffect[i] = std::make_unique<Sprite2D>(
+          HitEffect, hitEffectPos.FrameTime);
+      m_holdEffect[i] = std::make_unique<Sprite2D>(
+          holdEffect, holdEffectPos.FrameTime);
+          
+      if (i == 2 || i == 5 || i == 6) {
+          m_hitEffect[i]->FlipX = true;
+          m_holdEffect[i]->FlipX = true;
+      }
 
       m_hitEffect[i]->SetFPS(hitEffectPos.FrameTime);
       m_holdEffect[i]->SetFPS(holdEffectPos.FrameTime);
-      m_hitEffect[i]->LastIndex();
-      m_holdEffect[i]->Repeat = true;
+      m_hitEffect[i]->SetIndex(m_hitEffect[i]->GetFrameCount() - 1);
       m_hitEffect[i]->AlphaBlend = true;
       m_holdEffect[i]->AlphaBlend = true;
 
@@ -1212,6 +1362,9 @@ bool GameplayScene::Attach() {
       if (IsHD) {
         std::string VisualModImage = "ModHidden.png";
         auto VisualModfilename = playingPath / VisualModImage;
+        if (!std::filesystem::exists(VisualModfilename)) {
+            VisualModfilename = std::filesystem::current_path() / "Resources" / "Mods" / VisualModImage;
+        }
 
         try {
           auto visualModPos =
@@ -1228,6 +1381,9 @@ bool GameplayScene::Attach() {
       if (IsFL) {
         std::string VisualModImage = "ModFlashlight.png";
         auto VisualModfilename = playingPath / VisualModImage;
+        if (!std::filesystem::exists(VisualModfilename)) {
+            VisualModfilename = std::filesystem::current_path() / "Resources" / "Mods" / VisualModImage;
+        }
 
         try {
           auto visualModPos =
@@ -1243,6 +1399,9 @@ bool GameplayScene::Attach() {
       if (IsSD) {
         std::string VisualModImage = "ModSudden.png";
         auto VisualModfilename = playingPath / VisualModImage;
+        if (!std::filesystem::exists(VisualModfilename)) {
+            VisualModfilename = std::filesystem::current_path() / "Resources" / "Mods" / VisualModImage;
+        }
 
         try {
           auto visualModPos =
@@ -1261,6 +1420,9 @@ bool GameplayScene::Attach() {
       if (IsMR) {
         std::string NoteModImage = "ModMirror.png";
         auto NoteModfilename = playingPath / NoteModImage;
+        if (!std::filesystem::exists(NoteModfilename)) {
+            NoteModfilename = std::filesystem::current_path() / "Resources" / "Mods" / NoteModImage;
+        }
 
         try {
           auto noteModPos =
@@ -1276,6 +1438,9 @@ bool GameplayScene::Attach() {
       if (IsRD) {
         std::string NoteModImage = "ModRandom.png";
         auto NoteModfilename = playingPath / NoteModImage;
+        if (!std::filesystem::exists(NoteModfilename)) {
+            NoteModfilename = std::filesystem::current_path() / "Resources" / "Mods" / NoteModImage;
+        }
 
         try {
           auto noteModPos =
@@ -1290,6 +1455,9 @@ bool GameplayScene::Attach() {
       if (IsPC) {
         std::string NoteModImage = "ModPanic.png";
         auto NoteModfilename = playingPath / NoteModImage;
+        if (!std::filesystem::exists(NoteModfilename)) {
+            NoteModfilename = std::filesystem::current_path() / "Resources" / "Mods" / NoteModImage;
+        }
 
         try {
           auto noteModPos =
@@ -1352,6 +1520,10 @@ bool GameplayScene::Attach() {
       m_comboTimer = 0;
       m_comboLogo->Reset();
       m_judgeIndex = (int)info.Result;
+
+      if (m_judgementSprite.find(m_judgeIndex) != m_judgementSprite.end() && m_judgementSprite[m_judgeIndex] != nullptr) {
+          m_judgementSprite[m_judgeIndex]->Reset();
+      }
     };
 
     m_game->GetScoreManager()->ListenHit(OnHitEvent);
@@ -1404,6 +1576,7 @@ bool GameplayScene::Detach() {
 
   for (int i = 0; i < 4; i++) {
     m_judgement[i].reset();
+    m_judgementSprite[i].reset();
   }
 
   m_PlayBG.reset();

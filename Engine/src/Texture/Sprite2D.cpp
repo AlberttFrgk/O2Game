@@ -91,6 +91,8 @@ void Sprite2D::DrawInternal(double delta, bool playOnce, Rect* rect, bool manual
     tex->AlphaBlend = AlphaBlend;
     tex->Size = Size;
     tex->AnchorPoint = AnchorPoint;
+    tex->FlipX = FlipX;
+    tex->FlipY = FlipY;
     tex->Draw(rect, manual ? false : true);
 
     if (m_spritespeed > 0.0) {
@@ -101,7 +103,7 @@ void Sprite2D::DrawInternal(double delta, bool playOnce, Rect* rect, bool manual
 
             if (m_currentIndex >= m_textures.size()) {
                 if (playOnce) {
-                    m_currentIndex = m_textures.size() - 1; // Stop at the last frame if playing once
+                    m_currentIndex = m_textures.size(); // Stop after the last frame (hide)
                     m_currentTime = 0.0; // Prevent infinite loop buildup if stuck at the end
                     break;
                 } else {
@@ -145,6 +147,8 @@ Texture2D *Sprite2D::GetTexture()
     tex->Position = Position;
     tex->Size = Size;
     tex->AnchorPoint = AnchorPoint;
+    tex->FlipX = FlipX;
+    tex->FlipY = FlipY;
 
     return tex;
 }

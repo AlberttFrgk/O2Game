@@ -180,54 +180,7 @@ SpriteValue SkinManager::GetSprite(SkinGroup group, std::string key)
     }
 }
 
-void SkinManager::Arena_SetIndex(int index)
-{
-    m_arena = index;
 
-    if (m_luaScripting) {
-        m_luaScripting->Arena_SetIndex(index);
-    } else {
-        m_arenaConfig = std::make_unique<SkinConfig>(
-            GetPath() / m_expected_directory[SkinGroup::Playing] / "Arena" / std::to_string(index) / "Arena.ini",
-            m_keyCount);
-    }
-}
-
-std::vector<NumericValue> SkinManager::Arena_GetNumeric(std::string key)
-{
-    if (m_luaScripting) {
-        return m_luaScripting->Arena_GetNumeric(key);
-    } else {
-        return m_arenaConfig->GetNumeric(key);
-    }
-}
-
-std::vector<PositionValue> SkinManager::Arena_GetPosition(std::string key)
-{
-    if (m_luaScripting) {
-        return m_luaScripting->Arena_GetPosition(key, m_keyCount);
-    } else {
-        return m_arenaConfig->GetPosition(key);
-    }
-}
-
-std::vector<RectInfo> SkinManager::Arena_GetRect(std::string key)
-{
-    if (m_luaScripting) {
-        return m_luaScripting->Arena_GetRect(key);
-    } else {
-        return m_arenaConfig->GetRect(key);
-    }
-}
-
-SpriteValue SkinManager::Arena_GetSprite(std::string key)
-{
-    if (m_luaScripting) {
-        return m_luaScripting->Arena_GetSprite(key);
-    } else {
-        return m_arenaConfig->GetSprite(key);
-    }
-}
 
 SkinManager *SkinManager::GetInstance()
 {

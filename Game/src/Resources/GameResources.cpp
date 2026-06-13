@@ -411,30 +411,56 @@ namespace GameNoteResource {
 
         auto manager = SkinManager::GetInstance();
 
+        std::string laneMap[7] = { "Note1", "Note2", "Note1", "NoteS", "Note1", "Note2", "Note1" };
+
         for (int i = 0; i < 7; i++) {
-            NoteValue note = manager->GetNote(SkinGroup::Notes, "LaneHit" + std::to_string(i));
-            NoteValue hold = manager->GetNote(SkinGroup::Notes, "LaneHold" + std::to_string(i));
+            std::string noteBase = laneMap[i] + "N";
+            std::string holdBase = laneMap[i] + "L";
+
+            std::vector<std::filesystem::path> notePaths;
+            std::vector<std::filesystem::path> holdPaths;
+
+            if (std::filesystem::exists(skinNotePath / (noteBase + "-0.png"))) {
+                int frame = 0;
+                while (std::filesystem::exists(skinNotePath / (noteBase + "-" + std::to_string(frame) + ".png"))) {
+                    notePaths.push_back(skinNotePath / (noteBase + "-" + std::to_string(frame) + ".png"));
+                    frame++;
+                }
+            } else if (std::filesystem::exists(skinNotePath / (noteBase + ".png"))) {
+                notePaths.push_back(skinNotePath / (noteBase + ".png"));
+            } else {
+                throw std::runtime_error("Missing note files for lane " + std::to_string(i) + " base: " + noteBase);
+            }
+
+            if (std::filesystem::exists(skinNotePath / (holdBase + "-0.png"))) {
+                int frame = 0;
+                while (std::filesystem::exists(skinNotePath / (holdBase + "-" + std::to_string(frame) + ".png"))) {
+                    holdPaths.push_back(skinNotePath / (holdBase + "-" + std::to_string(frame) + ".png"));
+                    frame++;
+                }
+            } else if (std::filesystem::exists(skinNotePath / (holdBase + ".png"))) {
+                holdPaths.push_back(skinNotePath / (holdBase + ".png"));
+            } else {
+                throw std::runtime_error("Missing hold files for lane " + std::to_string(i) + " base: " + holdBase);
+            }
 
             NoteImage *noteImage = new NoteImage();
             NoteImage *holdImage = new NoteImage();
 
-            noteImage->MaxFrames = note.numOfFiles;
-            holdImage->MaxFrames = hold.numOfFiles;
+            noteImage->MaxFrames = notePaths.size();
+            holdImage->MaxFrames = holdPaths.size();
 
-            noteImage->Surface.resize(note.numOfFiles);
-            holdImage->Surface.resize(hold.numOfFiles);
+            noteImage->Surface.resize(notePaths.size());
+            holdImage->Surface.resize(holdPaths.size());
 
-            noteImage->Texture.resize(note.numOfFiles);
-            holdImage->Texture.resize(hold.numOfFiles);
+            noteImage->Texture.resize(notePaths.size());
+            holdImage->Texture.resize(holdPaths.size());
 
-            noteImage->VulkanTexture.resize(note.numOfFiles);
-            holdImage->VulkanTexture.resize(hold.numOfFiles);
+            noteImage->VulkanTexture.resize(notePaths.size());
+            holdImage->VulkanTexture.resize(holdPaths.size());
 
-            for (int j = 0; j < note.numOfFiles; j++) {
-                auto path = skinNotePath / (note.fileName + std::to_string(j) + ".png");
-                if (!std::filesystem::exists(path)) {
-                    throw std::runtime_error("File: " + path.string() + " is not found!");
-                }
+            for (int j = 0; j < notePaths.size(); j++) {
+                auto path = notePaths[j];
 
                 if (IsVulkan) {
                     auto tex_data = vkTexture::TexLoadImage(path);
@@ -473,11 +499,8 @@ namespace GameNoteResource {
                 }
             }
 
-            for (int j = 0; j < hold.numOfFiles; j++) {
-                auto path = skinNotePath / (hold.fileName + std::to_string(j) + ".png");
-                if (!std::filesystem::exists(path)) {
-                    throw std::runtime_error("File: " + path.string() + " is not found!");
-                }
+            for (int j = 0; j < holdPaths.size(); j++) {
+                auto path = holdPaths[j];
 
                 if (IsVulkan) {
                     auto tex_data = vkTexture::TexLoadImage(path);
@@ -520,24 +543,42 @@ namespace GameNoteResource {
             noteTextures[(NoteImageType)(i + 7)] = holdImage;
         }
 
-        NoteValue trailUp = manager->GetNote(SkinGroup::Notes, "NoteTrailUp");
-        NoteValue trailDown = manager->GetNote(SkinGroup::Notes, "NoteTrailDown");
+        std::vector<std::filesystem::path> trailUpPaths;
+        if (std::filesystem::exists(skinNotePath / "TrailUp0.png")) {
+            int frame = 0;
+            while (std::filesystem::exists(skinNotePath / ("TrailUp" + std::to_string(frame) + ".png"))) {
+                trailUpPaths.push_back(skinNotePath / ("TrailUp" + std::to_string(frame) + ".png"));
+                frame++;
+            }
+        } else if (std::filesystem::exists(skinNotePath / "TrailUp.png")) {
+            trailUpPaths.push_back(skinNotePath / "TrailUp.png");
+        }
+
+        std::vector<std::filesystem::path> trailDownPaths;
+        if (std::filesystem::exists(skinNotePath / "TrailDown0.png")) {
+            int frame = 0;
+            while (std::filesystem::exists(skinNotePath / ("TrailDown" + std::to_string(frame) + ".png"))) {
+                trailDownPaths.push_back(skinNotePath / ("TrailDown" + std::to_string(frame) + ".png"));
+                frame++;
+            }
+        } else if (std::filesystem::exists(skinNotePath / "TrailDown.png")) {
+            trailDownPaths.push_back(skinNotePath / "TrailDown.png");
+        }
 
         NoteImage *trailUpImg = new NoteImage();
-        trailUpImg->Texture.resize(trailUp.numOfFiles);
-        trailUpImg->Surface.resize(trailUp.numOfFiles);
-        trailUpImg->VulkanTexture.resize(trailUp.numOfFiles);
+        trailUpImg->MaxFrames = trailUpPaths.size();
+        trailUpImg->Texture.resize(trailUpPaths.size());
+        trailUpImg->Surface.resize(trailUpPaths.size());
+        trailUpImg->VulkanTexture.resize(trailUpPaths.size());
 
         NoteImage *trailDownImg = new NoteImage();
-        trailDownImg->Texture.resize(trailDown.numOfFiles);
-        trailDownImg->Surface.resize(trailDown.numOfFiles);
-        trailDownImg->VulkanTexture.resize(trailUp.numOfFiles);
+        trailDownImg->MaxFrames = trailDownPaths.size();
+        trailDownImg->Texture.resize(trailDownPaths.size());
+        trailDownImg->Surface.resize(trailDownPaths.size());
+        trailDownImg->VulkanTexture.resize(trailDownPaths.size());
 
-        for (int i = 0; i < trailUp.numOfFiles; i++) {
-            auto path = skinNotePath / (trailUp.fileName + std::to_string(i) + ".png");
-            if (!std::filesystem::exists(path)) {
-                throw std::runtime_error("File: " + path.string() + " is not found!");
-            }
+        for (int i = 0; i < trailUpPaths.size(); i++) {
+            auto path = trailUpPaths[i];
 
             if (IsVulkan) {
                 auto tex_data = vkTexture::TexLoadImage(path);
@@ -576,11 +617,8 @@ namespace GameNoteResource {
             }
         }
 
-        for (int i = 0; i < trailDown.numOfFiles; i++) {
-            auto path = skinNotePath / (trailDown.fileName + std::to_string(i) + ".png");
-            if (!std::filesystem::exists(path)) {
-                throw std::runtime_error("File: " + path.string() + " is not found!");
-            }
+        for (int i = 0; i < trailDownPaths.size(); i++) {
+            auto path = trailDownPaths[i];
 
             if (IsVulkan) {
                 auto tex_data = vkTexture::TexLoadImage(path);

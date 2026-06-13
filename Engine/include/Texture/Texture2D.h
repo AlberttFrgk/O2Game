@@ -38,6 +38,8 @@ public:
 
     float Transparency;
     float Rotation;
+    bool  FlipX = false;
+    bool  FlipY = false;
     bool  AlphaBlend;
     bool  m_ready = false;
 

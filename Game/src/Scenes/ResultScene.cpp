@@ -157,14 +157,18 @@ bool ResultScene::Attach()
     }
 
     Audio* audio = nullptr;
-    auto BGMPath = SkinManager::GetInstance()->GetPath() / "Audio";
+    auto SkinBGMPath = SkinManager::GetInstance()->GetPath() / "Audio";
+    auto DefaultBGMPath = std::filesystem::current_path() / "Resources" / "Audio";
 
     bool failed = EnvironmentSetup::GetInt("Failed") == 1;
-    if (failed && std::filesystem::exists(BGMPath / "FAILED.ogg")) {
-        BGMPath /= "FAILED.ogg";
-    }
-    else {
-        BGMPath /= "FINISH.ogg";
+    std::string bgmName = failed ? "FAILED.ogg" : "FINISH.ogg";
+    
+    auto BGMPath = SkinBGMPath / bgmName;
+    if (!std::filesystem::exists(BGMPath)) {
+        BGMPath = DefaultBGMPath / bgmName;
+        if (!std::filesystem::exists(BGMPath) && failed) {
+            BGMPath = SkinBGMPath / "FINISH.ogg";
+        }
     }
 
     if (std::filesystem::exists(BGMPath)) {
