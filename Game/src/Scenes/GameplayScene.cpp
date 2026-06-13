@@ -182,7 +182,7 @@ void GameplayScene::Render(double delta) {
   }
 
   m_Playfield->Draw();
-  m_Playfooter->Draw();
+  m_PlayFooter->Draw();
 
   if (m_targetBar && m_game) {
     int maxFrames = m_targetBar->GetFrameCount();
@@ -1092,11 +1092,11 @@ bool GameplayScene::Attach() {
 
     auto playfooterPos =
         manager->GetPosition(SkinGroup::Playing, "Playfooter").front();
-    m_Playfooter =
+    m_PlayFooter =
         std::make_unique<Texture2D>(playingPath / "PlayfieldFooter.png");
-    m_Playfooter->Position =
+    m_PlayFooter->Position =
         UDim2::fromOffset(playfooterPos.X, playfooterPos.Y);
-    m_Playfooter->AnchorPoint = {playfooterPos.AnchorPointX,
+    m_PlayFooter->AnchorPoint = {playfooterPos.AnchorPointX,
                                  playfooterPos.AnchorPointY};
 
     m_targetBar = std::make_unique<Sprite2D>(targetBarPaths);
@@ -1592,7 +1592,7 @@ bool GameplayScene::Detach() {
 
   m_PlayBG.reset();
   m_Playfield.reset();
-  m_Playfooter.reset();
+  m_PlayFooter.reset();
   m_exitBtn.reset();
 
   m_noteMod.reset();
