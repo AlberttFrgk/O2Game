@@ -85,9 +85,40 @@ void SkinConfig::Load(std::filesystem::path path, int keyCount)
         }
     }
 
-    std::string keyName = "positions";
+    std::string posName = "positions";
+    std::string keyName = "Key";
     if (keyCount != -1) {
+        posName += "#" + std::to_string(keyCount);
         keyName += "#" + std::to_string(keyCount);
+    }
+
+    // Parse legacy Positions
+    for (auto const &[key, value] : ini[posName]) {
+        auto rows = splitString(value, '|');
+        for (auto &value2 : rows) {
+            auto split = splitString(value2, ',');
+
+            PositionValue e = {};
+            e.X = std::stoi(split[0]);
+            e.Y = std::stoi(split[1]);
+
+            if (split.size() > 2) {
+                e.AnchorPointX = std::stof(split[2]);
+            }
+
+            if (split.size() > 3) {
+                e.AnchorPointY = std::stof(split[3]);
+            }
+
+            if (split.size() > 4) {
+                auto splitRGB = splitString(split[4], ':');
+                e.RGB[0] = std::stoi(splitRGB[0]);
+                e.RGB[1] = std::stoi(splitRGB[1]);
+                e.RGB[2] = std::stoi(splitRGB[2]);
+            }
+
+            m_positionValues[key].push_back(std::move(e));
+        }
     }
 
     for (auto const &[key, value] : ini[keyName]) {
@@ -176,6 +207,50 @@ void SkinConfig::Load(std::filesystem::path path, int keyCount)
         m_spriteValues[key] = std::move(e);
     }
 
+    for (auto const &[key, value] : ini["UI"]) {
+        auto rows = splitString(value, '|');
+        for (auto &value2 : rows) {
+            auto split = splitString(value2, ',');
+
+            PositionValue p = {};
+            p.X = std::stoi(split[0]);
+            p.Y = std::stoi(split[1]);
+
+            RectInfo r = {};
+            r.X = std::stoi(split[0]);
+            r.Y = std::stoi(split[1]);
+
+            if (split.size() > 2) {
+                float v = std::stof(split[2]);
+                if (v <= 1.0f) {
+                    p.AnchorPointX = v;
+                } else {
+                    r.Width = std::stoi(split[2]);
+                }
+            }
+
+            if (split.size() > 3) {
+                float v = std::stof(split[3]);
+                if (v <= 1.0f) {
+                    p.AnchorPointY = v;
+                } else {
+                    r.Height = std::stoi(split[3]);
+                }
+            }
+
+            if (split.size() > 4) {
+                auto splitRGB = splitString(split[4], ':');
+                p.RGB[0] = std::stoi(splitRGB[0]);
+                p.RGB[1] = std::stoi(splitRGB[1]);
+                p.RGB[2] = std::stoi(splitRGB[2]);
+            }
+
+            m_positionValues[key].push_back(std::move(p));
+            m_rectValues[key].push_back(std::move(r));
+        }
+    }
+
+    // Parse legacy rects
     for (auto const &[key, value] : ini["rects"]) {
         auto rows = splitString(value, '|');
         for (auto &value2 : rows) {

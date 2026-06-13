@@ -128,7 +128,7 @@ void VideoPlayer::DecodeThread() {
                         double timeBase = av_q2d(m_formatCtx->streams[m_videoStreamIndex]->time_base);
                         double frameTimeMs = pts * timeBase * 1000.0;
                         
-                        // Drop frame if we are way behind
+                        // Drop frame if video are way behind
                         if (frameTimeMs < m_currentAudioTime - 50.0) {
                             continue;
                         }

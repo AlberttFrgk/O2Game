@@ -802,34 +802,45 @@ bool GameplayScene::Attach() {
     std::vector<std::string> judgeFileName = {"Miss", "Bad", "Good", "Cool"};
     auto judgePos =
         manager->GetPosition(SkinGroup::Playing, "Judge");
-    if (judgePos.size() < 4) {
+    if (judgePos.size() < 1) {
       throw std::runtime_error("Playing.ini : Positions : Judge : Not enough "
-                               "positions! (count < 4)");
+                               "arguments, expected 1 or 4");
     }
 
     for (int i = 0; i < 4; i++) {
       auto filePathBase = arenaPath / ("Judge" + judgeFileName[i]);
+      
+      int posIndex = (judgePos.size() >= 4) ? i : 0;
 
-      if (std::filesystem::exists(filePathBase.string() + "0.png")) {
+      if (std::filesystem::exists(filePathBase.string() + "0.png") || std::filesystem::exists(filePathBase.string() + "-0.png")) {
+          // Load Animated Sequence
           std::vector<std::filesystem::path> animPaths;
           int frame = 0;
-          while (std::filesystem::exists(filePathBase.string() + std::to_string(frame) + ".png")) {
-              animPaths.push_back(filePathBase.string() + std::to_string(frame) + ".png");
+          
+          while (std::filesystem::exists(filePathBase.string() + std::to_string(frame) + ".png") ||
+                 std::filesystem::exists(filePathBase.string() + "-" + std::to_string(frame) + ".png")) {
+              
+              if (std::filesystem::exists(filePathBase.string() + std::to_string(frame) + ".png")) {
+                  animPaths.push_back(filePathBase.string() + std::to_string(frame) + ".png");
+              } else {
+                  animPaths.push_back(filePathBase.string() + "-" + std::to_string(frame) + ".png");
+              }
               frame++;
           }
+
           m_judgementSprite[i] = std::make_unique<Sprite2D>(animPaths, 0.02f);
-          m_judgementSprite[i]->Position = UDim2::fromOffset(judgePos[i].X, judgePos[i].Y);
+          m_judgementSprite[i]->Position = UDim2::fromOffset(judgePos[posIndex].X, judgePos[posIndex].Y);
           m_judgementSprite[i]->AlphaBlend = true;
       } else {
           auto filePath = arenaPath / ("Judge" + judgeFileName[i] + ".png");
 
-          if (!CheckSkinComponent(filePath)) {
+          if (!std::filesystem::exists(filePath)) {
             throw std::runtime_error("Failed to load Judge image!");
           }
 
           m_judgement[i] = std::move(std::make_unique<Texture2D>(filePath));
           m_judgement[i]->Position =
-              UDim2::fromOffset(judgePos[i].X, judgePos[i].Y);
+              UDim2::fromOffset(judgePos[posIndex].X, judgePos[posIndex].Y);
           m_judgement[i]->AlphaBlend = true;
       }
     }

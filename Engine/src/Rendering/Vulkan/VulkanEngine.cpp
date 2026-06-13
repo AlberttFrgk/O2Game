@@ -24,8 +24,6 @@ constexpr bool bUseValidationLayers = true;
 constexpr bool bUseValidationLayers = false;
 #endif
 
-// we want to immediately abort when there is an error.
-// In normal engines this would give an error message to the user, or perform a dump of state.
 using namespace std;
 #if _DEBUG && _WIN32
 #define _DEBUGBREAK_WIN32 __debugbreak();

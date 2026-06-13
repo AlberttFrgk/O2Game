@@ -55,7 +55,7 @@ private:
     std::unique_ptr<Texture2D> m_exitBtn;
     std::unique_ptr<Texture2D> m_Playfield;
     std::unique_ptr<Texture2D> m_PlayBG;
-    std::unique_ptr<Texture2D> m_Playfooter;
+    std::unique_ptr<Texture2D> m_PlayFooter;
     std::unique_ptr<Texture2D> m_noteMod;
     std::unique_ptr<Texture2D> m_visualMod;
 
