@@ -344,7 +344,7 @@ void SettingsOverlay::Render(double delta) {
           ImGui::NewLine();
           ImGui::Checkbox("Enable Video###CheckboxVideo", &LoadVideo);
           if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Enable or disable video loading for beatmaps");
+            ImGui::SetTooltip("Load video from osu!mania beatmap");
           }
           if (LoadVideo) {
             EnvironmentSetup::SetInt("LoadVideo", 1);
@@ -395,8 +395,7 @@ void SettingsOverlay::Render(double delta) {
           ImGui::SameLine();
 
           ImGui::Checkbox("New Long Note###SetCheckbox3", &NewLongNote);
-          if (NewLongNote) { // Leave everything untouched since no reason to
-                             // make whole changes
+          if (NewLongNote) { // Leave everything untouched since no reason to make whole changes
             EnvironmentSetup::SetInt("NewLN", 1);
           } else {
             EnvironmentSetup::SetInt("NewLN", 0);

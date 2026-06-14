@@ -25,6 +25,7 @@
 #include "../Engine/SkinManager.hpp"
 #include "../Engine/VideoPlayer.hpp"
 #include "../EnvironmentSetup.hpp"
+#include "../Data/Util/Util.hpp"
 #include "../GameScenes.h"
 
 #define AUTOPLAY_TEXT u8"Game currently on autoplay!"
@@ -667,11 +668,27 @@ bool GameplayScene::Attach() {
     m_Playfield->AnchorPoint = {playfieldPos[0].AnchorPointX,
                                 playfieldPos[0].AnchorPointY};
 
+    std::string imageFlipStr = manager->GetImageMapping(SkinGroup::Playing, "ImageFlip");
+    std::vector<bool> imageFlip;
+    if (!imageFlipStr.empty()) {
+        auto splits = splitString(imageFlipStr, '|');
+        for (auto& s : splits) {
+            imageFlip.push_back(s == "1" || s == "true" || s == "TRUE");
+        }
+    } else {
+        imageFlip = {false, false, false, false, false, false, false};
+    }
+
     std::string keyMap[7] = { "1", "2", "1", "S", "1", "2", "1" };
     for (int i = 0; i < 7; i++) {
-        std::string btnBase = "KeyButton" + keyMap[i];
-        std::string dwnBase = "KeyDown" + keyMap[i];
-        std::string lgtBase = "KeyLighting" + keyMap[i];
+        std::string btnBase = manager->GetImageMapping(SkinGroup::Playing, "KeyButton" + std::to_string(i));
+        if (btnBase.empty()) btnBase = "KeyButton" + keyMap[i];
+
+        std::string dwnBase = manager->GetImageMapping(SkinGroup::Playing, "KeyDown" + std::to_string(i));
+        if (dwnBase.empty()) dwnBase = "KeyDown" + keyMap[i];
+
+        std::string lgtBase = manager->GetImageMapping(SkinGroup::Playing, "KeyLighting" + std::to_string(i));
+        if (lgtBase.empty()) lgtBase = "KeyLighting" + keyMap[i];
 
         std::vector<std::filesystem::path> btnPaths;
         std::vector<std::filesystem::path> dwnPaths;
@@ -713,7 +730,7 @@ bool GameplayScene::Attach() {
         m_keyDowns[i] = std::make_unique<Sprite2D>(dwnPaths, 0.016f);
         m_keyLighting[i] = std::make_unique<Sprite2D>(lgtPaths, 0.016f);
 
-        if (i == 2 || i == 5 || i == 6) {
+        if (i < imageFlip.size() && imageFlip[i]) {
             m_keyButtons[i]->FlipX = true;
             m_keyDowns[i]->FlipX = true;
             m_keyLighting[i]->FlipX = true;
@@ -1300,7 +1317,7 @@ bool GameplayScene::Attach() {
       m_holdEffect[i] = std::make_unique<Sprite2D>(
           holdEffect, holdEffectPos.FrameTime);
           
-      if (i == 2 || i == 5 || i == 6) {
+      if (i < imageFlip.size() && imageFlip[i]) {
           m_hitEffect[i]->FlipX = true;
           m_holdEffect[i]->FlipX = true;
       }
@@ -1317,8 +1334,8 @@ bool GameplayScene::Attach() {
       auto holdPos = UDim2::fromOffset(pos, HitPos - 15) +
                      UDim2::fromOffset(holdEffectPos.X, holdEffectPos.Y);
 
-      m_hitEffect[i]->Position = hitPos;   // -15 or it will too Deep
-      m_holdEffect[i]->Position = holdPos; // -15 or it will too Deep
+      m_hitEffect[i]->Position = hitPos;
+      m_holdEffect[i]->Position = holdPos;
       m_hitEffect[i]->AnchorPoint = {hitEffectPos.AnchorPointX,
                                      hitEffectPos.AnchorPointY};
       m_holdEffect[i]->AnchorPoint = {holdEffectPos.AnchorPointX,
@@ -1330,7 +1347,7 @@ bool GameplayScene::Attach() {
     bool IsSD = EnvironmentSetup::GetInt("Sudden") == 1;
     bool IsRD = EnvironmentSetup::GetInt("Random") == 1;
     bool IsMR = EnvironmentSetup::GetInt("Mirror") == 1;
-    bool IsPC = EnvironmentSetup::GetInt("Panic") == 1; // Requested
+    bool IsPC = EnvironmentSetup::GetInt("Panic") == 1;
 
     if (IsHD || IsFL || IsSD) {
       std::vector<Segment> segments;
@@ -1368,8 +1385,7 @@ bool GameplayScene::Attach() {
     }
 
     bool VisualModEnabled =
-        IsHD || IsFL || IsSD; // Check if any of the VisualMods are active
-                              // (Hidden or Flashlight)
+        IsHD || IsFL || IsSD; // Check if any of the VisualMods are active (Hidden or Flashlight)
     bool NoteModEnabled =
         IsMR || IsRD ||
         IsPC; // Check if any of the NoteMods are active (Mirror or Random)

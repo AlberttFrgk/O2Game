@@ -180,6 +180,20 @@ SpriteValue SkinManager::GetSprite(SkinGroup group, std::string key)
     }
 }
 
+std::string SkinManager::GetImageMapping(SkinGroup group, std::string key)
+{
+    if (m_luaScripting) {
+        // Lua doesn't support ImageMappings currently, return empty
+        return "";
+    } else {
+        if (m_skinConfigs.find(group) == m_skinConfigs.end()) {
+            TryLoadGroup(group);
+        }
+
+        return m_skinConfigs[group]->GetImageMapping(key);
+    }
+}
+
 
 
 SkinManager *SkinManager::GetInstance()

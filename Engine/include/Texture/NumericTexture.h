@@ -40,4 +40,5 @@ public:
 protected:
     std::vector<Texture2D *> m_numericsTexture;
     std::map<int, Rect>      m_numbericsWidth;
+    int                      m_maxWidth = 0;
 };

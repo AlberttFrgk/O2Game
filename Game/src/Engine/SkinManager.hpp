@@ -27,6 +27,7 @@ public:
     std::vector<RectInfo>      GetRect(SkinGroup group, std::string key);
     NoteValue                  GetNote(SkinGroup group, std::string key);
     SpriteValue                GetSprite(SkinGroup group, std::string key);
+    std::string                GetImageMapping(SkinGroup group, std::string key);
 
 
 

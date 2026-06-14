@@ -18,6 +18,9 @@ NumericTexture::NumericTexture(std::vector<std::string> numericsFiles)
         auto path = numericsFiles[i];
         m_numericsTexture[i] = new Texture2D(path);
         m_numbericsWidth[i] = m_numericsTexture[i]->GetOriginalRECT();
+        if (m_numbericsWidth[i].right > m_maxWidth) {
+            m_maxWidth = m_numbericsWidth[i].right;
+        }
     }
 }
 
@@ -35,6 +38,9 @@ NumericTexture::NumericTexture(std::vector<std::filesystem::path> numericsPath)
         auto path = numericsPath[i];
         m_numericsTexture[i] = new Texture2D(path);
         m_numbericsWidth[i] = m_numericsTexture[i]->GetOriginalRECT();
+        if (m_numbericsWidth[i].right > m_maxWidth) {
+            m_maxWidth = m_numbericsWidth[i].right;
+        }
     }
 }
 
@@ -76,9 +82,10 @@ void NumericTexture::DrawNumber(int number)
             for (int i = (int)numberString.length() - 1; i >= 0; i--) {
                 int digit = numberString[i] - '0';
 
-                tx -= (int)m_numbericsWidth[digit].right + (int)(m_numbericsWidth[digit].right * offsetScl);
+                tx -= m_maxWidth + (int)(m_maxWidth * offsetScl);
                 auto tex = m_numericsTexture[digit];
-                tex->Position = UDim2({ 0, (float)tx }, { 0, (float)yPos });
+                float centeredX = tx + (m_maxWidth - m_numbericsWidth[digit].right) / 2.0f;
+                tex->Position = UDim2({ 0, centeredX }, { 0, (float)yPos });
                 tex->AlphaBlend = AlphaBlend;
                 tex->AnchorPoint = AnchorPoint;
                 tex->Draw();
@@ -90,20 +97,19 @@ void NumericTexture::DrawNumber(int number)
         {
             int totalWidth = 0;
             for (int i = 0; i < numberString.length(); i++) {
-                int digit = numberString[i] - '0';
-                totalWidth += (int)m_numbericsWidth[digit].right + (int)(m_numbericsWidth[digit].right * offsetScl);
+                totalWidth += m_maxWidth + (int)(m_maxWidth * offsetScl);
             }
 
             int tx = xPos - totalWidth / 2 + (Offset * totalWidth) / 200;
-            // int tx = xPos - (totalWidth / 2) * (totalWidth / 100);
             for (int i = 0; i < numberString.length(); i++) {
                 int  digit = numberString[i] - '0';
                 auto tex = m_numericsTexture[digit];
-                tex->Position = UDim2({ 0, (float)tx }, { 0, (float)yPos });
+                float centeredX = tx + (m_maxWidth - m_numbericsWidth[digit].right) / 2.0f;
+                tex->Position = UDim2({ 0, centeredX }, { 0, (float)yPos });
                 tex->AlphaBlend = AlphaBlend;
                 tex->AnchorPoint = AnchorPoint;
                 tex->Draw();
-                tx += (int)m_numbericsWidth[digit].right + (int)(m_numbericsWidth[digit].right * offsetScl);
+                tx += m_maxWidth + (int)(m_maxWidth * offsetScl);
             }
             break;
         }
@@ -114,11 +120,12 @@ void NumericTexture::DrawNumber(int number)
             for (int i = 0; i < numberString.length(); i++) {
                 int  digit = numberString[i] - '0';
                 auto tex = m_numericsTexture[digit];
-                tex->Position = UDim2({ 0, (float)tx }, { 0, (float)yPos });
+                float centeredX = tx + (m_maxWidth - m_numbericsWidth[digit].right) / 2.0f;
+                tex->Position = UDim2({ 0, centeredX }, { 0, (float)yPos });
                 tex->AnchorPoint = AnchorPoint;
                 tex->AlphaBlend = AlphaBlend;
                 tex->Draw();
-                tx += (int)m_numbericsWidth[digit].right + (int)(m_numbericsWidth[digit].right * offsetScl);
+                tx += m_maxWidth + (int)(m_maxWidth * offsetScl);
             }
             break;
         }

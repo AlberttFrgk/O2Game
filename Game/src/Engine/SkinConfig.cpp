@@ -94,6 +94,11 @@ void SkinConfig::Load(std::filesystem::path path, int keyCount)
 
     // Parse legacy Positions
     for (auto const &[key, value] : ini[posName]) {
+        if (value.find(',') == std::string::npos) {
+            m_imageMappings[key] = value;
+            continue;
+        }
+
         auto rows = splitString(value, '|');
         for (auto &value2 : rows) {
             auto split = splitString(value2, ',');
@@ -139,6 +144,11 @@ void SkinConfig::Load(std::filesystem::path path, int keyCount)
     }
 
     for (auto const &[key, value] : ini[keyName]) {
+        if (value.find(',') == std::string::npos) {
+            m_imageMappings[key] = value;
+            continue;
+        }
+
         auto rows = splitString(value, '|');
         for (auto &value2 : rows) {
             auto split = splitString(value2, ',');
@@ -316,6 +326,14 @@ void SkinConfig::Load(std::filesystem::path path, int keyCount)
             m_rectValues[key].push_back(std::move(e));
         }
     }
+
+    std::string imgName = "Images";
+    if (keyCount != -1) {
+        imgName += "#" + std::to_string(keyCount);
+    }
+    for (auto const &[key, value] : ini[imgName]) {
+        m_imageMappings[key] = value;
+    }
 }
 
 SkinConfig::~SkinConfig()
@@ -355,6 +373,17 @@ NoteValue &SkinConfig::GetNote(std::string key)
     }
 
     return m_noteValues[key];
+}
+
+std::string SkinConfig::GetImageMapping(std::string key)
+{
+    std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+
+    if (m_imageMappings.find(key) == m_imageMappings.end()) {
+        return "";
+    }
+
+    return m_imageMappings[key];
 }
 
 std::vector<NumericValue> &SkinConfig::GetNumeric(std::string key)

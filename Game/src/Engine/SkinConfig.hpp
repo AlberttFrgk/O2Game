@@ -19,6 +19,7 @@ public:
     std::vector<RectInfo>      &GetRect(std::string key);
     NoteValue                  &GetNote(std::string key);
     SpriteValue                &GetSprite(std::string key);
+    std::string                GetImageMapping(std::string key);
 
 private:
     void Load(std::filesystem::path path, int keyCount);
@@ -28,4 +29,5 @@ private:
     std::unordered_map<std::string, SpriteValue>                m_spriteValues;
     std::unordered_map<std::string, std::vector<RectInfo>>      m_rectValues;
     std::unordered_map<std::string, NoteValue>                  m_noteValues;
+    std::unordered_map<std::string, std::string>                m_imageMappings;
 };
