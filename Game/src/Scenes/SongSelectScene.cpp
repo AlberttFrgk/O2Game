@@ -451,9 +451,7 @@ void SongSelectScene::Render(double delta) {
       EnvironmentSetup::SetObj("SONG", nullptr);
     }
 
-    if (m_songBackground) {
-      EnvironmentSetup::SetObj("SongBackground", m_songBackground.get());
-    }
+    EnvironmentSetup::SetObj("SongBackground", m_songBackground ? m_songBackground.get() : nullptr);
 
     nextAlpha = 0;
     SceneManager::ExecuteAfter(
@@ -464,9 +462,7 @@ void SongSelectScene::Render(double delta) {
     is_departing = true;
     SaveConfiguration();
 
-    if (m_songBackground) {
-      EnvironmentSetup::SetObj("SongBackground", m_songBackground.get());
-    }
+    EnvironmentSetup::SetObj("SongBackground", m_songBackground ? m_songBackground.get() : nullptr);
 
     SceneManager::DisplayFade(
         100, [this]() { SceneManager::ChangeScene(GameScene::EDITOR); });
@@ -985,7 +981,10 @@ bool SongSelectScene::Attach() {
     }
   }
 
-  auto bgPath = path / "Menu" / "MenuBackground.png";
+  auto bgPath = path / "SongSelect" / "Background.png";
+  if (!std::filesystem::exists(bgPath)) {
+      bgPath = path / "Menu" / "Background.png";
+  }
   if (std::filesystem::exists(bgPath) && !m_background) {
     GameWindow *wnd = GameWindow::GetInstance();
 
