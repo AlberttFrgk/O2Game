@@ -926,7 +926,7 @@ bool GameplayScene::Attach() {
             };
 
             bool scale = autoWidth;
-            if (genKeyLight) alignSprite(m_keyLighting[i], conKeyLight[i], scale);
+            if (genKeyLight) alignSprite(m_keyLighting[i], conKeyLight[i], true); // Always scale KeyLighting
             if (genKeyButton) {
                 alignSprite(m_keyButtons[i], conKeyButton[i], scale);
                 alignSprite(m_keyDowns[i], downPos, scale);
@@ -1204,14 +1204,12 @@ bool GameplayScene::Attach() {
           "Playing.ini : Numerics : LongNoteCombo : Position Not defined!");
     }
 
-    auto btnExitPos = manager->GetPosition(
-        SkinGroup::Playing, "ExitButton"); // conf.GetPosition("ExitButton");
     auto btnExitRect =
         manager->GetRect(SkinGroup::Playing, "Exit"); // conf.GetRect("Exit");
 
-    if (btnExitPos.size() < 1 || btnExitRect.size() < 1) {
+    if (btnExitRect.size() < 1) {
       throw std::runtime_error(
-          "Playing.ini : Positions|Rect : Exit : Not defined!");
+          "Playing.ini : Rect : Exit : Not defined!");
     }
 
     std::string exitImg = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "Exit");
@@ -1221,8 +1219,7 @@ bool GameplayScene::Attach() {
     m_exitBtn->Position = UDim2::fromOffset(
         btnExitRect[0].X,
         btnExitRect[0].Y); // Fix Exit not functional with Playing.ini
-    m_exitBtn->AnchorPoint = {btnExitPos[0].AnchorPointX,
-                              btnExitPos[0].AnchorPointY};
+    m_exitBtn->AnchorPoint = {0.0f, 0.0f};
 
     auto OnButtonHover = [&](int state) { m_drawExitButton = state; };
 
@@ -1598,10 +1595,7 @@ bool GameplayScene::Attach() {
           int origWidth = m_keyLighting[i]->GetTexture()->GetOriginalRECT().right;
           int origHeight = m_keyLighting[i]->GetTexture()->GetOriginalRECT().bottom;
           
-          int displayWidth = origWidth;
-          if (autoWidth) {
-              displayWidth = laneSize[i];
-          }
+          int displayWidth = laneSize[i]; // Always scale KeyLighting
           m_keyLighting[i]->Size = UDim2::fromOffset(displayWidth, origHeight);
           
           char align = 'C';

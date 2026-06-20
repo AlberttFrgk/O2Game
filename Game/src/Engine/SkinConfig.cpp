@@ -265,7 +265,11 @@ void SkinConfig::Load(std::filesystem::path path, int keyCount)
                 if (v <= 1.0f) {
                     p.AnchorPointX = v;
                 } else {
-                    r.Width = std::stoi(split[2]);
+                    if (split.size() == 3) {
+                        p.FPS = v; // Allow X, Y, FPS
+                    } else {
+                        r.Width = std::stoi(split[2]);
+                    }
                 }
             }
 
