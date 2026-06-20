@@ -33,6 +33,8 @@ private:
     bool convertAutoSound = false;
     int BackgroundDim = 50;
     bool LoadVideo = false;
+    bool ShowFPS = false;
+    bool ShowLatency = false;
 
     std::string              currentSkin = "";
     std::vector<std::string> skins = {};

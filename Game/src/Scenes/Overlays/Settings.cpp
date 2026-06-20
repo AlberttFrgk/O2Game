@@ -64,6 +64,8 @@ std::vector<std::string> GetFpsOptions() {
   std::vector<int> multipliers = {1, 2, 3, 4, 5, 6, 8, 10, 15, 20};
   std::vector<std::string> fpsOptions;
 
+  fpsOptions.push_back("VSync");
+
   for (int multiplier : multipliers) {
     fpsOptions.push_back(std::to_string(refreshRate * multiplier));
   }
@@ -306,6 +308,13 @@ void SettingsOverlay::Render(double delta) {
               }
             }
             ImGui::EndCombo();
+          }
+
+          ImGui::NewLine();
+          ImGui::Checkbox("Show FPS in-game", &ShowFPS);
+          if (ShowFPS) {
+            ImGui::SameLine();
+            ImGui::Checkbox("Show Frame Latency (ms)", &ShowLatency);
           }
 
           ImGui::EndTabItem();
@@ -736,6 +745,18 @@ void SettingsOverlay::LoadConfiguration() {
   }
   EnvironmentSetup::SetInt("LoadVideo", LoadVideo ? 1 : 0);
 
+  try {
+    ShowFPS = std::stoi(Configuration::Load("Game", "ShowFPS")) == 1;
+  } catch (const std::invalid_argument &) {
+    ShowFPS = false;
+  }
+  
+  try {
+    ShowLatency = std::stoi(Configuration::Load("Game", "ShowLatency")) == 1;
+  } catch (const std::invalid_argument &) {
+    ShowLatency = false;
+  }
+
   currentSkin = Configuration::Load("Game", "Skin");
   PreloadSkin();
 }
@@ -759,6 +780,8 @@ void SettingsOverlay::SaveConfiguration() {
                      std::to_string(NewLongNote ? 1 : 0));
   Configuration::Set("Game", "BackgroundDim", std::to_string(BackgroundDim));
   Configuration::Set("Game", "LoadVideo", std::to_string(LoadVideo ? 1 : 0));
+  Configuration::Set("Game", "ShowFPS", std::to_string(ShowFPS ? 1 : 0));
+  Configuration::Set("Game", "ShowLatency", std::to_string(ShowLatency ? 1 : 0));
 
   if (currentFPSIndex == GetFpsOptions().size() - 1 && customFPS > 0) {
     Configuration::Set("Game", "FrameLimit", std::to_string(customFPS));

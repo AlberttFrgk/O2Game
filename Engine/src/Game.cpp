@@ -13,6 +13,8 @@
 #include "Texture/MathUtils.h"
 #include <Logs.h>
 #include <SDL2/SDL_image.h>
+#include "Configuration.h"
+#include "Texture/Text.h"
 
 constexpr auto kInputDefaultRate = 1000.0;
 constexpr auto kMenuDefaultRate = 60.0;
@@ -166,7 +168,7 @@ void Game::Run()
 {
     m_running = true;
     m_notify = true;
-    m_frameLimit = m_frameLimit == 0 ? kMenuDefaultRate : m_frameLimit;
+    // m_frameLimit = m_frameLimit == 0 ? kMenuDefaultRate : m_frameLimit; // 0 is used for VSync
     m_frameLimitMode = FrameLimitMode::MENU;
 
     mAudioThread.Run([&] {
@@ -180,6 +182,39 @@ void Game::Run()
     int    frameWithoutSwapchain = 0;
     int    frames = 0;
     double time = 0;
+    
+    int current_fps = 0;
+    bool show_fps = false;
+    bool show_latency = false;
+
+    fpsText = std::make_unique<Text>(14);
+    fpsText->DrawOverEverything = true;
+    latencyText = std::make_unique<Text>(14);
+    latencyText->DrawOverEverything = true;
+
+    auto CalculateMetrics = [](double& outFramerate, double& outLatency) {
+        outFramerate = ImGui::GetIO().Framerate;
+        outLatency = outFramerate > 0 ? 1000.0 / outFramerate : 0.0;
+    };
+
+    auto DrawFPSOverlay = [&]() {
+        if (!show_fps) return;
+        
+        char buffer[128];
+        double framerate, latency;
+        CalculateMetrics(framerate, latency);
+
+        snprintf(buffer, sizeof(buffer), "%.0ffps", framerate);
+        fpsText->Position = UDim2::fromOffset(3, 0);
+        fpsText->Draw(buffer);
+
+        if (show_latency) {
+            char latency_buffer[128];
+            snprintf(latency_buffer, sizeof(latency_buffer), "%.2fms", latency);
+            latencyText->Position = UDim2::fromOffset(3, 12);
+            latencyText->Draw(latency_buffer);
+        }
+    };
 
     mRenderThread.Run([&] {
         if (m_threadMode == ThreadMode::MULTI_THREAD) {
@@ -214,6 +249,7 @@ void Game::Run()
                     std::lock_guard<std::mutex> lock(m1);
 
                     Render(delta);
+                    DrawFPSOverlay();
                     MsgBox::Draw();
                     DrawFade(delta);
 
@@ -309,6 +345,7 @@ void Game::Run()
                 }
 
                 Render(delta);
+                DrawFPSOverlay();
                 MsgBox::Draw();
                 DrawFade(delta);
 
@@ -322,8 +359,17 @@ void Game::Run()
         }
 
         if ((time += delta) > 1.0) {
-            std::string fps = "FPS: " + std::to_string(frames);
-            m_window->SetWindowSubTitle(fps);
+            double framerate, latency;
+            CalculateMetrics(framerate, latency);
+            
+            char title_buf[128];
+            snprintf(title_buf, sizeof(title_buf), "FPS: %d Latency: %.2f ms", frames, latency);
+            std::string title_str = title_buf;
+            m_window->SetWindowSubTitle(title_str);
+            
+            current_fps = frames;
+            show_fps = Configuration::Load("Game", "ShowFPS") == "1";
+            show_latency = Configuration::Load("Game", "ShowLatency") == "1";
 
             frames = 0;
             time = 0;

@@ -48,6 +48,7 @@ void ImguiUtil::BeginText(ImVec2 pos, ImVec2 size) {
 		| ImGuiWindowFlags_NoScrollWithMouse
 		| ImGuiWindowFlags_NoBackground
 		| ImGuiWindowFlags_NoBringToFrontOnFocus
+		| ImGuiWindowFlags_NoInputs
 	);
 }
 

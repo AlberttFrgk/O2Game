@@ -1,5 +1,7 @@
 #pragma once
 #include <string>
+#include <memory>
+#include "Texture/Text.h"
 #include "Inputs/InputManager.h"
 #include "Overlay.h"
 #include "Rendering/Renderer.h"
@@ -92,4 +94,6 @@ private:
 
     std::mutex m_mutex;
     std::condition_variable m_cv;
+    std::unique_ptr<Text> fpsText;
+    std::unique_ptr<Text> latencyText;
 };

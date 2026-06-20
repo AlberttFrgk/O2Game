@@ -82,7 +82,7 @@ void GameplayScene::Update(double delta) {
     if (lifeFillDuration > 1.50 && EnvironmentSetup::GetInt("FillStart") == 1) {
       EnvironmentSetup::SetInt("FillStart", 0);
     }
-    if (lifeFillDuration > 2.50) {
+    if (lifeFillDuration > 1.60) {
       m_game->Start();
     }
   }
@@ -560,7 +560,7 @@ bool GameplayScene::Attach() {
     auto manager = SkinManager::GetInstance();
 
     int LaneOffset = 5;
-    int HitPos = 480;
+    double HitPos = 480;
 
     try {
       LaneOffset = std::stoi(manager->GetSkinProp("Game", "LaneOffset", "5"));
@@ -740,7 +740,7 @@ bool GameplayScene::Attach() {
             if (genHitEffect) conHitEffect.clear();
             if (genHoldEffect) conHoldEffect.clear();
             
-            int currentX = colStart;
+            double currentX = colStart;
             for (int i = 0; i < m_keyCount; i++) {
                 PositionValue btnPos = { currentX, HitPos, 0.0f, 0.0f };
                 PositionValue lgtPos = { currentX, HitPos, 0.0f, 1.0f };

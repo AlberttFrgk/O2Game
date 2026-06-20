@@ -618,22 +618,8 @@ int RhythmEngine::GetBPMAnimationIndex(int maxFrames) const {
   if (m_timings) {
     if (isNormalizedSV) {
       currentPos = GetTrackPosition();
-
-      double endPos = m_timings->GetOffsetAt(m_audioLength);
-      double endCyclePos = ceil(endPos / cycleLength) * cycleLength;
-
-      if (currentPos >= endCyclePos) {
-        return maxFrames - 1;
-      }
     } else {
       currentPos = m_timings->GetBeatAt(m_currentVisualPosition) * cycleLength;
-
-      double endPos = m_timings->GetBeatAt(m_audioLength) * cycleLength;
-      double endCyclePos = ceil(endPos / cycleLength) * cycleLength;
-
-      if (currentPos >= endCyclePos) {
-        return maxFrames - 1;
-      }
     }
   } else {
     currentPos = GetTrackPosition();
