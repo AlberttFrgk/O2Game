@@ -80,52 +80,50 @@ if(WIN32)
         $<TARGET_FILE_DIR:Game>
     )
 
-    # Create directory $<TARGET_FILE_DIR:Game>/Skins/Default then
-    # copy from ${CMAKE_SOURCE_DIR}/resources/Resources to $<TARGET_FILE_DIR:Game>/Skins/Default
+    # Use FetchContent to automatically download the latest resources and skins
+    include(FetchContent)
+    FetchContent_Declare(
+        O2GameResources
+        GIT_REPOSITORY https://github.com/AlberttFrgk/O2GameResources.git
+        GIT_TAG        main
+    )
+    FetchContent_MakeAvailable(O2GameResources)
+    set(O2GAME_RESOURCES_DIR ${o2gameresources_SOURCE_DIR})
+    
     add_custom_command(TARGET Game POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory
-        $<TARGET_FILE_DIR:Game>/Skins/Default
+        $<TARGET_FILE_DIR:Game>/Skins
         COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/resources/Resources
-        $<TARGET_FILE_DIR:Game>/Skins/Default
+        ${O2GAME_RESOURCES_DIR}/Skins
+        $<TARGET_FILE_DIR:Game>/Skins
         COMMAND ${CMAKE_COMMAND} -E make_directory
-        $<TARGET_FILE_DIR:Game>/Resources/Notes
+        $<TARGET_FILE_DIR:Game>/Resources
         COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/resources/Resources/Notes
-        $<TARGET_FILE_DIR:Game>/Resources/Notes
-        COMMAND ${CMAKE_COMMAND} -E make_directory
-        $<TARGET_FILE_DIR:Game>/Resources/Fonts
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/resources/Resources/Fonts
-        $<TARGET_FILE_DIR:Game>/Resources/Fonts
-        COMMAND ${CMAKE_COMMAND} -E make_directory
-        $<TARGET_FILE_DIR:Game>/Resources/Notes/Scripts
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/resources/Resources/Scripts
-        $<TARGET_FILE_DIR:Game>/Resources/Notes/Scripts
+        ${O2GAME_RESOURCES_DIR}/Resources
+        $<TARGET_FILE_DIR:Game>/Resources
     )
 else()
+    # Use FetchContent to automatically download the latest resources and skins
+    include(FetchContent)
+    FetchContent_Declare(
+        O2GameResources
+        GIT_REPOSITORY https://github.com/AlberttFrgk/O2GameResources.git
+        GIT_TAG        main
+    )
+    FetchContent_MakeAvailable(O2GameResources)
+    set(O2GAME_RESOURCES_DIR ${o2gameresources_SOURCE_DIR})
+
     add_custom_command(TARGET Game POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory
-        $<TARGET_FILE_DIR:Game>/Skins/Default
+        $<TARGET_FILE_DIR:Game>/Skins
         COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/resources/Resources
-        $<TARGET_FILE_DIR:Game>/Skins/Default
+        ${O2GAME_RESOURCES_DIR}/Skins
+        $<TARGET_FILE_DIR:Game>/Skins
         COMMAND ${CMAKE_COMMAND} -E make_directory
-        $<TARGET_FILE_DIR:Game>/Resources/Notes
+        $<TARGET_FILE_DIR:Game>/Resources
         COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/resources/Resources/Notes
-        $<TARGET_FILE_DIR:Game>/Resources/Notes
-        COMMAND ${CMAKE_COMMAND} -E make_directory
-        $<TARGET_FILE_DIR:Game>/Resources/Fonts
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/resources/Resources/Fonts
-        $<TARGET_FILE_DIR:Game>/Resources/Fonts
-        COMMAND ${CMAKE_COMMAND} -E make_directory
-        $<TARGET_FILE_DIR:Game>/Resources/Notes/Scripts
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/resources/Resources/Scripts
-        $<TARGET_FILE_DIR:Game>/Resources/Notes/Scripts
+        ${O2GAME_RESOURCES_DIR}/Resources
+        $<TARGET_FILE_DIR:Game>/Resources
     )
 endif()
 
