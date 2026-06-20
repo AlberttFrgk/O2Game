@@ -633,7 +633,62 @@ int RhythmEngine::GetBPMAnimationIndex(int maxFrames) const {
   double currentPos = 0;
   if (m_timings) {
     if (isNormalizedSV) {
-      currentPos = GetTrackPosition();
+      double pos = 0;
+      double lastTime = 0;
+      
+      auto& bpms = m_currentChart->m_bpms;
+      auto& svs = m_currentChart->m_svs;
+      
+      int bpmIdx = 0;
+      int svIdx = 0;
+      
+      double currentBPM = bpms.size() > 0 ? bpms[0].Value : m_baseBPM;
+      double currentSV = 1.0;
+      
+      while (lastTime < m_currentVisualPosition) {
+          double nextBpmTime = (bpmIdx + 1 < bpms.size()) ? bpms[bpmIdx + 1].StartTime : 1e300;
+          double nextSvTime = (svIdx < svs.size()) ? svs[svIdx].StartTime : 1e300;
+          
+          double nextEventTime = (std::min)(nextBpmTime, (std::min)(nextSvTime, m_currentVisualPosition));
+          
+          if (nextEventTime > lastTime) {
+              double speed = currentBPM / m_baseBPM;
+              
+              if (bpmIdx == bpms.size() - 1) {
+                  speed *= currentSV;
+              }
+              
+              pos += (nextEventTime - lastTime) * speed * 100.0;
+              lastTime = nextEventTime;
+          }
+          
+          if (lastTime == nextBpmTime) {
+              bpmIdx++;
+              currentBPM = bpms[bpmIdx].Value;
+          }
+          
+          if (lastTime == nextSvTime) {
+              double originalSV = svs[svIdx].Value / (currentBPM / m_baseBPM);
+              
+              bool isSameTimingAsBPM = false;
+              for (const auto& bpm : bpms) {
+                  if (std::abs(bpm.StartTime - lastTime) < 1.0) {
+                      isSameTimingAsBPM = true;
+                      break;
+                  }
+              }
+              
+              if (isSameTimingAsBPM) {
+                  currentSV = 1.0;
+              } else {
+                  currentSV = originalSV;
+              }
+              
+              svIdx++;
+          }
+      }
+      
+      currentPos = pos;
     } else {
       currentPos = m_timings->GetBeatAt(m_currentVisualPosition) * cycleLength;
     }
@@ -753,8 +808,7 @@ void RhythmEngine::CreateTimingMarkers() {
     m_timingPositionMarkers.push_back(pos);
 
     for (int i = 1; i < svs.size(); i++) {
-      pos += ::round((svs[i].StartTime - svs[i - 1].StartTime) *
-                     (svs[i - 1].Value * 100));
+      pos += ::round((svs[i].StartTime - svs[i - 1].StartTime) * (svs[i - 1].Value * 100));
 
       m_timingPositionMarkers.push_back(pos);
     }
