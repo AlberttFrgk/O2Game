@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "../Resources/SkinStructs.hpp"
+#include <Misc/mINI.h>
 
 class SkinConfig
 {
@@ -20,6 +21,7 @@ public:
     NoteValue                  &GetNote(std::string key);
     SpriteValue                &GetSprite(std::string key);
     std::string                GetImageMapping(std::string key);
+    std::string                GetProperty(std::string section, std::string key);
 
 private:
     void Load(std::filesystem::path path, int keyCount);
@@ -30,4 +32,5 @@ private:
     std::unordered_map<std::string, std::vector<RectInfo>>      m_rectValues;
     std::unordered_map<std::string, NoteValue>                  m_noteValues;
     std::unordered_map<std::string, std::string>                m_imageMappings;
+    mINI::INIStructure                                          m_ini;
 };

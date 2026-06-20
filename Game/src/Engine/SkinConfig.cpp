@@ -24,14 +24,10 @@ SkinConfig::SkinConfig(std::filesystem::path path, int keyCount)
 
 void SkinConfig::Load(std::filesystem::path path, int keyCount)
 {
-    std::filesystem::path current = path.parent_path();
-    if (!std::filesystem::exists(path)) {
-        throw std::runtime_error("File does not exist");
-    }
-
-    mINI::INIFile      f(path);
-    mINI::INIStructure ini;
-    f.read(ini);
+    mINI::INIFile f(path.string());
+    f.read(m_ini);
+    
+    auto& ini = m_ini;
 
     for (auto const &[key, value] : ini["Numerics"]) {
         auto rows = splitString(value, '|');
@@ -406,4 +402,9 @@ SpriteValue &SkinConfig::GetSprite(std::string key)
     }
 
     return m_spriteValues[key];
+}
+
+std::string SkinConfig::GetProperty(std::string section, std::string key)
+{
+    return m_ini[section][key];
 }

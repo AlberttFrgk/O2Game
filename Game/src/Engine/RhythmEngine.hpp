@@ -59,7 +59,10 @@ public:
 
   void SetHitPosition(int offset);
   void SetLaneOffset(int offset);
+  void SetColumnWidths(std::vector<int> widths);
+  void SetNoteHeight(int height);
   int GetHitPosition() const;
+  int GetNoteHeight() const;
   Vector2 GetResolution() const;
   Rect GetPlayRectangle() const;
   std::u8string GetTitle() const;
@@ -103,6 +106,8 @@ private:
   double m_audioLength = 0;
   int m_hitPosition = 0;
   int m_laneOffset = 0;
+  int m_noteHeight = 0;
+  std::vector<int> m_columnWidths;
   int m_audioVolume = 100;
   int m_audioOffset = 0;
 

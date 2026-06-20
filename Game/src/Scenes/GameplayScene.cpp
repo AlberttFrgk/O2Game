@@ -182,8 +182,8 @@ void GameplayScene::Render(double delta) {
       m_videoPlayer->Render();
   }
 
-  m_Playfield->Draw();
-  m_PlayFooter->Draw();
+  if (m_Playfield) m_Playfield->Draw();
+  if (m_PlayFooter) m_PlayFooter->Draw();
 
   if (m_targetBar && m_game) {
     int maxFrames = m_targetBar->GetFrameCount();
@@ -458,7 +458,7 @@ void GameplayScene::Render(double delta) {
     PlayTime = std::clamp(m_game->GetPlayTime(), 0, INT_MAX);
     currentMinutes = PlayTime / 60;
     currentSeconds = PlayTime % 60;
-  } else { // get timer but this while game ended or failed
+  } else { // stop timer if end or fail
     int lastPlayTime = PlayTime;
     currentMinutes = lastPlayTime / 60;
     currentSeconds = lastPlayTime % 60;
@@ -467,7 +467,7 @@ void GameplayScene::Render(double delta) {
   m_minuteNum->DrawNumber(currentMinutes);
   m_secondNum->DrawNumber(currentSeconds);
 
-  for (int i = 0; i < 7; i++) {
+  for (int i = 0; i < m_keyCount; i++) {
     if (EnvironmentSetup::GetInt("NowPlaying") == 1) {
       if (m_drawHit[i]) {
         m_hitEffect[i]->DrawOnce(delta);
@@ -489,19 +489,25 @@ void GameplayScene::Render(double delta) {
     m_exitBtn->Draw();
   }
 
-  m_title->Draw(m_game->GetTitle());
+  auto titleStr = m_game->GetTitle();
+  if (m_autoPlay) titleStr += (const char8_t*)" [Autoplay]";
+  m_title->Draw(titleStr);
 
   m_gameInfo->Position = m_gameInfoPos;
   m_gameInfo->Draw(GAMEINFO_TEXT);
 
   if (m_autoPlay) {
-    m_autoText->Position = m_autoTextPos;
-    m_autoText->Draw(AUTOPLAY_TEXT);
+    if (m_autoImage) {
+      m_autoImage->Draw();
+    } else {
+      m_autoText->Position = m_autoTextPos;
+      m_autoText->Draw(AUTOPLAY_TEXT);
 
-    m_autoTextPos.X.Offset -= delta * 30.0;
-    if (m_autoTextPos.X.Offset < (-m_autoTextSize + 30)) {
-      m_autoTextPos =
-          UDim2::fromOffset(GameWindow::GetInstance()->GetBufferWidth(), 60);
+      m_autoTextPos.X.Offset -= delta * 30.0;
+      if (m_autoTextPos.X.Offset < (-m_autoTextSize + 30)) {
+        m_autoTextPos =
+            UDim2::fromOffset(GameWindow::GetInstance()->GetBufferWidth(), 60);
+      }
     }
   }
 
@@ -565,7 +571,7 @@ bool GameplayScene::Attach() {
     }
 
     int arena = EnvironmentSetup::GetInt("Arena");
-    auto skinPath = manager->GetPath(); // Move to above, make it easiest
+    auto skinPath = manager->GetPath();
     auto playingPath = skinPath / "Playing";
     auto arenaPath = playingPath / "Arena";
 
@@ -582,7 +588,7 @@ bool GameplayScene::Attach() {
       arena = dist(rng);
     }
 
-    // HACK: arena -1 is Music Arena
+    // HACK: arena -1 is Song Background
     auto numberedArenaPath = arenaPath / std::to_string(arena);
     if (std::filesystem::exists(numberedArenaPath)) {
         arenaPath = numberedArenaPath;
@@ -591,17 +597,27 @@ bool GameplayScene::Attach() {
     EnvironmentSetup::SetInt("CurrentArena", arena);
 
     if (!std::filesystem::exists(arenaPath)) {
-      throw std::runtime_error(
-          "Arena " + std::to_string(arena) +
-          " is missing from folder: " + (playingPath / "Arena").string());
+        arenaPath = playingPath;
     }
-    manager->SetKeyCount(7);
+    Chart *songChart = (Chart *)EnvironmentSetup::GetObj("SONG");
+    m_keyCount = songChart ? songChart->m_keyCount : 7;
+    manager->SetKeyCount(m_keyCount);
     // Arena Index logic is removed since Arena.ini is merged into Playing.ini
 
+    m_keyState.clear();
+    m_keyButtons.clear();
+    m_keyDowns.clear();
+    m_keyLighting.clear();
+    m_hitEffect.clear();
+    m_holdEffect.clear();
+
     for (int i = 0; i < 7; i++) {
+        m_drawHit[i] = false;
+        m_drawHold[i] = false;
+    }
+
+    for (int i = 0; i < m_keyCount; i++) {
       m_keyState[i] = false;
-      m_drawHit[i] = false;
-      m_drawHold[i] = false;
     }
 
     m_title = std::make_unique<Text>(13);
@@ -618,6 +634,11 @@ bool GameplayScene::Attach() {
     m_autoTextSize = m_autoText->CalculateSize(AUTOPLAY_TEXT);
     m_autoTextPos =
         UDim2::fromOffset(GameWindow::GetInstance()->GetBufferWidth(), 50);
+
+    auto autoplayImgPath = EnvironmentSetup::GetPath("GamePath") / "Resources" / "Mods" / "Autoplay.png";
+    if (std::filesystem::exists(autoplayImgPath)) {
+        m_autoImage = std::make_unique<Texture2D>(autoplayImgPath);
+    }
 
     m_gameInfo = std::make_unique<Text>(8);
     m_gameInfoSize = m_gameInfo->CalculateSize(GAMEINFO_TEXT);
@@ -649,20 +670,103 @@ bool GameplayScene::Attach() {
         m_PlayBG = nullptr;
     }
 
-    auto conKeyLight = manager->GetPosition(
-        SkinGroup::Playing, "KeyLighting"); // conf.GetPosition("KeyLighting");
-    auto conKeyButton = manager->GetPosition(
-        SkinGroup::Playing, "KeyButton"); // conf.GetPosition("KeyButton");
+    auto parsePositionsFallback = [&](const std::string& propName, std::vector<PositionValue>& target) {
+        std::string propStr = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), propName);
+        if (!propStr.empty()) {
+            target.clear();
+            auto splits = splitString(propStr, '|');
+            for (auto& s : splits) {
+                auto coords = splitString(s, ',');
+                PositionValue pv = {0, 0, 0.0f, 0.0f};
+                if (coords.size() >= 1) pv.X = std::stoi(coords[0]);
+                if (coords.size() >= 2) pv.Y = std::stoi(coords[1]);
+                if (coords.size() >= 3) pv.AnchorPointX = std::stof(coords[2]);
+                if (coords.size() >= 4) pv.AnchorPointY = std::stof(coords[3]);
+                target.push_back(pv);
+            }
+        }
+    };
 
-    if (conKeyLight.size() < 7 || conKeyButton.size() < 7) {
-      throw std::runtime_error(
-          "Playing.ini : Positions : KeyLighting#KeyButton : Not enough "
-          "positions! (count < 7)");
+    std::vector<PositionValue> conKeyLight;
+    try { conKeyLight = manager->GetPosition(SkinGroup::Playing, "KeyLighting"); } catch (...) {}
+    parsePositionsFallback("KeyLighting", conKeyLight);
+    
+    std::vector<PositionValue> conKeyButton;
+    try { conKeyButton = manager->GetPosition(SkinGroup::Playing, "KeyButton"); } catch (...) {}
+    parsePositionsFallback("KeyButton", conKeyButton);
+    
+    std::vector<PositionValue> conHitEffect;
+    try { conHitEffect = manager->GetPosition(SkinGroup::Playing, "HitEffect"); } catch (...) {}
+    parsePositionsFallback("HitEffect", conHitEffect);
+    
+    std::vector<PositionValue> conHoldEffect;
+    try { conHoldEffect = manager->GetPosition(SkinGroup::Playing, "HoldEffect"); } catch (...) {}
+    parsePositionsFallback("HoldEffect", conHoldEffect);
+    
+    std::string colStartStr = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "ColumnStart");
+    std::string colWidthStr = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "ColumnWidth");
+    std::string noteHeightStr = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "NoteHeight");
+    std::string keyOffsetStr = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "KeyOffset");
+
+    std::vector<int> colWidths;
+    int colStart = 0;
+    int keyOffset = 0;
+    bool useManiaLayout = false;
+    
+    if (!keyOffsetStr.empty()) {
+        keyOffset = std::stoi(keyOffsetStr);
+    }
+    
+    bool genKeyButton = conKeyButton.size() < m_keyCount;
+    bool genKeyLight = conKeyLight.size() < m_keyCount;
+    bool genHitEffect = conHitEffect.size() < m_keyCount;
+    bool genHoldEffect = conHoldEffect.size() < m_keyCount;
+
+    if (!colStartStr.empty() && !colWidthStr.empty()) {
+        colStart = std::stoi(colStartStr);
+        auto widthSplits = splitString(colWidthStr, ',');
+        for (auto& w : widthSplits) {
+            colWidths.push_back(std::stoi(w));
+        }
+        if (colWidths.size() == 1) {
+            int w = colWidths[0];
+            for (int i = 1; i < m_keyCount; i++) colWidths.push_back(w);
+        }
+        
+        if (colWidths.size() >= m_keyCount) {
+            useManiaLayout = true;
+            if (genKeyLight) conKeyLight.clear();
+            if (genKeyButton) conKeyButton.clear();
+            if (genHitEffect) conHitEffect.clear();
+            if (genHoldEffect) conHoldEffect.clear();
+            
+            int currentX = colStart;
+            for (int i = 0; i < m_keyCount; i++) {
+                PositionValue btnPos = { currentX, HitPos, 0.0f, 0.0f };
+                PositionValue lgtPos = { currentX, HitPos, 0.0f, 1.0f };
+                
+                if (genKeyButton) conKeyButton.push_back(btnPos);
+                if (genKeyLight) conKeyLight.push_back(lgtPos);
+                if (genHitEffect) conHitEffect.push_back(btnPos);
+                if (genHoldEffect) conHoldEffect.push_back(btnPos);
+                
+                currentX += colWidths[i];
+            }
+        }
     }
 
-    auto playfieldPos = manager->GetPosition(
-        SkinGroup::Playing, "Playfield"); // conf.GetPosition("Playfield");
-    m_Playfield = std::make_unique<Texture2D>(playingPath / "Playfield.png");
+    if (!useManiaLayout && conKeyButton.size() < m_keyCount) {
+      throw std::runtime_error(
+          "Playing.ini : Positions : KeyButton : Not enough "
+          "positions! (count < " + std::to_string(m_keyCount) + ")");
+    }
+
+    std::string playfieldImg = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "Playfield");
+    if (playfieldImg.empty()) playfieldImg = manager->GetImageMapping(SkinGroup::Playing, "Playfield");
+    if (playfieldImg.empty()) playfieldImg = "Playfield";
+
+    auto playfieldPos = manager->GetPosition(SkinGroup::Playing, "Playfield");
+    m_Playfield = std::make_unique<Texture2D>(playingPath / (playfieldImg + ".png"));
     m_Playfield->Position =
         UDim2::fromOffset(playfieldPos[0].X, playfieldPos[0].Y);
     m_Playfield->AnchorPoint = {playfieldPos[0].AnchorPointX,
@@ -679,15 +783,44 @@ bool GameplayScene::Attach() {
         imageFlip = {false, false, false, false, false, false, false};
     }
 
-    std::string keyMap[7] = { "1", "2", "1", "S", "1", "2", "1" };
-    for (int i = 0; i < 7; i++) {
-        std::string btnBase = manager->GetImageMapping(SkinGroup::Playing, "KeyButton" + std::to_string(i));
+    std::string imageAlignStr = manager->GetImageMapping(SkinGroup::Playing, "ImageAlignment");
+    std::vector<char> imageAlign;
+    if (!imageAlignStr.empty()) {
+        auto splits = splitString(imageAlignStr, '|');
+        for (auto& s : splits) {
+            if (s.length() > 0) imageAlign.push_back(toupper(s[0]));
+            else imageAlign.push_back('C');
+        }
+    } else {
+        imageAlign = std::vector<char>(m_keyCount, 'C');
+    }
+
+    std::string noStretchStr = manager->GetImageMapping(SkinGroup::Playing, "NoStretchToColumn");
+    std::transform(noStretchStr.begin(), noStretchStr.end(), noStretchStr.begin(), ::tolower);
+    bool autoWidth = !(noStretchStr == "1" || noStretchStr == "true");
+
+    std::vector<std::string> keyMap;
+    switch (m_keyCount) {
+        case 4: keyMap = { "1", "2", "2", "1" }; break;
+        case 5: keyMap = { "1", "2", "S", "2", "1" }; break;
+        case 6: keyMap = { "1", "2", "1", "1", "2", "1" }; break;
+        case 7: keyMap = { "1", "2", "1", "S", "1", "2", "1" }; break;
+        default: 
+            for(int i=0; i<m_keyCount; i++) keyMap.push_back("1"); 
+            break;
+    }
+
+    for (int i = 0; i < m_keyCount; i++) {
+        std::string btnBase = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "KeyButton" + std::to_string(i));
+        if (btnBase.empty()) btnBase = manager->GetImageMapping(SkinGroup::Playing, "KeyButton" + std::to_string(i));
         if (btnBase.empty()) btnBase = "KeyButton" + keyMap[i];
 
-        std::string dwnBase = manager->GetImageMapping(SkinGroup::Playing, "KeyDown" + std::to_string(i));
+        std::string dwnBase = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "KeyDown" + std::to_string(i));
+        if (dwnBase.empty()) dwnBase = manager->GetImageMapping(SkinGroup::Playing, "KeyDown" + std::to_string(i));
         if (dwnBase.empty()) dwnBase = "KeyDown" + keyMap[i];
 
-        std::string lgtBase = manager->GetImageMapping(SkinGroup::Playing, "KeyLighting" + std::to_string(i));
+        std::string lgtBase = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "KeyLighting" + std::to_string(i));
+        if (lgtBase.empty()) lgtBase = manager->GetImageMapping(SkinGroup::Playing, "KeyLighting" + std::to_string(i));
         if (lgtBase.empty()) lgtBase = "KeyLighting" + keyMap[i];
 
         std::vector<std::filesystem::path> btnPaths;
@@ -736,27 +869,83 @@ bool GameplayScene::Attach() {
             m_keyLighting[i]->FlipX = true;
         }
 
-        m_keyLighting[i]->Position = UDim2::fromOffset(conKeyLight[i].X, conKeyLight[i].Y);
-        m_keyButtons[i]->Position = UDim2::fromOffset(conKeyButton[i].X, conKeyButton[i].Y);
+        PositionValue lgtPos = conKeyLight.size() > i ? conKeyLight[i] : PositionValue{conKeyButton.size() > i ? conKeyButton[i].X : 0.0, static_cast<double>(HitPos), 0.0f, 1.0f};
+        m_keyLighting[i]->Position = UDim2::fromOffset(lgtPos.X, lgtPos.Y);
+        m_keyLighting[i]->AnchorPoint = {lgtPos.AnchorPointX, lgtPos.AnchorPointY};
+
+        PositionValue btnPos = conKeyButton.size() > i ? conKeyButton[i] : PositionValue{0.0, static_cast<double>(HitPos), 0.0f, 0.0f};
+        m_keyButtons[i]->Position = UDim2::fromOffset(btnPos.X, btnPos.Y);
+        m_keyButtons[i]->AnchorPoint = {btnPos.AnchorPointX, btnPos.AnchorPointY};
         
-        // Try to get KeyDown position, fallback to KeyButton position if not found
+        PositionValue downPos = conKeyButton[i];
         try {
             auto conKeyDown = manager->GetPosition(SkinGroup::Playing, "KeyDown");
-            m_keyDowns[i]->Position = UDim2::fromOffset(conKeyDown[i].X, conKeyDown[i].Y);
-        } catch (const std::runtime_error&) {
+            parsePositionsFallback("KeyDown", conKeyDown);
+            if (conKeyDown.size() > i) {
+                downPos = conKeyDown[i];
+                m_keyDowns[i]->Position = UDim2::fromOffset(conKeyDown[i].X, conKeyDown[i].Y);
+                m_keyDowns[i]->AnchorPoint = {conKeyDown[i].AnchorPointX, conKeyDown[i].AnchorPointY};
+            } else {
+                throw std::runtime_error("Not enough KeyDown");
+            }
+        } catch (...) {
             m_keyDowns[i]->Position = m_keyButtons[i]->Position;
+            m_keyDowns[i]->AnchorPoint = m_keyButtons[i]->AnchorPoint;
+        }
+
+        if (useManiaLayout) {
+            bool isFlipped = false;
+            if (i < imageFlip.size() && imageFlip[i]) {
+                isFlipped = true;
+            }
+
+            auto alignSprite = [&](std::shared_ptr<Sprite2D>& sprite, PositionValue& posDef, bool scaleWidth) {
+                if (sprite && sprite->GetTexture()) {
+                    int origWidth = sprite->GetTexture()->GetOriginalRECT().right;
+                    int origHeight = sprite->GetTexture()->GetOriginalRECT().bottom;
+                    
+                    int displayWidth = origWidth;
+                    if (scaleWidth) {
+                        displayWidth = colWidths[i];
+                    }
+                    sprite->Size = UDim2::fromOffset(displayWidth, origHeight);
+                    
+                    int currentX = posDef.X;
+                    char align = 'C';
+                    if (i < imageAlign.size()) align = imageAlign[i];
+
+                    if (align == 'L') {
+                        sprite->Position = UDim2::fromOffset(currentX, posDef.Y + keyOffset);
+                    } else if (align == 'R') {
+                        sprite->Position = UDim2::fromOffset(currentX + colWidths[i] - displayWidth, posDef.Y + keyOffset);
+                    } else { // Center
+                        sprite->Position = UDim2::fromOffset(currentX + (colWidths[i] - displayWidth) / 2.0f, posDef.Y + keyOffset);
+                    }
+                    sprite->AnchorPoint = {posDef.AnchorPointX, posDef.AnchorPointY};
+                }
+            };
+
+            bool scale = autoWidth;
+            if (genKeyLight) alignSprite(m_keyLighting[i], conKeyLight[i], scale);
+            if (genKeyButton) {
+                alignSprite(m_keyButtons[i], conKeyButton[i], scale);
+                alignSprite(m_keyDowns[i], downPos, scale);
+            }
         }
     }
 
+    std::string comboNumImg = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "ComboNum");
+    if (comboNumImg.empty()) comboNumImg = manager->GetImageMapping(SkinGroup::Playing, "ComboNum");
+    if (comboNumImg.empty()) comboNumImg = "ComboNum";
+
     std::vector<std::filesystem::path> numComboPaths = {};
     for (int i = 0; i < 10; i++) {
-      auto filePath = arenaPath / ("ComboNum" + std::to_string(i) + ".png");
+      auto filePath = arenaPath / (comboNumImg + std::to_string(i) + ".png");
 
       if (!CheckSkinComponent(filePath)) {
         std::cout << "Missing: " << filePath.filename() << std::endl;
 
-        throw std::runtime_error("Failed to load Integer Images 0-9, please "
-                                 "check your skin folder.");
+        throw std::runtime_error("Failed to load Integer Images 0-9, please check your skin folder.");
       }
 
       numComboPaths.emplace_back(filePath);
@@ -771,15 +960,18 @@ bool GameplayScene::Attach() {
     m_comboNum->FillWithZeros = numPos.FillWithZero;
     m_comboNum->AlphaBlend = true;
 
+    std::string jamNumImg = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "JamNum");
+    if (jamNumImg.empty()) jamNumImg = manager->GetImageMapping(SkinGroup::Playing, "JamNum");
+    if (jamNumImg.empty()) jamNumImg = "JamNum";
+
     std::vector<std::filesystem::path> numJamPaths = {};
     for (int i = 0; i < 10; i++) {
-      auto filePath = playingPath / ("JamNum" + std::to_string(i) + ".png");
+      auto filePath = playingPath / (jamNumImg + std::to_string(i) + ".png");
 
       if (!CheckSkinComponent(filePath)) {
         std::cout << "Missing: " << filePath.filename() << std::endl;
 
-        throw std::runtime_error("Failed to load Integer Images 0-9, please "
-                                 "check your skin folder.");
+        throw std::runtime_error("Failed to load Integer Images 0-9, please check your skin folder.");
       }
 
       numJamPaths.emplace_back(filePath);
@@ -793,9 +985,13 @@ bool GameplayScene::Attach() {
     m_jamNum->MaxDigits = numPos.MaxDigit;
     m_jamNum->FillWithZeros = numPos.FillWithZero;
 
+    std::string scoreNumImg = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "ScoreNum");
+    if (scoreNumImg.empty()) scoreNumImg = manager->GetImageMapping(SkinGroup::Playing, "ScoreNum");
+    if (scoreNumImg.empty()) scoreNumImg = "ScoreNum";
+
     std::vector<std::filesystem::path> numScorePaths = {};
     for (int i = 0; i < 10; i++) {
-      auto filePath = playingPath / ("ScoreNum" + std::to_string(i) + ".png");
+      auto filePath = playingPath / (scoreNumImg + std::to_string(i) + ".png");
 
       if (!CheckSkinComponent(filePath)) {
         std::cout << "Missing: " << filePath.filename() << std::endl;
@@ -824,8 +1020,12 @@ bool GameplayScene::Attach() {
                                "arguments, expected 1 or 4");
     }
 
+    std::string judgeImg = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "Judge");
+    if (judgeImg.empty()) judgeImg = manager->GetImageMapping(SkinGroup::Playing, "Judge");
+    if (judgeImg.empty()) judgeImg = "Judge";
+
     for (int i = 0; i < 4; i++) {
-      auto filePathBase = arenaPath / ("Judge" + judgeFileName[i]);
+      auto filePathBase = arenaPath / (judgeImg + judgeFileName[i]);
       
       int posIndex = (judgePos.size() >= 4) ? i : 0;
 
@@ -854,7 +1054,7 @@ bool GameplayScene::Attach() {
           m_judgementSprite[i]->Position = UDim2::fromOffset(judgePos[posIndex].X, judgePos[posIndex].Y);
           m_judgementSprite[i]->AlphaBlend = true;
       } else {
-          auto filePath = arenaPath / ("Judge" + judgeFileName[i] + ".png");
+          auto filePath = arenaPath / (judgeImg + judgeFileName[i] + ".png");
 
           if (!std::filesystem::exists(filePath)) {
             throw std::runtime_error("Failed to load Judge image!");
@@ -867,7 +1067,10 @@ bool GameplayScene::Attach() {
       }
     }
 
-    m_jamGauge = std::make_unique<Texture2D>(playingPath / "JamGauge.png");
+    std::string jamGaugeImg = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "JamGauge");
+    if (jamGaugeImg.empty()) jamGaugeImg = manager->GetImageMapping(SkinGroup::Playing, "JamGauge");
+    if (jamGaugeImg.empty()) jamGaugeImg = "JamGauge";
+    m_jamGauge = std::make_unique<Texture2D>(playingPath / (jamGaugeImg + ".png"));
     auto gaugePos = manager->GetPosition(
         SkinGroup::Playing, "JamGauge"); // conf.GetPosition("JamGauge");
     if (gaugePos.size() < 1) {
@@ -882,20 +1085,24 @@ bool GameplayScene::Attach() {
     auto jamLogoPos = manager->GetSprite(
         SkinGroup::Playing, "JamLogo"); // conf.GetSprite("JamLogo");
     std::vector<std::filesystem::path> jamLogoFileName = {};
-    if (std::filesystem::exists(playingPath / "JamLogo-0.png")) {
+    std::string jamLogoImg = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "JamLogo");
+    if (jamLogoImg.empty()) jamLogoImg = manager->GetImageMapping(SkinGroup::Playing, "JamLogo");
+    if (jamLogoImg.empty()) jamLogoImg = "JamLogo";
+
+    if (std::filesystem::exists(playingPath / (jamLogoImg + "-0.png"))) {
         int frame = 0;
-        while (std::filesystem::exists(playingPath / ("JamLogo-" + std::to_string(frame) + ".png"))) {
-            jamLogoFileName.emplace_back(playingPath / ("JamLogo-" + std::to_string(frame) + ".png"));
+        while (std::filesystem::exists(playingPath / (jamLogoImg + "-" + std::to_string(frame) + ".png"))) {
+            jamLogoFileName.emplace_back(playingPath / (jamLogoImg + "-" + std::to_string(frame) + ".png"));
             frame++;
         }
-    } else if (std::filesystem::exists(playingPath / "JamLogo0.png")) {
+    } else if (std::filesystem::exists(playingPath / (jamLogoImg + "0.png"))) {
         int frame = 0;
-        while (std::filesystem::exists(playingPath / ("JamLogo" + std::to_string(frame) + ".png"))) {
-            jamLogoFileName.emplace_back(playingPath / ("JamLogo" + std::to_string(frame) + ".png"));
+        while (std::filesystem::exists(playingPath / (jamLogoImg + std::to_string(frame) + ".png"))) {
+            jamLogoFileName.emplace_back(playingPath / (jamLogoImg + std::to_string(frame) + ".png"));
             frame++;
         }
-    } else if (std::filesystem::exists(playingPath / "JamLogo.png")) {
-        jamLogoFileName.emplace_back(playingPath / "JamLogo.png");
+    } else if (std::filesystem::exists(playingPath / (jamLogoImg + ".png"))) {
+        jamLogoFileName.emplace_back(playingPath / (jamLogoImg + ".png"));
     } else {
         throw std::runtime_error("Failed to load Jam Logo image!");
     }
@@ -909,20 +1116,24 @@ bool GameplayScene::Attach() {
     auto lifeBarPos = manager->GetSprite(
         SkinGroup::Playing, "LifeBar"); // conf.GetSprite("LifeBar");
     std::vector<std::filesystem::path> lifeBarFileName = {};
-    if (std::filesystem::exists(playingPath / "LifeBar-0.png")) {
+    std::string lifeBarImg = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "LifeBar");
+    if (lifeBarImg.empty()) lifeBarImg = manager->GetImageMapping(SkinGroup::Playing, "LifeBar");
+    if (lifeBarImg.empty()) lifeBarImg = "LifeBar";
+
+    if (std::filesystem::exists(playingPath / (lifeBarImg + "-0.png"))) {
         int frame = 0;
-        while (std::filesystem::exists(playingPath / ("LifeBar-" + std::to_string(frame) + ".png"))) {
-            lifeBarFileName.emplace_back(playingPath / ("LifeBar-" + std::to_string(frame) + ".png"));
+        while (std::filesystem::exists(playingPath / (lifeBarImg + "-" + std::to_string(frame) + ".png"))) {
+            lifeBarFileName.emplace_back(playingPath / (lifeBarImg + "-" + std::to_string(frame) + ".png"));
             frame++;
         }
-    } else if (std::filesystem::exists(playingPath / "LifeBar0.png")) {
+    } else if (std::filesystem::exists(playingPath / (lifeBarImg + "0.png"))) {
         int frame = 0;
-        while (std::filesystem::exists(playingPath / ("LifeBar" + std::to_string(frame) + ".png"))) {
-            lifeBarFileName.emplace_back(playingPath / ("LifeBar" + std::to_string(frame) + ".png"));
+        while (std::filesystem::exists(playingPath / (lifeBarImg + std::to_string(frame) + ".png"))) {
+            lifeBarFileName.emplace_back(playingPath / (lifeBarImg + std::to_string(frame) + ".png"));
             frame++;
         }
-    } else if (std::filesystem::exists(playingPath / "LifeBar.png")) {
-        lifeBarFileName.emplace_back(playingPath / "LifeBar.png");
+    } else if (std::filesystem::exists(playingPath / (lifeBarImg + ".png"))) {
+        lifeBarFileName.emplace_back(playingPath / (lifeBarImg + ".png"));
     } else {
         throw std::runtime_error("Failed to load Life Bar image!");
     }
@@ -932,10 +1143,14 @@ bool GameplayScene::Attach() {
     m_lifeBar->AnchorPoint = {lifeBarPos.AnchorPointX, lifeBarPos.AnchorPointY};
     m_lifeBar->SetFPS(0.0);
 
+    std::string longNoteNumImg = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "LongNoteNum");
+    if (longNoteNumImg.empty()) longNoteNumImg = manager->GetImageMapping(SkinGroup::Playing, "LongNoteNum");
+    if (longNoteNumImg.empty()) longNoteNumImg = "LongNoteNum";
+
     std::vector<std::filesystem::path> lnComboFileName = {};
     for (int i = 0; i < 10; i++) {
       auto filePath =
-          playingPath / ("LongNoteNum" + std::to_string(i) + ".png");
+          playingPath / (longNoteNumImg + std::to_string(i) + ".png");
 
       if (!CheckSkinComponent(filePath)) {
         std::cout << "Missing: " << filePath.filename() << std::endl;
@@ -945,9 +1160,13 @@ bool GameplayScene::Attach() {
       lnComboFileName.emplace_back(filePath);
     }
 
+    std::string statsNumImg = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "StatsNum");
+    if (statsNumImg.empty()) statsNumImg = manager->GetImageMapping(SkinGroup::Playing, "StatsNum");
+    if (statsNumImg.empty()) statsNumImg = "StatsNum";
+
     std::vector<std::filesystem::path> statsNumFileName = {};
     for (int i = 0; i < 10; i++) {
-      auto filePath = playingPath / ("StatsNum" + std::to_string(i) + ".png");
+      auto filePath = playingPath / (statsNumImg + std::to_string(i) + ".png");
 
       if (!CheckSkinComponent(filePath)) {
         std::cout << "Missing: " << filePath.filename() << std::endl;
@@ -995,7 +1214,10 @@ bool GameplayScene::Attach() {
           "Playing.ini : Positions|Rect : Exit : Not defined!");
     }
 
-    m_exitBtn = std::make_unique<Texture2D>(playingPath / "Exit.png");
+    std::string exitImg = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "Exit");
+    if (exitImg.empty()) exitImg = manager->GetImageMapping(SkinGroup::Playing, "Exit");
+    if (exitImg.empty()) exitImg = "Exit";
+    m_exitBtn = std::make_unique<Texture2D>(playingPath / (exitImg + ".png"));
     m_exitBtn->Position = UDim2::fromOffset(
         btnExitRect[0].X,
         btnExitRect[0].Y); // Fix Exit not functional with Playing.ini
@@ -1022,20 +1244,24 @@ bool GameplayScene::Attach() {
     auto lnLogoPos = manager->GetSprite(
         SkinGroup::Playing, "LongNoteLogo"); // conf.GetSprite("LongNoteLogo");
     std::vector<std::filesystem::path> lnLogoFileName = {};
-    if (std::filesystem::exists(playingPath / "LongNoteLogo-0.png")) {
+    std::string lnLogoImg = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "LongNoteLogo");
+    if (lnLogoImg.empty()) lnLogoImg = manager->GetImageMapping(SkinGroup::Playing, "LongNoteLogo");
+    if (lnLogoImg.empty()) lnLogoImg = "LongNoteLogo";
+
+    if (std::filesystem::exists(playingPath / (lnLogoImg + "-0.png"))) {
         int frame = 0;
-        while (std::filesystem::exists(playingPath / ("LongNoteLogo-" + std::to_string(frame) + ".png"))) {
-            lnLogoFileName.emplace_back(playingPath / ("LongNoteLogo-" + std::to_string(frame) + ".png"));
+        while (std::filesystem::exists(playingPath / (lnLogoImg + "-" + std::to_string(frame) + ".png"))) {
+            lnLogoFileName.emplace_back(playingPath / (lnLogoImg + "-" + std::to_string(frame) + ".png"));
             frame++;
         }
-    } else if (std::filesystem::exists(playingPath / "LongNoteLogo0.png")) {
+    } else if (std::filesystem::exists(playingPath / (lnLogoImg + "0.png"))) {
         int frame = 0;
-        while (std::filesystem::exists(playingPath / ("LongNoteLogo" + std::to_string(frame) + ".png"))) {
-            lnLogoFileName.emplace_back(playingPath / ("LongNoteLogo" + std::to_string(frame) + ".png"));
+        while (std::filesystem::exists(playingPath / (lnLogoImg + std::to_string(frame) + ".png"))) {
+            lnLogoFileName.emplace_back(playingPath / (lnLogoImg + std::to_string(frame) + ".png"));
             frame++;
         }
-    } else if (std::filesystem::exists(playingPath / "LongNoteLogo.png")) {
-        lnLogoFileName.emplace_back(playingPath / "LongNoteLogo.png");
+    } else if (std::filesystem::exists(playingPath / (lnLogoImg + ".png"))) {
+        lnLogoFileName.emplace_back(playingPath / (lnLogoImg + ".png"));
     } else {
         throw std::runtime_error("Failed to load Long Note Logo image!");
     }
@@ -1048,20 +1274,24 @@ bool GameplayScene::Attach() {
 
     auto comboLogoPos = manager->GetSprite(SkinGroup::Playing, "ComboLogo");
     std::vector<std::filesystem::path> comboFileName = {};
-    if (std::filesystem::exists(arenaPath / "ComboLogo-0.png")) {
+    std::string comboLogoImg = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "ComboLogo");
+    if (comboLogoImg.empty()) comboLogoImg = manager->GetImageMapping(SkinGroup::Playing, "ComboLogo");
+    if (comboLogoImg.empty()) comboLogoImg = "ComboLogo";
+
+    if (std::filesystem::exists(arenaPath / (comboLogoImg + "-0.png"))) {
         int frame = 0;
-        while (std::filesystem::exists(arenaPath / ("ComboLogo-" + std::to_string(frame) + ".png"))) {
-            comboFileName.emplace_back(arenaPath / ("ComboLogo-" + std::to_string(frame) + ".png"));
+        while (std::filesystem::exists(arenaPath / (comboLogoImg + "-" + std::to_string(frame) + ".png"))) {
+            comboFileName.emplace_back(arenaPath / (comboLogoImg + "-" + std::to_string(frame) + ".png"));
             frame++;
         }
-    } else if (std::filesystem::exists(arenaPath / "ComboLogo0.png")) {
+    } else if (std::filesystem::exists(arenaPath / (comboLogoImg + "0.png"))) {
         int frame = 0;
-        while (std::filesystem::exists(arenaPath / ("ComboLogo" + std::to_string(frame) + ".png"))) {
-            comboFileName.emplace_back(arenaPath / ("ComboLogo" + std::to_string(frame) + ".png"));
+        while (std::filesystem::exists(arenaPath / (comboLogoImg + std::to_string(frame) + ".png"))) {
+            comboFileName.emplace_back(arenaPath / (comboLogoImg + std::to_string(frame) + ".png"));
             frame++;
         }
-    } else if (std::filesystem::exists(arenaPath / "ComboLogo.png")) {
-        comboFileName.emplace_back(arenaPath / "ComboLogo.png");
+    } else if (std::filesystem::exists(arenaPath / (comboLogoImg + ".png"))) {
+        comboFileName.emplace_back(arenaPath / (comboLogoImg + ".png"));
     } else {
         // Some arenas might not have a ComboLogo
     }
@@ -1080,10 +1310,14 @@ bool GameplayScene::Attach() {
     m_waveGage->AnchorPoint = {waveGagePos.AnchorPointX,
                                waveGagePos.AnchorPointY};
 
+    std::string playTimeNumImg = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "PlayTimeNum");
+    if (playTimeNumImg.empty()) playTimeNumImg = manager->GetImageMapping(SkinGroup::Playing, "PlayTimeNum");
+    if (playTimeNumImg.empty()) playTimeNumImg = "PlayTimeNum";
+
     std::vector<std::filesystem::path> numTimerPaths = {};
     for (int i = 0; i < 10; i++) {
       numTimerPaths.emplace_back(playingPath /
-                                 ("PlayTimeNum" + std::to_string(i) + ".png"));
+                                 (playTimeNumImg + std::to_string(i) + ".png"));
 
       if (!CheckSkinComponent(numTimerPaths.back())) {
         throw std::runtime_error(
@@ -1091,35 +1325,45 @@ bool GameplayScene::Attach() {
       }
     }
 
+    std::string targetBarImg = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "TargetBar");
+    if (targetBarImg.empty()) targetBarImg = manager->GetImageMapping(SkinGroup::Playing, "TargetBar");
+    if (targetBarImg.empty()) targetBarImg = "TargetBar";
+
     auto targetPos = manager->GetSprite(
         SkinGroup::Playing, "TargetBar"); // conf.GetSprite("TargetBar");
     std::vector<std::filesystem::path> targetBarPaths = {};
-    if (std::filesystem::exists(playingPath / "TargetBar-0.png")) {
+    if (std::filesystem::exists(playingPath / (targetBarImg + "-0.png"))) {
         int frame = 0;
-        while (std::filesystem::exists(playingPath / ("TargetBar-" + std::to_string(frame) + ".png"))) {
-            targetBarPaths.emplace_back(playingPath / ("TargetBar-" + std::to_string(frame) + ".png"));
+        while (std::filesystem::exists(playingPath / (targetBarImg + "-" + std::to_string(frame) + ".png"))) {
+            targetBarPaths.emplace_back(playingPath / (targetBarImg + "-" + std::to_string(frame) + ".png"));
             frame++;
         }
-    } else if (std::filesystem::exists(playingPath / "TargetBar0.png")) {
+    } else if (std::filesystem::exists(playingPath / (targetBarImg + "0.png"))) {
         int frame = 0;
-        while (std::filesystem::exists(playingPath / ("TargetBar" + std::to_string(frame) + ".png"))) {
-            targetBarPaths.emplace_back(playingPath / ("TargetBar" + std::to_string(frame) + ".png"));
+        while (std::filesystem::exists(playingPath / (targetBarImg + std::to_string(frame) + ".png"))) {
+            targetBarPaths.emplace_back(playingPath / (targetBarImg + std::to_string(frame) + ".png"));
             frame++;
         }
-    } else if (std::filesystem::exists(playingPath / "TargetBar.png")) {
-        targetBarPaths.emplace_back(playingPath / "TargetBar.png");
+    } else if (std::filesystem::exists(playingPath / (targetBarImg + ".png"))) {
+        targetBarPaths.emplace_back(playingPath / (targetBarImg + ".png"));
     } else {
         throw std::runtime_error("Failed to load TargetBar Images, please check your skin folder.");
     }
 
-    auto playfooterPos =
-        manager->GetPosition(SkinGroup::Playing, "Playfooter").front();
-    m_PlayFooter =
-        std::make_unique<Texture2D>(playingPath / "PlayfieldFooter.png");
-    m_PlayFooter->Position =
-        UDim2::fromOffset(playfooterPos.X, playfooterPos.Y);
-    m_PlayFooter->AnchorPoint = {playfooterPos.AnchorPointX,
-                                 playfooterPos.AnchorPointY};
+    std::string playfooterImg = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "Playfooter");
+    if (playfooterImg.empty()) playfooterImg = manager->GetImageMapping(SkinGroup::Playing, "Playfooter");
+    if (playfooterImg.empty()) playfooterImg = "PlayfieldFooter";
+
+    try {
+        auto playfooterPos = manager->GetPosition(SkinGroup::Playing, "Playfooter").front();
+        if (std::filesystem::exists(playingPath / (playfooterImg + ".png"))) {
+            m_PlayFooter = std::make_unique<Texture2D>(playingPath / (playfooterImg + ".png"));
+            m_PlayFooter->Position = UDim2::fromOffset(playfooterPos.X, playfooterPos.Y);
+            m_PlayFooter->AnchorPoint = {playfooterPos.AnchorPointX, playfooterPos.AnchorPointY};
+        }
+    } catch (...) {
+        // PlayfieldFooter is optional, ignore if missing
+    }
 
     m_targetBar = std::make_unique<Sprite2D>(targetBarPaths);
     m_targetBar->Position = UDim2::fromOffset(targetPos.X, targetPos.Y);
@@ -1203,7 +1447,9 @@ bool GameplayScene::Attach() {
     }
 
     m_game->SetHitPosition(HitPos);
-    m_game->SetLaneOffset(LaneOffset);
+    m_game->SetLaneOffset(useManiaLayout ? colStart : LaneOffset);
+    if (useManiaLayout) m_game->SetColumnWidths(colWidths);
+    if (!noteHeightStr.empty()) m_game->SetNoteHeight(std::stoi(noteHeightStr));
 
     int idx = 2;
     try {
@@ -1241,17 +1487,6 @@ bool GameplayScene::Attach() {
 
     m_game->Load(chart);
 
-    std::map<int, std::vector<int>> mappedKeyIndex = {
-        // 4: 1, 2, x, x, x, 3, 4
-        {4, {0, 1, 5, 6}},
-        // 5: x, 1, 2, 3, 4, 5, x
-        {5, {1, 2, 3, 4, 5}},
-        // 6: 1, 2, 3, 4, 5, 6, x
-        {6, {0, 1, 2, 4, 5, 6}},
-        // 7: 1, 2, 3, 4, 5, 6, 7
-        {7, {0, 1, 2, 3, 4, 5, 6}},
-    };
-
     Keys keys[7] = {};
     std::string keyName = "Lane";
     if (chart->m_keyCount != 7) {
@@ -1267,7 +1502,7 @@ bool GameplayScene::Attach() {
             ("Unknown key: " + value + ", try check your keybind again!"));
       }
 
-      keys[mappedKeyIndex[chart->m_keyCount][i]] = key;
+      keys[i] = key;
     }
 
     m_game->SetKeys(keys);
@@ -1275,42 +1510,60 @@ bool GameplayScene::Attach() {
     auto hitEffectPos = manager->GetSprite(SkinGroup::Playing, "HitEffect");
     auto holdEffectPos = manager->GetSprite(SkinGroup::Playing, "HoldEffect");
 
+    std::string hitEffectImg = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "HitEffect");
+    if (hitEffectImg.empty()) hitEffectImg = manager->GetImageMapping(SkinGroup::Playing, "HitEffect");
+    if (hitEffectImg.empty()) hitEffectImg = "HitEffect";
+
+    std::string holdEffectImg = manager->GetSkinConfigProp(SkinGroup::Playing, "Key#" + std::to_string(m_keyCount), "HoldEffect");
+    if (holdEffectImg.empty()) holdEffectImg = manager->GetImageMapping(SkinGroup::Playing, "HoldEffect");
+    if (holdEffectImg.empty()) holdEffectImg = "HoldEffect";
+
     std::vector<std::filesystem::path> HitEffect = {};
-    if (std::filesystem::exists(arenaPath / "HitEffect-0.png")) {
+    if (std::filesystem::exists(arenaPath / (hitEffectImg + "-0.png"))) {
         int frame = 0;
-        while (std::filesystem::exists(arenaPath / ("HitEffect-" + std::to_string(frame) + ".png"))) {
-            HitEffect.emplace_back(arenaPath / ("HitEffect-" + std::to_string(frame) + ".png"));
+        while (std::filesystem::exists(arenaPath / (hitEffectImg + "-" + std::to_string(frame) + ".png"))) {
+            HitEffect.emplace_back(arenaPath / (hitEffectImg + "-" + std::to_string(frame) + ".png"));
             frame++;
         }
-    } else if (std::filesystem::exists(arenaPath / "HitEffect0.png")) {
+    } else if (std::filesystem::exists(arenaPath / (hitEffectImg + "0.png"))) {
         int frame = 0;
-        while (std::filesystem::exists(arenaPath / ("HitEffect" + std::to_string(frame) + ".png"))) {
-            HitEffect.emplace_back(arenaPath / ("HitEffect" + std::to_string(frame) + ".png"));
+        while (std::filesystem::exists(arenaPath / (hitEffectImg + std::to_string(frame) + ".png"))) {
+            HitEffect.emplace_back(arenaPath / (hitEffectImg + std::to_string(frame) + ".png"));
             frame++;
         }
-    } else if (std::filesystem::exists(arenaPath / "HitEffect.png")) {
-        HitEffect.emplace_back(arenaPath / "HitEffect.png");
+    } else if (std::filesystem::exists(arenaPath / (hitEffectImg + ".png"))) {
+        HitEffect.emplace_back(arenaPath / (hitEffectImg + ".png"));
     }
 
     std::vector<std::filesystem::path> holdEffect = {};
-    if (std::filesystem::exists(arenaPath / "HoldEffect-0.png")) {
+    if (std::filesystem::exists(arenaPath / (holdEffectImg + "-0.png"))) {
         int frame = 0;
-        while (std::filesystem::exists(arenaPath / ("HoldEffect-" + std::to_string(frame) + ".png"))) {
-            holdEffect.emplace_back(arenaPath / ("HoldEffect-" + std::to_string(frame) + ".png"));
+        while (std::filesystem::exists(arenaPath / (holdEffectImg + "-" + std::to_string(frame) + ".png"))) {
+            holdEffect.emplace_back(arenaPath / (holdEffectImg + "-" + std::to_string(frame) + ".png"));
             frame++;
         }
-    } else if (std::filesystem::exists(arenaPath / "HoldEffect0.png")) {
+    } else if (std::filesystem::exists(arenaPath / (holdEffectImg + "0.png"))) {
         int frame = 0;
-        while (std::filesystem::exists(arenaPath / ("HoldEffect" + std::to_string(frame) + ".png"))) {
-            holdEffect.emplace_back(arenaPath / ("HoldEffect" + std::to_string(frame) + ".png"));
+        while (std::filesystem::exists(arenaPath / (holdEffectImg + std::to_string(frame) + ".png"))) {
+            holdEffect.emplace_back(arenaPath / (holdEffectImg + std::to_string(frame) + ".png"));
             frame++;
         }
-    } else if (std::filesystem::exists(arenaPath / "HoldEffect.png")) {
-        holdEffect.emplace_back(arenaPath / "HoldEffect.png");
+    } else if (std::filesystem::exists(arenaPath / (holdEffectImg + ".png"))) {
+        holdEffect.emplace_back(arenaPath / (holdEffectImg + ".png"));
     }
 
     auto lanePos = m_game->GetLanePos();
     auto laneSize = m_game->GetLaneSizes();
+
+    if (m_autoImage) {
+        float totalWidth = 0;
+        for (int i = 0; i < m_keyCount; i++) {
+            totalWidth += laneSize[i];
+        }
+        float centerX = lanePos[0] + (totalWidth / 2.0f);
+        m_autoImage->Position = UDim2::fromOffset(centerX, 20);
+        m_autoImage->AnchorPoint = {0.5, 0};
+    }
     for (int i = 0; i < 7; i++) {
       m_hitEffect[i] = std::make_unique<Sprite2D>(
           HitEffect, hitEffectPos.FrameTime);
@@ -1340,6 +1593,29 @@ bool GameplayScene::Attach() {
                                      hitEffectPos.AnchorPointY};
       m_holdEffect[i]->AnchorPoint = {holdEffectPos.AnchorPointX,
                                       holdEffectPos.AnchorPointY};
+
+      if (conKeyLight.size() < m_keyCount && m_keyLighting[i] && m_keyLighting[i]->GetTexture()) {
+          int origWidth = m_keyLighting[i]->GetTexture()->GetOriginalRECT().right;
+          int origHeight = m_keyLighting[i]->GetTexture()->GetOriginalRECT().bottom;
+          
+          int displayWidth = origWidth;
+          if (autoWidth) {
+              displayWidth = laneSize[i];
+          }
+          m_keyLighting[i]->Size = UDim2::fromOffset(displayWidth, origHeight);
+          
+          char align = 'C';
+          if (i < imageAlign.size()) align = imageAlign[i];
+
+          if (align == 'L') {
+              m_keyLighting[i]->Position = UDim2::fromOffset(lanePos[i], HitPos);
+          } else if (align == 'R') {
+              m_keyLighting[i]->Position = UDim2::fromOffset(lanePos[i] + laneSize[i] - displayWidth, HitPos);
+          } else { // Center
+              m_keyLighting[i]->Position = UDim2::fromOffset(lanePos[i] + (laneSize[i] - displayWidth) / 2.0f, HitPos);
+          }
+          m_keyLighting[i]->AnchorPoint = {0.0f, 1.0f};
+      }
     }
 
     bool IsHD = EnvironmentSetup::GetInt("Hidden") == 1;

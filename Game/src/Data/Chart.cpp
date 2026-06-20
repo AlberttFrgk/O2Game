@@ -37,20 +37,10 @@ std::string getFileExtension(const std::string &filename) {
 } // namespace
 
 static std::vector<int> GetMappedLanes(int keyCount) {
-  static const std::map<int, std::vector<int>> mappedKeyIndex = {
-      {4, {0, 1, 5, 6}},
-      {5, {1, 2, 3, 4, 5}},
-      {6, {0, 1, 2, 4, 5, 6}},
-      {7, {0, 1, 2, 3, 4, 5, 6}},
-  };
-  if (mappedKeyIndex.find(keyCount) != mappedKeyIndex.end()) {
-    return mappedKeyIndex.at(keyCount);
-  } else {
-    std::vector<int> lanes;
-    for (int i = 0; i < keyCount; i++)
-      lanes.push_back(i);
-    return lanes;
-  }
+  std::vector<int> lanes;
+  for (int i = 0; i < keyCount; i++)
+    lanes.push_back(i);
+  return lanes;
 }
 
 double TimingInfo::CalculateBeat(double offset) const {

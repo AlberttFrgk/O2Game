@@ -128,6 +128,16 @@ void Note::Load(NoteInfoDesc *desc) {
   m_endTrackPosition = desc->EndTrackPosition;
   m_keysoundIndex = desc->KeysoundIndex;
 
+  if (m_head && m_head->m_frames.size() > 0) {
+      int w = m_engine->GetLaneSizes()[m_lane];
+      int h = m_engine->GetNoteHeight();
+      if (h == 0) h = m_head->m_frames[0]->GetOriginalRECT().bottom;
+      
+      m_head->Size = UDim2::fromOffset(w, h);
+      if (m_tail) m_tail->Size = UDim2::fromOffset(w, h);
+      if (m_body) m_body->Size = UDim2::fromOffset(w, m_body->Size.Y.Offset);
+  }
+
   m_keyVolume = desc->Volume;
   m_keyPan = desc->Pan;
 
@@ -241,7 +251,7 @@ void Note::DrawBody(double delta, double bodyPosY, double bodyHeight,
                     Rect &playRect) {
   m_body->Position = UDim2::fromOffset(
       m_laneOffset, bodyPosY - (m_head->AbsoluteSize.Y / 2.0));
-  m_body->Size = {1, 0, 0, bodyHeight};
+  m_body->Size = {0, static_cast<float>(m_head->Size.X.Offset), 0, static_cast<float>(bodyHeight)};
   m_body->SetIndexAt(GetDynamicBPMFrameIndex(m_body));
   m_body->Draw(delta, &playRect);
 }

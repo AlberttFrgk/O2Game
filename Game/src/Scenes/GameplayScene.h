@@ -59,6 +59,7 @@ private:
     std::unique_ptr<Texture2D> m_noteMod;
     std::unique_ptr<Texture2D> m_visualMod;
 
+    int m_keyCount;
     std::unique_ptr<Texture2D> m_jamGauge;
     std::unique_ptr<Texture2D> m_waveGage;
 
@@ -78,6 +79,7 @@ private:
 
     std::unique_ptr<Text> m_title;
     std::unique_ptr<Text> m_autoText;
+    std::unique_ptr<Texture2D> m_autoImage;
     std::unique_ptr<Text> m_gameInfo;
 
     std::unique_ptr<Texture2D> m_laneHideImage;

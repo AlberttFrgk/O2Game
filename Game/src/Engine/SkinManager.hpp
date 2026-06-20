@@ -28,6 +28,7 @@ public:
     NoteValue                  GetNote(SkinGroup group, std::string key);
     SpriteValue                GetSprite(SkinGroup group, std::string key);
     std::string                GetImageMapping(SkinGroup group, std::string key);
+    std::string                GetSkinConfigProp(SkinGroup group, std::string section, std::string key);
 
 
 

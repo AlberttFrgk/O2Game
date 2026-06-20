@@ -112,7 +112,12 @@ std::filesystem::path SkinManager::GetPath()
 
 void SkinManager::SetKeyCount(int key)
 {
-    m_keyCount = key;
+    if (m_keyCount != key) {
+        m_keyCount = key;
+        if (m_skinConfigs.find(SkinGroup::Playing) != m_skinConfigs.end()) {
+            m_skinConfigs.erase(SkinGroup::Playing);
+        }
+    }
 }
 
 std::vector<NumericValue> SkinManager::GetNumeric(SkinGroup group, std::string key)
@@ -192,6 +197,14 @@ std::string SkinManager::GetImageMapping(SkinGroup group, std::string key)
 
         return m_skinConfigs[group]->GetImageMapping(key);
     }
+}
+
+std::string SkinManager::GetSkinConfigProp(SkinGroup group, std::string section, std::string key)
+{
+    if (m_skinConfigs.find(group) == m_skinConfigs.end()) {
+        TryLoadGroup(group);
+    }
+    return m_skinConfigs[group]->GetProperty(section, key);
 }
 
 
