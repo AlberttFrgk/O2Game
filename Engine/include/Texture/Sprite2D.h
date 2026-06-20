@@ -42,6 +42,7 @@ public:
     void       SetFPS(double fps);
     void       Reset();
     void       SetIndex(int index) { m_currentIndex = index; }
+    int        GetCurrentIndex() const { return m_currentIndex; }
     int        GetFrameCount() const { return static_cast<int>(m_textures.size()); }
 
     double m_spritespeed = 1.0;

@@ -25,7 +25,7 @@ private:
     int  currentResolutionIndex = 0;
     int  currentGuideLineIndex = 0;
     bool MeasureLine = false;
-    bool LNBodyOnTop = false;
+
     bool MeasureLineType = false;
     int BackgroundIndex = 0;
     int NoteIndex = 0;

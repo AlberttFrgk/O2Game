@@ -89,7 +89,7 @@ bool RhythmEngine::Load(Chart *chart) {
 
     int size = noteImage->TextureRect.right;
     if (m_columnWidths.size() > i) {
-        size = m_columnWidths[i];
+      size = m_columnWidths[i];
     }
     m_noteMaxImageIndex = (std::min)(noteImage->MaxFrames, m_noteMaxImageIndex);
 
@@ -98,8 +98,8 @@ bool RhythmEngine::Load(Chart *chart) {
     currentX += size;
   }
 
-  currentX =
-      static_cast<int>(std::accumulate(m_laneSize, m_laneSize + chart->m_keyCount, 0.0f));
+  currentX = static_cast<int>(
+      std::accumulate(m_laneSize, m_laneSize + chart->m_keyCount, 0.0f));
   m_playRectangle = {m_laneOffset, 0, m_laneOffset + currentX, m_hitPosition};
 
   std::filesystem::path audioPath = chart->m_beatmapDirectory;
@@ -263,30 +263,46 @@ bool RhythmEngine::Load(Chart *chart) {
   std::vector<NoteImageType> key2HoldType;
 
   switch (chart->m_keyCount) {
-      case 4:
-          key2Type = { NoteImageType::LANE_1, NoteImageType::LANE_2, NoteImageType::LANE_2, NoteImageType::LANE_1 };
-          key2HoldType = { NoteImageType::HOLD_LANE_1, NoteImageType::HOLD_LANE_2, NoteImageType::HOLD_LANE_2, NoteImageType::HOLD_LANE_1 };
-          break;
-      case 5:
-          key2Type = { NoteImageType::LANE_1, NoteImageType::LANE_2, NoteImageType::LANE_4, NoteImageType::LANE_2, NoteImageType::LANE_1 };
-          key2HoldType = { NoteImageType::HOLD_LANE_1, NoteImageType::HOLD_LANE_2, NoteImageType::HOLD_LANE_4, NoteImageType::HOLD_LANE_2, NoteImageType::HOLD_LANE_1 };
-          break;
-      case 6:
-          key2Type = { NoteImageType::LANE_1, NoteImageType::LANE_2, NoteImageType::LANE_1, NoteImageType::LANE_1, NoteImageType::LANE_2, NoteImageType::LANE_1 };
-          key2HoldType = { NoteImageType::HOLD_LANE_1, NoteImageType::HOLD_LANE_2, NoteImageType::HOLD_LANE_1, NoteImageType::HOLD_LANE_1, NoteImageType::HOLD_LANE_2, NoteImageType::HOLD_LANE_1 };
-          break;
-      case 7:
-      default:
-          key2Type = { NoteImageType::LANE_1, NoteImageType::LANE_2, NoteImageType::LANE_3, NoteImageType::LANE_4, NoteImageType::LANE_5, NoteImageType::LANE_6, NoteImageType::LANE_7 };
-          key2HoldType = { NoteImageType::HOLD_LANE_1, NoteImageType::HOLD_LANE_2, NoteImageType::HOLD_LANE_3, NoteImageType::HOLD_LANE_4, NoteImageType::HOLD_LANE_5, NoteImageType::HOLD_LANE_6, NoteImageType::HOLD_LANE_7 };
-          break;
+  case 4:
+    key2Type = {NoteImageType::LANE_1, NoteImageType::LANE_2,
+                NoteImageType::LANE_2, NoteImageType::LANE_1};
+    key2HoldType = {NoteImageType::HOLD_LANE_1, NoteImageType::HOLD_LANE_2,
+                    NoteImageType::HOLD_LANE_2, NoteImageType::HOLD_LANE_1};
+    break;
+  case 5:
+    key2Type = {NoteImageType::LANE_1, NoteImageType::LANE_2,
+                NoteImageType::LANE_4, NoteImageType::LANE_2,
+                NoteImageType::LANE_1};
+    key2HoldType = {NoteImageType::HOLD_LANE_1, NoteImageType::HOLD_LANE_2,
+                    NoteImageType::HOLD_LANE_4, NoteImageType::HOLD_LANE_2,
+                    NoteImageType::HOLD_LANE_1};
+    break;
+  case 6:
+    key2Type = {NoteImageType::LANE_1, NoteImageType::LANE_2,
+                NoteImageType::LANE_1, NoteImageType::LANE_1,
+                NoteImageType::LANE_2, NoteImageType::LANE_1};
+    key2HoldType = {NoteImageType::HOLD_LANE_1, NoteImageType::HOLD_LANE_2,
+                    NoteImageType::HOLD_LANE_1, NoteImageType::HOLD_LANE_1,
+                    NoteImageType::HOLD_LANE_2, NoteImageType::HOLD_LANE_1};
+    break;
+  case 7:
+  default:
+    key2Type = {NoteImageType::LANE_1, NoteImageType::LANE_2,
+                NoteImageType::LANE_3, NoteImageType::LANE_4,
+                NoteImageType::LANE_5, NoteImageType::LANE_6,
+                NoteImageType::LANE_7};
+    key2HoldType = {NoteImageType::HOLD_LANE_1, NoteImageType::HOLD_LANE_2,
+                    NoteImageType::HOLD_LANE_3, NoteImageType::HOLD_LANE_4,
+                    NoteImageType::HOLD_LANE_5, NoteImageType::HOLD_LANE_6,
+                    NoteImageType::HOLD_LANE_7};
+    break;
   }
 
   if (chart->m_keyCount > 7) {
-      for (int i = 7; i < chart->m_keyCount; i++) {
-          key2Type.push_back(NoteImageType::LANE_1);
-          key2HoldType.push_back(NoteImageType::HOLD_LANE_1);
-      }
+    for (int i = 7; i < chart->m_keyCount; i++) {
+      key2Type.push_back(NoteImageType::LANE_1);
+      key2HoldType.push_back(NoteImageType::HOLD_LANE_1);
+    }
   }
 
   for (auto &note : chart->m_notes) {
@@ -771,7 +787,9 @@ const float *RhythmEngine::GetLaneSizes() const { return &m_laneSize[0]; }
 
 const float *RhythmEngine::GetLanePos() const { return &m_lanePos[0]; }
 
-void RhythmEngine::SetColumnWidths(std::vector<int> widths) { m_columnWidths = widths; }
+void RhythmEngine::SetColumnWidths(std::vector<int> widths) {
+  m_columnWidths = widths;
+}
 void RhythmEngine::SetNoteHeight(int height) { m_noteHeight = height; }
 void RhythmEngine::SetHitPosition(int offset) { m_hitPosition = offset; }
 int RhythmEngine::GetNoteHeight() const { return m_noteHeight; }

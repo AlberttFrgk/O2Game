@@ -162,10 +162,11 @@ bool MainMenu::Attach()
     auto window = GameWindow::GetInstance();
 
     auto background_path = path / "Menu" / "MenuBackground.png";
-    auto bgm_path = path / "Audio" / "BGM.ogg";
-    if (!std::filesystem::exists(bgm_path)) {
-        bgm_path = std::filesystem::current_path() / "Resources" / "Audio" / "BGM.ogg";
+    auto audioPath = path / "Audio";
+    if (!std::filesystem::exists(audioPath)) {
+        audioPath = std::filesystem::current_path() / "Resources" / "Audio";
     }
+    auto bgm_path = audioPath / "BGM.ogg";
 
     if (std::filesystem::exists(background_path)) {
         m_background = std::make_unique<Texture2D>(background_path);

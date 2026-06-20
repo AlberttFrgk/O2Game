@@ -559,6 +559,15 @@ bool GameplayScene::Attach() {
   try {
     auto manager = SkinManager::GetInstance();
 
+    std::string lnBodyOnTopStr = manager->GetSkinConfigProp(SkinGroup::Notes, "Notes", "LongNoteBodyOnTop");
+    if (!lnBodyOnTopStr.empty()) {
+        std::string lowerStr = lnBodyOnTopStr;
+        std::transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(), ::tolower);
+        EnvironmentSetup::SetInt("LNBodyOnTop", (lowerStr == "true" || lowerStr == "1") ? 1 : 0);
+    } else {
+        EnvironmentSetup::SetInt("LNBodyOnTop", 0);
+    }
+
     int LaneOffset = 5;
     double HitPos = 480;
 
@@ -574,6 +583,10 @@ bool GameplayScene::Attach() {
     auto skinPath = manager->GetPath();
     auto playingPath = skinPath / "Playing";
     auto arenaPath = playingPath / "Arena";
+    auto modsPath = skinPath / "Mods";
+    if (!std::filesystem::exists(modsPath)) {
+        modsPath = EnvironmentSetup::GetPath("GamePath") / "Resources" / "Mods";
+    }
 
     if (arena == 0 || arena == -1) {
       std::random_device dev;
@@ -635,9 +648,10 @@ bool GameplayScene::Attach() {
     m_autoTextPos =
         UDim2::fromOffset(GameWindow::GetInstance()->GetBufferWidth(), 50);
 
-    auto autoplayImgPath = EnvironmentSetup::GetPath("GamePath") / "Resources" / "Mods" / "Autoplay.png";
+    auto autoplayImgPath = modsPath / "Autoplay.png";
     if (std::filesystem::exists(autoplayImgPath)) {
         m_autoImage = std::make_unique<Texture2D>(autoplayImgPath);
+        m_autoImage->AlphaBlend = true;
     }
 
     m_gameInfo = std::make_unique<Text>(8);
@@ -1372,7 +1386,7 @@ bool GameplayScene::Attach() {
         SkinGroup::Playing, "Minute"); // conf.GetNumeric("Minute");
     m_minuteNum->NumberPosition = IntToPos(minutePos[0].Direction);
     m_minuteNum->MaxDigits = minutePos[0].MaxDigit;
-    m_minuteNum->FillWithZeros = false;
+    m_minuteNum->FillWithZeros = minutePos[0].FillWithZero;
     m_minuteNum->Position = UDim2::fromOffset(minutePos[0].X, minutePos[0].Y);
 
     m_secondNum = std::make_unique<NumericTexture>(numTimerPaths);
@@ -1380,7 +1394,7 @@ bool GameplayScene::Attach() {
         SkinGroup::Playing, "Second"); // conf.GetNumeric("Second");
     m_secondNum->NumberPosition = IntToPos(secondPos[0].Direction);
     m_secondNum->MaxDigits = secondPos[0].MaxDigit;
-    m_secondNum->FillWithZeros = true;
+    m_secondNum->FillWithZeros = secondPos[0].FillWithZero;
     m_secondNum->Position = UDim2::fromOffset(secondPos[0].X, secondPos[0].Y);
 
     auto pillsPosition = manager->GetPosition(
@@ -1462,17 +1476,27 @@ bool GameplayScene::Attach() {
         m_keyState[e.Lane] = e.State;
       } else {
         if (e.IsHitEvent) {
+          bool flip = false;
+          if (e.Lane + 1 < 7) {
+              if (m_drawHold[e.Lane + 1] || (m_drawHit[e.Lane + 1] && m_hitEffect[e.Lane + 1]->GetCurrentIndex() < m_hitEffect[e.Lane + 1]->GetFrameCount() - 1)) {
+                  flip = true;
+              }
+          }
+
           if (e.IsHitLongEvent) {
             m_holdEffect[e.Lane]->Reset();
+            m_holdEffect[e.Lane]->FlipX = flip;
             m_drawHit[e.Lane] = false;
             m_drawHold[e.Lane] = e.State;
 
             if (!e.State) {
               m_hitEffect[e.Lane]->Reset();
+              m_hitEffect[e.Lane]->FlipX = flip;
               m_drawHit[e.Lane] = true;
             }
           } else {
             m_hitEffect[e.Lane]->Reset();
+            m_hitEffect[e.Lane]->FlipX = flip;
             m_drawHit[e.Lane] = true;
             m_drawHold[e.Lane] = false;
           }
@@ -1568,8 +1592,8 @@ bool GameplayScene::Attach() {
           holdEffect, holdEffectPos.FrameTime);
           
       if (i < imageFlip.size() && imageFlip[i]) {
-          m_hitEffect[i]->FlipX = true;
-          m_holdEffect[i]->FlipX = true;
+          // Do not statically flip hit and hold effects based on skin imageFlip
+          // They are dynamically flipped in OnTrackEvent
       }
 
       m_hitEffect[i]->SetFPS(hitEffectPos.FrameTime);
@@ -1663,10 +1687,7 @@ bool GameplayScene::Attach() {
     if (VisualModEnabled) { // Draw VisualMods (Hidden, Flashlight, and Sudden)
       if (IsHD) {
         std::string VisualModImage = "ModHidden.png";
-        auto VisualModfilename = playingPath / VisualModImage;
-        if (!std::filesystem::exists(VisualModfilename)) {
-            VisualModfilename = std::filesystem::current_path() / "Resources" / "Mods" / VisualModImage;
-        }
+        auto VisualModfilename = modsPath / VisualModImage;
 
         try {
           auto visualModPos =
@@ -1682,10 +1703,7 @@ bool GameplayScene::Attach() {
 
       if (IsFL) {
         std::string VisualModImage = "ModFlashlight.png";
-        auto VisualModfilename = playingPath / VisualModImage;
-        if (!std::filesystem::exists(VisualModfilename)) {
-            VisualModfilename = std::filesystem::current_path() / "Resources" / "Mods" / VisualModImage;
-        }
+        auto VisualModfilename = modsPath / VisualModImage;
 
         try {
           auto visualModPos =
@@ -1700,10 +1718,7 @@ bool GameplayScene::Attach() {
       }
       if (IsSD) {
         std::string VisualModImage = "ModSudden.png";
-        auto VisualModfilename = playingPath / VisualModImage;
-        if (!std::filesystem::exists(VisualModfilename)) {
-            VisualModfilename = std::filesystem::current_path() / "Resources" / "Mods" / VisualModImage;
-        }
+        auto VisualModfilename = modsPath / VisualModImage;
 
         try {
           auto visualModPos =
@@ -1721,10 +1736,7 @@ bool GameplayScene::Attach() {
     if (NoteModEnabled) { // Draw NoteMods (Mirror, Random, and Panic)
       if (IsMR) {
         std::string NoteModImage = "ModMirror.png";
-        auto NoteModfilename = playingPath / NoteModImage;
-        if (!std::filesystem::exists(NoteModfilename)) {
-            NoteModfilename = std::filesystem::current_path() / "Resources" / "Mods" / NoteModImage;
-        }
+        auto NoteModfilename = modsPath / NoteModImage;
 
         try {
           auto noteModPos =
@@ -1739,10 +1751,7 @@ bool GameplayScene::Attach() {
 
       if (IsRD) {
         std::string NoteModImage = "ModRandom.png";
-        auto NoteModfilename = playingPath / NoteModImage;
-        if (!std::filesystem::exists(NoteModfilename)) {
-            NoteModfilename = std::filesystem::current_path() / "Resources" / "Mods" / NoteModImage;
-        }
+        auto NoteModfilename = modsPath / NoteModImage;
 
         try {
           auto noteModPos =
@@ -1756,10 +1765,7 @@ bool GameplayScene::Attach() {
       }
       if (IsPC) {
         std::string NoteModImage = "ModPanic.png";
-        auto NoteModfilename = playingPath / NoteModImage;
-        if (!std::filesystem::exists(NoteModfilename)) {
-            NoteModfilename = std::filesystem::current_path() / "Resources" / "Mods" / NoteModImage;
-        }
+        auto NoteModfilename = modsPath / NoteModImage;
 
         try {
           auto noteModPos =

@@ -79,12 +79,55 @@ void InternalLoad(
 
     size_t image_size = static_cast<size_t>(tex_data->Width) * static_cast<size_t>(tex_data->Height) * tex_data->Channels;
 
-    // Premultiply alpha
-    for (size_t i = 0; i < image_size; i += tex_data->Channels) { // Fix white line issue
-        float alpha = image_data[i + 3] / 255.0f;
-        image_data[i] = static_cast<unsigned char>(image_data[i] * alpha);
-        image_data[i + 1] = static_cast<unsigned char>(image_data[i + 1] * alpha);
-        image_data[i + 2] = static_cast<unsigned char>(image_data[i + 2] * alpha);
+    if (tex_data->Channels == 4) {
+        std::vector<unsigned char> new_data(image_size);
+        memcpy(new_data.data(), image_data, image_size);
+        
+        bool changed = true;
+        int passes = 0;
+        while (changed && passes < 8) {
+            changed = false;
+            for (int y = 0; y < tex_data->Height; ++y) {
+                for (int x = 0; x < tex_data->Width; ++x) {
+                    int idx = (y * tex_data->Width + x) * 4;
+                    if (image_data[idx + 3] == 0) { // fully transparent
+                        int r = 0, g = 0, b = 0, count = 0;
+                        int neighbors[8][2] = {{-1, -1}, {0, -1}, {1, -1}, {-1, 0}, {1, 0}, {-1, 1}, {0, 1}, {1, 1}};
+                        
+                        for (auto& n : neighbors) {
+                            int nx = x + n[0];
+                            int ny = y + n[1];
+                            if (nx >= 0 && nx < tex_data->Width && ny >= 0 && ny < tex_data->Height) {
+                                int nidx = (ny * tex_data->Width + nx) * 4;
+                                if (image_data[nidx + 3] > 0) {
+                                    r += image_data[nidx];
+                                    g += image_data[nidx + 1];
+                                    b += image_data[nidx + 2];
+                                    count++;
+                                }
+                            }
+                        }
+                        
+                        if (count > 0) {
+                            new_data[idx] = r / count;
+                            new_data[idx + 1] = g / count;
+                            new_data[idx + 2] = b / count;
+                            new_data[idx + 3] = 1; // Mark as processed
+                            changed = true;
+                        }
+                    }
+                }
+            }
+            memcpy(image_data, new_data.data(), image_size);
+            passes++;
+        }
+        
+        // Reset alpha back to 0
+        for (size_t i = 0; i < image_size; i += 4) {
+            if (image_data[i + 3] == 1) {
+                image_data[i + 3] = 0;
+            }
+        }
     }
 
     VkResult err;

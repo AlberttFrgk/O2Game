@@ -258,8 +258,12 @@ void Game::Run()
 
                     frames++;
             } else {
-                    frameWithoutSwapchain++;
-                }
+                frameWithoutSwapchain++;
+
+                // Flush ImGui events when skipping render so the queue doesn't overflow and freeze
+                ImguiUtil::NewFrame();
+                ImguiUtil::Reset();
+            }
         } else {
                 FrameLimit(15.0f);
             }
@@ -323,7 +327,7 @@ void Game::Run()
             Stop();
         }
 
-        if (m_renderer->IsVulkan()) {
+        if (m_renderer->IsVulkan() && !m_minimized) {
             m_renderer->ReInitVulkan();
         }
 
@@ -355,6 +359,10 @@ void Game::Run()
                 frames++;
             } else {
                 frameWithoutSwapchain++;
+
+                // Flush ImGui events when skipping render so the queue doesn't overflow and freeze
+                ImguiUtil::NewFrame();
+                ImguiUtil::Reset();
             }
         }
 

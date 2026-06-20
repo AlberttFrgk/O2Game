@@ -965,10 +965,11 @@ bool SongSelectScene::Attach() {
       GameScene::MAINMENU) {
     Audio *bgm = AudioManager::GetInstance()->Get("BGM");
     if (!bgm) {
-      auto BGMPath = path / "Audio" / "BGM.ogg";
-      if (!std::filesystem::exists(BGMPath)) {
-          BGMPath = std::filesystem::current_path() / "Resources" / "Audio" / "BGM.ogg";
+      auto audioPath = path / "Audio";
+      if (!std::filesystem::exists(audioPath)) {
+          audioPath = std::filesystem::current_path() / "Resources" / "Audio";
       }
+      auto BGMPath = audioPath / "BGM.ogg";
 
       if (std::filesystem::exists(BGMPath)) {
         AudioManager::GetInstance()->Create("BGM", BGMPath, &bgm);

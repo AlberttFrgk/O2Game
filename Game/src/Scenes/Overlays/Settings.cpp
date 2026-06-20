@@ -417,18 +417,7 @@ void SettingsOverlay::Render(double delta) {
             EnvironmentSetup::SetInt("MeasureLine", 1);
           }
 
-          ImGui::SameLine();
 
-          ImGui::Checkbox("Long Note Body On Top###SetCheckbox3", &LNBodyOnTop);
-          if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip(
-                "If your note skin has issues, enable this option!");
-          }
-          if (LNBodyOnTop) {
-            EnvironmentSetup::SetInt("LNBodyOnTop", 1);
-          } else {
-            EnvironmentSetup::SetInt("LNBodyOnTop", 0);
-          }
 
           ImGui::EndTabItem();
         }
@@ -718,20 +707,6 @@ void SettingsOverlay::LoadConfiguration() {
   }
 
   try {
-    int LNBodyOnTopValue =
-        std::stoi(Configuration::Load("Game", "LNBodyOnTop"));
-    LNBodyOnTop = (LNBodyOnTopValue == 1);
-  } catch (const std::invalid_argument &) {
-    LNBodyOnTop = true;
-  }
-
-  if (LNBodyOnTop) {
-    EnvironmentSetup::SetInt("LNBodyOnTop", 1);
-  } else {
-    EnvironmentSetup::SetInt("LNBodyOnTop", 0);
-  }
-
-  try {
     BackgroundDim = std::stoi(Configuration::Load("Game", "BackgroundDim"));
   } catch (const std::invalid_argument &) {
     BackgroundDim = 50;
@@ -764,20 +739,14 @@ void SettingsOverlay::LoadConfiguration() {
 void SettingsOverlay::SaveConfiguration() {
   Configuration::Set("Game", "AudioOffset", std::to_string(currentOffset));
   Configuration::Set("Game", "AudioVolume", std::to_string(currentVolume));
-  Configuration::Set("Game", "AutoSound",
-                     std::to_string(convertAutoSound ? 1 : 0));
-  Configuration::Set("Game", "GuideLine",
-                     std::to_string(currentGuideLineIndex));
+  Configuration::Set("Game", "AutoSound", std::to_string(convertAutoSound ? 1 : 0));
+  Configuration::Set("Game", "GuideLine",std::to_string(currentGuideLineIndex));
   Configuration::Set("Game", "NoteSkin", std::to_string(NoteIndex));
   Configuration::Set("Game", "Background", std::to_string(BackgroundIndex));
-  Configuration::Set("Game", "MeasureLine",
-                     std::to_string(MeasureLine ? 1 : 0));
-  Configuration::Set("Game", "MeasureLineType",
-                     std::to_string(MeasureLineType ? 1 : 0));
-  Configuration::Set("Game", "LNBodyOnTop",
-                     std::to_string(LNBodyOnTop ? 1 : 0));
-  Configuration::Set("Game", "NewLongNote",
-                     std::to_string(NewLongNote ? 1 : 0));
+  Configuration::Set("Game", "MeasureLine", std::to_string(MeasureLine ? 1 : 0));
+  Configuration::Set("Game", "MeasureLineType", std::to_string(MeasureLineType ? 1 : 0));
+
+  Configuration::Set("Game", "NewLongNote", std::to_string(NewLongNote ? 1 : 0));
   Configuration::Set("Game", "BackgroundDim", std::to_string(BackgroundDim));
   Configuration::Set("Game", "LoadVideo", std::to_string(LoadVideo ? 1 : 0));
   Configuration::Set("Game", "ShowFPS", std::to_string(ShowFPS ? 1 : 0));
@@ -789,8 +758,7 @@ void SettingsOverlay::SaveConfiguration() {
     Configuration::Set("Game", "FrameLimit", GetFpsOptions()[currentFPSIndex]);
   }
 
-  SceneManager::GetInstance()->SetFrameLimit(
-      std::atof(Configuration::Load("Game", "FrameLimit").c_str()));
+  SceneManager::GetInstance()->SetFrameLimit(std::atof(Configuration::Load("Game", "FrameLimit").c_str()));
 
   if (currentSkin.empty()) {
     throw std::runtime_error("SKIN_NAME Undefined!");

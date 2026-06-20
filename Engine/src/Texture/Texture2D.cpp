@@ -19,22 +19,70 @@
 #include <glm/glm.hpp>
 
 namespace {
-    // Premultiply alpha
-    SDL_Surface* PremultiplyAlpha(SDL_Surface* surface) {
+    // Edge padding to fix white/dark pixel spread on upscaling
+    SDL_Surface* EdgePadAlpha(SDL_Surface* surface) {
         if (surface->format->BytesPerPixel != 4) return surface;
 
         Uint32* pixels = (Uint32*)surface->pixels;
-        for (int y = 0; y < surface->h; ++y) {
-            for (int x = 0; x < surface->w; ++x) {
-                Uint32 pixel = pixels[y * surface->w + x];
+        int width = surface->w;
+        int height = surface->h;
+        std::vector<Uint32> new_pixels(width * height);
+        memcpy(new_pixels.data(), pixels, width * height * 4);
+
+        bool changed = true;
+        int passes = 0;
+        while (changed && passes < 8) {
+            changed = false;
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    Uint32 pixel = pixels[y * width + x];
+                    Uint8 r, g, b, a;
+                    SDL_GetRGBA(pixel, surface->format, &r, &g, &b, &a);
+
+                    if (a == 0) { // fully transparent
+                        int sum_r = 0, sum_g = 0, sum_b = 0, count = 0;
+                        int neighbors[8][2] = {{-1, -1}, {0, -1}, {1, -1}, {-1, 0}, {1, 0}, {-1, 1}, {0, 1}, {1, 1}};
+
+                        for (auto& n : neighbors) {
+                            int nx = x + n[0];
+                            int ny = y + n[1];
+                            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                Uint32 npixel = pixels[ny * width + nx];
+                                Uint8 nr, ng, nb, na;
+                                SDL_GetRGBA(npixel, surface->format, &nr, &ng, &nb, &na);
+                                if (na > 0) {
+                                    sum_r += nr;
+                                    sum_g += ng;
+                                    sum_b += nb;
+                                    count++;
+                                }
+                            }
+                        }
+
+                        if (count > 0) {
+                            r = sum_r / count;
+                            g = sum_g / count;
+                            b = sum_b / count;
+                            a = 1; // Mark as processed
+                            new_pixels[y * width + x] = SDL_MapRGBA(surface->format, r, g, b, a);
+                            changed = true;
+                        }
+                    }
+                }
+            }
+            memcpy(pixels, new_pixels.data(), width * height * 4);
+            passes++;
+        }
+
+        // Reset alpha back to 0
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                Uint32 pixel = pixels[y * width + x];
                 Uint8 r, g, b, a;
                 SDL_GetRGBA(pixel, surface->format, &r, &g, &b, &a);
-
-                r = (r * a) / 255;
-                g = (g * a) / 255;
-                b = (b * a) / 255;
-
-                pixels[y * surface->w + x] = SDL_MapRGBA(surface->format, r, g, b, a);
+                if (a == 1) {
+                    pixels[y * width + x] = SDL_MapRGBA(surface->format, r, g, b, 0);
+                }
             }
         }
         return surface;
@@ -394,7 +442,7 @@ void Texture2D::LoadImageResources(uint8_t* buffer, size_t size)
             throw SDLException();
         }
 
-        m_sdl_surface = PremultiplyAlpha(formatted_surface.release()); // Fix white line issue
+        m_sdl_surface = EdgePadAlpha(formatted_surface.release()); // Fix white line issue
         m_sdl_tex = SDL_CreateTextureFromSurface(Renderer::GetInstance()->GetSDLRenderer(), m_sdl_surface);
 
         if (!m_sdl_tex) {
