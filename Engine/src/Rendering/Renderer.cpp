@@ -87,7 +87,7 @@ bool Renderer::Create(RendererMode mode, GameWindow *window, bool failed) {
 
         SDL_SetHint(SDL_HINT_RENDER_DRIVER, rendererName.c_str());
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "best");
-        SDL_SetHint(SDL_HINT_RENDER_BATCHING, "1");
+        //SDL_SetHint(SDL_HINT_RENDER_BATCHING, "1");
       }
 
       std::string frameLimitStr = Configuration::Load("Game", "FrameLimit");

@@ -113,6 +113,7 @@ private:
 
   int m_noteImageIndex = 0;
   int m_noteMaxImageIndex = 0;
+  double m_noteImageTimer = 0.0;
 
   int m_guideLineIndex = 0;
   int m_autoMinIndex = 0;
@@ -148,4 +149,11 @@ private:
   ScoreManager *m_scoreManager = nullptr;
   TimingLineManager *m_timingLineManager = nullptr;
   std::function<void(GameTrackEvent)> m_eventCallback = nullptr;
+
+  mutable double m_bpmAnim_lastTime = 0;
+  mutable double m_bpmAnim_pos = 0;
+  mutable int m_bpmAnim_bpmIdx = 0;
+  mutable int m_bpmAnim_svIdx = 0;
+  mutable double m_bpmAnim_currentBPM = -1;
+  mutable double m_bpmAnim_currentSV = 1.0;
 };

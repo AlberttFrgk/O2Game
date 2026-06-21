@@ -86,7 +86,11 @@ void Configuration::Set(std::string key, std::string prop, std::string value)
 
 void Configuration::Font_SetPath(std::filesystem::path path)
 {
-    FontPath = std::filesystem::current_path() / "Resources";
+    if (std::filesystem::exists(path / "Fonts")) {
+        FontPath = path;
+    } else {
+        FontPath = std::filesystem::current_path() / "Resources";
+    }
 }
 
 std::filesystem::path Configuration::Font_GetPath()

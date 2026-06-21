@@ -79,7 +79,7 @@ void GameplayScene::Update(double delta) {
 
   if (m_starting && m_game->GetState() == GameState::NotGame) {
     lifeFillDuration += delta;
-    if (lifeFillDuration > 1.50 && EnvironmentSetup::GetInt("FillStart") == 1) {
+    if (lifeFillDuration > 1.60 && EnvironmentSetup::GetInt("FillStart") == 1) {
       EnvironmentSetup::SetInt("FillStart", 0);
     }
     if (lifeFillDuration > 1.60) {
@@ -94,16 +94,14 @@ void GameplayScene::Update(double delta) {
     if (m_counter > 2.0) {
       m_ended = true;
       m_counter = 0.0; // Reset
-      SceneManager::DisplayFade(
-          100, [] { SceneManager::ChangeScene(GameScene::RESULT); });
+      SceneManager::DisplayFade(100, [] { SceneManager::ChangeScene(GameScene::RESULT); });
     }
   }
 
   if (m_game->GetState() == GameState::Fail && !m_ended) {
     m_ended = true;
     m_counter = 0.0; // Reset
-    SceneManager::DisplayFade(
-        100, [] { SceneManager::ChangeScene(GameScene::RESULT); });
+    SceneManager::DisplayFade(100, [] { SceneManager::ChangeScene(GameScene::RESULT); });
   }
 
   int difficulty = EnvironmentSetup::GetInt("Difficulty");
@@ -128,15 +126,13 @@ void GameplayScene::Update(double delta) {
     if (std::get<1>(scores) != 0 || std::get<2>(scores) != 0 ||
         std::get<3>(scores) != 0 || std::get<4>(scores) != 0) {
       if (m_game->GetState() == GameState::PosGame) {
-        EnvironmentSetup::SetInt("Failed", 0);
+    EnvironmentSetup::SetInt("Failed", 0);
       } else {
         EnvironmentSetup::SetInt("Failed", 1);
       }
-      SceneManager::DisplayFade(
-          100, [] { SceneManager::ChangeScene(GameScene::RESULT); });
+    SceneManager::DisplayFade(100, [] { SceneManager::ChangeScene(GameScene::RESULT); });
     } else {
-      SceneManager::DisplayFade(
-          100, [] { SceneManager::ChangeScene(GameScene::SONGSELECT); });
+      SceneManager::DisplayFade(100, [] { SceneManager::ChangeScene(GameScene::SONGSELECT); });
     }
   }
 
@@ -185,7 +181,7 @@ void GameplayScene::Render(double delta) {
   if (m_Playfield) m_Playfield->Draw();
   if (m_PlayFooter) m_PlayFooter->Draw();
 
-  if (m_targetBar && m_game) {
+  if (m_targetBar && lifeFillDuration > 1.60) {
     int maxFrames = m_targetBar->GetFrameCount();
     if (maxFrames > 0) {
       double bpm = m_game->GetCurrentBPM();
@@ -243,7 +239,7 @@ void GameplayScene::Render(double delta) {
     m_pills[i]->Draw();
   }
 
-  if (m_lifeBar && m_game) {
+  if (m_lifeBar && lifeFillDuration > 1.60) {
     int maxFrames = m_lifeBar->GetFrameCount();
     if (maxFrames > 0) {
       double bpm = m_game->GetCurrentBPM();
@@ -447,22 +443,12 @@ void GameplayScene::Render(double delta) {
     m_waveGage->Draw(&rc);
   }
 
-  // Fix if playtime sometimes slighly double draw
-  int PlayTime = 0;
-  int currentMinutes = 0 / 60;
-  int currentSeconds = 0 % 60;
-
-  bool isPlaying = EnvironmentSetup::GetInt("NowPlaying") == 1;
-  if (isPlaying) // get timer if on play state
-  {
-    PlayTime = std::clamp(m_game->GetPlayTime(), 0, INT_MAX);
-    currentMinutes = PlayTime / 60;
-    currentSeconds = PlayTime % 60;
-  } else { // stop timer if end or fail
-    int lastPlayTime = PlayTime;
-    currentMinutes = lastPlayTime / 60;
-    currentSeconds = lastPlayTime % 60;
+  if (EnvironmentSetup::GetInt("NowPlaying") == 1) {
+    m_lastPlayTime = std::clamp(m_game->GetPlayTime(), 0, INT_MAX);
   }
+
+  int currentMinutes = m_lastPlayTime / 60;
+  int currentSeconds = m_lastPlayTime % 60;
 
   m_minuteNum->DrawNumber(currentMinutes);
   m_secondNum->DrawNumber(currentSeconds);

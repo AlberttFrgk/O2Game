@@ -441,15 +441,10 @@ void RhythmEngine::Update(double delta) {
     }
   }
 
-  static std::chrono::steady_clock::time_point lastUpdateTime =
-      std::chrono::steady_clock::now();
-  auto currentTime = std::chrono::steady_clock::now();
-  auto lastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(
-      currentTime - lastUpdateTime);
-
-  if (lastUpdate.count() >= 100) {
+  m_noteImageTimer += delta;
+  if (m_noteImageTimer >= 0.1) {
     m_noteImageIndex = (m_noteImageIndex + 1) % m_noteMaxImageIndex;
-    lastUpdateTime = currentTime;
+    m_noteImageTimer -= 0.1;
   }
 
   UpdateVirtualResolution();
@@ -490,11 +485,6 @@ void RhythmEngine::Update(double delta) {
       m_tracks[frame.Lane]->OnKeyUp();
     }
   }
-
-  // auto currentTime = std::chrono::system_clock::now();
-  // auto elapsedTime =
-  // std::chrono::duration_cast<std::chrono::seconds>(currentTime -
-  // m_startClock); m_PlayTime = static_cast<int>(elapsedTime.count() - 4);
 }
 
 void RhythmEngine::Render(double delta) {
@@ -633,62 +623,59 @@ int RhythmEngine::GetBPMAnimationIndex(int maxFrames) const {
   double currentPos = 0;
   if (m_timings) {
     if (isNormalizedSV) {
-      double pos = 0;
-      double lastTime = 0;
-      
       auto& bpms = m_currentChart->m_bpms;
       auto& svs = m_currentChart->m_svs;
+
+      if (m_bpmAnim_lastTime > m_currentVisualPosition || m_bpmAnim_currentBPM == -1) {
+          m_bpmAnim_pos = 0;
+          m_bpmAnim_lastTime = 0;
+          m_bpmAnim_bpmIdx = 0;
+          m_bpmAnim_svIdx = 0;
+          m_bpmAnim_currentBPM = bpms.size() > 0 ? bpms[0].Value : m_baseBPM;
+          m_bpmAnim_currentSV = 1.0;
+      }
       
-      int bpmIdx = 0;
-      int svIdx = 0;
-      
-      double currentBPM = bpms.size() > 0 ? bpms[0].Value : m_baseBPM;
-      double currentSV = 1.0;
-      
-      while (lastTime < m_currentVisualPosition) {
-          double nextBpmTime = (bpmIdx + 1 < bpms.size()) ? bpms[bpmIdx + 1].StartTime : 1e300;
-          double nextSvTime = (svIdx < svs.size()) ? svs[svIdx].StartTime : 1e300;
+      while (m_bpmAnim_lastTime < m_currentVisualPosition) {
+          double nextBpmTime = (m_bpmAnim_bpmIdx + 1 < bpms.size()) ? bpms[m_bpmAnim_bpmIdx + 1].StartTime : 1e300;
+          double nextSvTime = (m_bpmAnim_svIdx < svs.size()) ? svs[m_bpmAnim_svIdx].StartTime : 1e300;
           
           double nextEventTime = (std::min)(nextBpmTime, (std::min)(nextSvTime, m_currentVisualPosition));
           
-          if (nextEventTime > lastTime) {
-              double speed = currentBPM / m_baseBPM;
+          if (nextEventTime > m_bpmAnim_lastTime) {
+              double speed = m_bpmAnim_currentBPM / m_baseBPM;
               
-              if (bpmIdx == bpms.size() - 1) {
-                  speed *= currentSV;
+              if (m_bpmAnim_bpmIdx == bpms.size() - 1) {
+                  speed *= m_bpmAnim_currentSV;
               }
               
-              pos += (nextEventTime - lastTime) * speed * 100.0;
-              lastTime = nextEventTime;
+              m_bpmAnim_pos += (nextEventTime - m_bpmAnim_lastTime) * speed * 100.0;
+              m_bpmAnim_lastTime = nextEventTime;
           }
           
-          if (lastTime == nextBpmTime) {
-              bpmIdx++;
-              currentBPM = bpms[bpmIdx].Value;
+          if (m_bpmAnim_lastTime == nextBpmTime) {
+              m_bpmAnim_bpmIdx++;
+              m_bpmAnim_currentBPM = bpms[m_bpmAnim_bpmIdx].Value;
           }
           
-          if (lastTime == nextSvTime) {
-              double originalSV = svs[svIdx].Value / (currentBPM / m_baseBPM);
+          if (m_bpmAnim_lastTime == nextSvTime) {
+              double originalSV = svs[m_bpmAnim_svIdx].Value / (m_bpmAnim_currentBPM / m_baseBPM);
               
               bool isSameTimingAsBPM = false;
               for (const auto& bpm : bpms) {
-                  if (std::abs(bpm.StartTime - lastTime) < 1.0) {
+                  if (std::abs(bpm.StartTime - m_bpmAnim_lastTime) < 1.0) {
                       isSameTimingAsBPM = true;
                       break;
                   }
               }
               
-              if (isSameTimingAsBPM) {
-                  currentSV = 1.0;
-              } else {
-                  currentSV = originalSV;
+              if (!isSameTimingAsBPM) {
+                  m_bpmAnim_currentSV = originalSV;
               }
-              
-              svIdx++;
+              m_bpmAnim_svIdx++;
           }
       }
       
-      currentPos = pos;
+      currentPos = m_bpmAnim_pos;
     } else {
       currentPos = m_timings->GetBeatAt(m_currentVisualPosition) * cycleLength;
     }
@@ -726,7 +713,10 @@ double RhythmEngine::GetGameFrame() const {
 }
 
 int RhythmEngine::GetPlayTime() const {
-  return static_cast<int>(m_PlayTime - 5);
+  if (m_currentAudioPosition < 0) {
+    return 0;
+  }
+  return static_cast<int>(m_currentAudioPosition / 1000.0);
 }
 
 int RhythmEngine::GetNoteImageIndex() { return m_noteImageIndex; }

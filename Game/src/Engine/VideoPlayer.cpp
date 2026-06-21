@@ -84,6 +84,7 @@ void VideoPlayer::Play() {
 
 void VideoPlayer::Stop() {
     m_quit = true;
+    m_cv.notify_one();
     if (m_decodeThread.joinable()) {
         m_decodeThread.join();
     }
@@ -104,16 +105,15 @@ void VideoPlayer::Stop() {
 
 void VideoPlayer::DecodeThread() {
     while (!m_quit) {
-        if (!m_playing) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            continue;
-        }
-        
-        // Wait if video is too far ahead of audio
-        if (m_videoTime > m_currentAudioTime + 50.0) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            continue;
-        }
+        std::unique_lock<std::mutex> lock(m_frameMutex);
+        m_cv.wait(lock, [this]() {
+            return m_quit || (!m_playing) || (m_playing && m_videoTime <= m_currentAudioTime + 50.0); // HACK: drop frame if more than 50ms delay
+        });
+
+        if (m_quit) break;
+        if (!m_playing) continue;
+
+        lock.unlock();
 
         if (av_read_frame(m_formatCtx, m_packet) >= 0) {
             if (m_packet->stream_index == m_videoStreamIndex) {
@@ -165,13 +165,17 @@ void VideoPlayer::DecodeThread() {
 
 void VideoPlayer::Update(double currentAudioTime) {
     if (!m_playing) return;
-    m_currentAudioTime = currentAudioTime;
+    
+    {
+        std::lock_guard<std::mutex> lock(m_frameMutex);
+        m_currentAudioTime = currentAudioTime;
 
-    std::lock_guard<std::mutex> lock(m_frameMutex);
-    if (m_frameReady && m_texture && m_pixelBuffer.size() > 0) {
-        m_texture->UpdateTexture(m_pixelBuffer.data(), m_width, m_height, m_pitch);
-        m_frameReady = false;
+        if (m_frameReady && m_texture && m_pixelBuffer.size() > 0) {
+            m_texture->UpdateTexture(m_pixelBuffer.data(), m_width, m_height, m_pitch);
+            m_frameReady = false;
+        }
     }
+    m_cv.notify_one();
 }
 
 void VideoPlayer::Render() {

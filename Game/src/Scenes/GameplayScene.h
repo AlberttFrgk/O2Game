@@ -105,6 +105,7 @@ private:
     double m_comboTimer;
     double m_lnTimer;
     double m_counter;
+    int    m_lastPlayTime = 0;
 
     /* other stuff */
     std::unique_ptr<VideoPlayer> m_videoPlayer;

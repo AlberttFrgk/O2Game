@@ -3,6 +3,7 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
+#include <condition_variable>
 #include <vector>
 #include <memory>
 #include "Texture/Texture2D.h"
@@ -50,10 +51,11 @@ private:
     std::atomic<bool> m_quit{false};
     std::thread m_decodeThread;
     std::mutex m_frameMutex;
+    std::condition_variable m_cv;
 
     std::unique_ptr<Texture2D> m_texture;
     
-    double m_currentAudioTime = 0.0;
+    std::atomic<double> m_currentAudioTime{0.0};
     std::atomic<double> m_videoTime{0.0};
     
     int m_width = 0;
