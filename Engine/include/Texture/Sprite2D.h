@@ -12,48 +12,48 @@ class Texture2D;
 class Sprite2D
 {
 #if _DEBUG
-    const char SIGNATURE[25] = "Sprite2D";
+	const char SIGNATURE[25] = "Sprite2D";
 #endif
 
 public:
-    Sprite2D() = default;
+	Sprite2D() = default;
 
-    Sprite2D(std::vector<Texture2D *> textures, double delay = 1.0);
-    Sprite2D(std::vector<std::string> textures, double delay = 1.0);
-    Sprite2D(std::vector<std::filesystem::path> textures, double delay = 1.0);
-    Sprite2D(std::vector<SDL_Texture *> textures, double delay = 1.0);
+	Sprite2D(std::vector<Texture2D *> textures, double delay = 1.0);
+	Sprite2D(std::vector<std::string> textures, double delay = 1.0);
+	Sprite2D(std::vector<std::filesystem::path> textures, double delay = 1.0);
+	Sprite2D(std::vector<SDL_Texture *> textures, double delay = 1.0);
 
-    ~Sprite2D();
+	~Sprite2D();
 
-    bool    AlphaBlend;
-    bool    FlipX = false;
-    bool    FlipY = false;
-    Vector2 AnchorPoint;
-    UDim2   Position;
-    UDim2   Position2;
-    UDim2   Size;
+	bool	AlphaBlend;
+	bool	FlipX = false;
+	bool	FlipY = false;
+	Vector2 AnchorPoint;
+	UDim2	Position;
+	UDim2	Position2;
+	UDim2	Size;
 
-    void Draw(double delta, bool manual = false);
-    void Draw(double delta, Rect *rect, bool manual = false);
-    void DrawStop(double delta, bool manual = false);
-    void DrawOnce(double delta, bool manual = false);
+	void Draw(double delta, bool manual = false);
+	void Draw(double delta, Rect *rect, bool manual = false);
+	void DrawStop(double delta, bool manual = false);
+	void DrawOnce(double delta, bool manual = false);
 
-    Texture2D *GetTexture();
-    void       SetFPS(double fps);
-    void       Reset();
-    void       SetIndex(int index) { m_currentIndex = index; }
-    int        GetCurrentIndex() const { return m_currentIndex; }
-    int        GetFrameCount() const { return static_cast<int>(m_textures.size()); }
+	Texture2D *GetTexture();
+	void	   SetFPS(double fps);
+	void	   Reset(double overshoot = 0.0);
+	void	   SetIndex(int index) { m_currentIndex = index; }
+	int		   GetCurrentIndex() const { return m_currentIndex; }
+	int		   GetFrameCount() const { return static_cast<int>(m_textures.size()); }
 
-    double m_spritespeed = 1.0;
+	double m_spritespeed = 1.0;
 
 private:
-    float  m_currentTime = 0;
-    int    m_currentIndex = 0;
+	float m_currentTime = 0;
+	int	  m_currentIndex = 0;
 
-    bool m_drawOnce = false;
+	bool m_drawOnce = false;
 
-    std::vector<Texture2D *> m_textures;
+	std::vector<Texture2D *> m_textures;
 
-    void DrawInternal(double delta, bool playOnce, Rect* rect, bool manual);
+	void DrawInternal(double delta, bool playOnce, Rect *rect, bool manual);
 };

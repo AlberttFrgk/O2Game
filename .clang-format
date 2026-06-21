@@ -10,7 +10,6 @@ BraceWrapping:
   AfterNamespace: false
   AfterClass: true
   AfterFunction: true
-  AfterArrayInitializer: true
   AfterStruct: true
   AfterCaseLabel: true
   BeforeElse: false
@@ -18,7 +17,6 @@ BraceWrapping:
 AccessModifierOffset: -4
 NamespaceIndentation: All
 AllowShortIfStatementsOnASingleLine: false
-ArrayInitializerAlignmentStyle: Left
 IndentCaseLabels: true
 ColumnLimit: 0
 AlignConsecutiveDeclarations: true

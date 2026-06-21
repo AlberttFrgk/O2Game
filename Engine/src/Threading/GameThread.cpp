@@ -29,21 +29,22 @@ void GameThread::Run(std::function<void()> callback, bool background)
                 }
                 if (main_cb) {
                     main_cb();
+                } else {
+                    // Prevent 100% CPU usage if there is no main callback
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 }
 
-                std::function<void()> queue_cb;
+                std::vector<std::function<void()>> local_queue;
                 {
                     std::lock_guard<std::mutex> lock(m_mutex);
-                    if (!m_queue_cb.empty()) {
-                        queue_cb = m_queue_cb.front();
-                        m_queue_cb.pop_back();
-                    }
+                    std::swap(local_queue, m_queue_cb);
                 }
-                if (queue_cb) {
-                    queue_cb();
+                
+                for (auto& cb : local_queue) {
+                    if (cb) cb();
                 }
             }
-            });
+        });
     }
 }
 
@@ -59,16 +60,14 @@ void GameThread::Update()
             main_cb();
         }
 
-        std::function<void()> queue_cb;
+        std::vector<std::function<void()>> local_queue;
         {
             std::lock_guard<std::mutex> lock(m_mutex);
-            if (!m_queue_cb.empty()) {
-                queue_cb = m_queue_cb.back();
-                m_queue_cb.pop_back();
-            }
+            std::swap(local_queue, m_queue_cb);
         }
-        if (queue_cb) {
-            queue_cb();
+        
+        for (auto& cb : local_queue) {
+            if (cb) cb();
         }
     }
 }

@@ -3,6 +3,7 @@
 #include <thread>
 #include <vector>
 #include <mutex>
+#include <atomic>
 
 class GameThread
 {
@@ -17,8 +18,8 @@ public:
     void Stop();
 
 private:
-    bool m_run;
-    bool m_background;
+    std::atomic<bool> m_run{false};
+    std::atomic<bool> m_background{false};
 
     std::mutex m_mutex;
 

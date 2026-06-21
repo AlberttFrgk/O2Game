@@ -8,48 +8,49 @@ struct NoteHitInfo;
 
 struct GameTrackEvent
 {
-    int Lane = -1;
+	int Lane = -1;
 
-    bool State = false;
-    bool IsKeyEvent = false;
-    bool IsHitEvent = false;
-    bool IsHitLongEvent = false;
+	bool   State = false;
+	bool   IsKeyEvent = false;
+	bool   IsHitEvent = false;
+	bool   IsHitLongEvent = false;
+	double Overshoot = 0.0;
 };
 
 class GameTrack
 {
 public:
-    GameTrack(RhythmEngine *engine, int laneIndex, int offset);
-    ~GameTrack();
+	GameTrack(RhythmEngine *engine, int laneIndex, int offset);
+	~GameTrack();
 
-    void Update(double delta);
-    void Render(double delta);
-    void OnKeyUp();
-    void OnKeyDown();
+	void Update(double delta);
+	void Render(double delta);
+	void OnKeyUp();
+	void OnKeyDown();
 
-    void HandleScore(NoteHitInfo info);
-    void HandleHoldScore(HoldResult res);
+	void HandleScore(NoteHitInfo info);
+	void HandleHoldScore(HoldResult res);
 
-    void AddNote(NoteInfoDesc *note);
-    void ListenEvent(std::function<void(GameTrackEvent)> callback);
+	void AddNote(NoteInfoDesc *note);
+	void ListenEvent(std::function<void(GameTrackEvent)> callback);
 
 private:
-    std::vector<std::shared_ptr<Note>> m_notes;
-    std::vector<std::shared_ptr<Note>> m_noteCaches;
-    std::vector<std::shared_ptr<Note>> m_inactive_notes;
+	std::vector<std::shared_ptr<Note>> m_notes;
+	std::vector<std::shared_ptr<Note>> m_noteCaches;
+	std::vector<std::shared_ptr<Note>> m_inactive_notes;
 
-    RhythmEngine *m_engine;
-    int           m_laneOffset;
-    int           m_laneIndex;
+	RhythmEngine *m_engine;
+	int			  m_laneOffset;
+	int			  m_laneIndex;
 
-    int m_keySound;
-    int m_keyVolume;
-    int m_keyPan;
+	int m_keySound;
+	int m_keyVolume;
+	int m_keyPan;
 
-    double m_deleteDelay;
+	double m_deleteDelay;
 
-    std::shared_ptr<Note> m_currentHold;
-    bool                  m_onHold;
+	std::shared_ptr<Note> m_currentHold;
+	bool				  m_onHold;
 
-    std::function<void(GameTrackEvent)> m_callback;
+	std::function<void(GameTrackEvent)> m_callback;
 };
