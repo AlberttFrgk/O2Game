@@ -166,7 +166,7 @@ public:
     void init(SDL_Window *window, int width, int height);
     void cleanup();
 
-    void begin();
+    bool begin();
     void end();
 
     void imgui_init();
@@ -201,6 +201,7 @@ public:
     void re_init_swapchains(int width, int height);
 
     DeletionQueue _perFrameDeletionQueue;
+    bool          _isFrameActive = false;
 
 private:
     VulkanEngine() = default;

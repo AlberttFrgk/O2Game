@@ -132,9 +132,12 @@ void SongSelectScene::Render(double delta) {
           if (index != -1) {
             DB_MusicItem item = GameDatabase::GetInstance()->Find(index);
             if (item.Id != -1 && item.CoverSize > 0) {
-              std::filesystem::path file =
-                  GameDatabase::GetInstance()->GetPath();
-              file /= "o2ma" + std::to_string(item.Id) + ".ojn";
+              std::filesystem::path file;
+              if (item.FilePath[0] != '\0' && std::filesystem::exists(item.FilePath)) {
+                file = item.FilePath;
+              } else {
+                file = GameDatabase::GetInstance()->GetPath() / ("o2ma" + std::to_string(item.Id) + ".ojn");
+              }
               try {
                 auto buffer = O2::OJN::LoadOJNFile(file);
                 buffer.seekg(item.CoverOffset);
@@ -181,7 +184,7 @@ void SongSelectScene::Render(double delta) {
         ImGui::Text("Select Song");
       }
 
-      std::string text = "Base game by Estrol, Effect by Albet";
+      std::string text = "Game engines by Estrol, Effects by Albert";
       auto textWidth = ImGui::CalcTextSize(text.c_str()).x;
 
       ImGui::SameLine(MathUtil::ScaleVec2(ImVec2(windowNextSz.x, 0)).x -
@@ -399,43 +402,59 @@ void SongSelectScene::Render(double delta) {
   if ((index != -1 || EnvironmentSetup::GetInt("FileOpen") == 1) &&
       bSelectNewSong) {
     SaveConfiguration();
-    LoadChartImage();
 
-    if (m_bgm->IsPlaying()) {
-      m_bgm->Stop();
+    DB_MusicItem curItem = {};
+    if (index != -1) {
+      curItem = GameDatabase::GetInstance()->Find(index);
     }
 
-    Audio *extBgm = AudioManager::GetInstance()->Get("ExternalBGM");
-    if (extBgm) {
-      extBgm->FadeOut();
-    }
-
-    if (EnvironmentSetup::GetInt("FileOpen") == 0) {
-      m_bgm->Load();
+    if (curItem.Id != -1 && (curItem.Category == 1 || curItem.Category == 2)) {
+      LoadDifficultyOptions(curItem);
     } else {
-      std::string ext = EnvironmentSetup::GetPath("FILE").extension().string();
-      std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+      m_difficultyOptions.clear();
+      EnvironmentSetup::SetInt("FileOpen", 0);
+      EnvironmentSetup::SetInt("Key", curItem.Id != -1 ? curItem.Id : index);
+      if (curItem.FilePath[0] != '\0') {
+        EnvironmentSetup::SetPath("FILE", curItem.FilePath);
+      }
+      LoadChartImage();
 
-      if (ext == ".ojn" || ext == ".bms" || ext == ".bme" || ext == ".bml") {
+      if (m_bgm->IsPlaying()) {
+        m_bgm->Stop();
+      }
+
+      Audio *extBgm = AudioManager::GetInstance()->Get("ExternalBGM");
+      if (extBgm) {
+        extBgm->FadeOut();
+      }
+
+      if (EnvironmentSetup::GetInt("FileOpen") == 0) {
         m_bgm->Load();
       } else {
-        Audio *bgm = AudioManager::GetInstance()->Get("BGM");
-        if (bgm) {
-          bgm->SetVolume(100);
-          bgm->FadeOut();
-        }
+        std::string ext = EnvironmentSetup::GetPath("FILE").extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
-        std::string currentFile = EnvironmentSetup::GetPath("FILE").string();
-        SceneManager::ExecuteAfter(1500, [currentFile]() {
-          if (EnvironmentSetup::GetInt("FileOpen") == 1 &&
-              EnvironmentSetup::GetPath("FILE").string() == currentFile) {
-            Audio *extBgm = AudioManager::GetInstance()->Get("ExternalBGM");
-            if (extBgm) {
-              extBgm->SetVolume(100);
-              extBgm->Play();
-            }
+        if (ext == ".ojn" || ext == ".bms" || ext == ".bme" || ext == ".bml" || ext == ".bmsc") {
+          m_bgm->Load();
+        } else {
+          Audio *bgm = AudioManager::GetInstance()->Get("BGM");
+          if (bgm) {
+            bgm->SetVolume(100);
+            bgm->FadeOut();
           }
-        });
+
+          std::string currentFile = EnvironmentSetup::GetPath("FILE").string();
+          SceneManager::ExecuteAfter(1000, [currentFile]() {
+            if (EnvironmentSetup::GetInt("FileOpen") == 1 &&
+                EnvironmentSetup::GetPath("FILE").string() == currentFile) {
+              Audio *extBgm = AudioManager::GetInstance()->Get("ExternalBGM");
+              if (extBgm) {
+                extBgm->SetVolume(100);
+                extBgm->Play();
+              }
+            }
+          });
+        }
       }
     }
   }
@@ -495,7 +514,11 @@ void SongSelectScene::OnGameLoadMusic(double delta) {
   } else {
     scene_index = 0;
     m_tempMusicLists.clear();
-    m_musicList = db->FindAll();
+    m_musicList = db->FindAll(m_selectedCategory);
+    if (!m_musicList.empty()) {
+      index = m_musicList[0].Id;
+      bSelectNewSong = true;
+    }
   }
 
   if (!file.empty() && !MsgBox::Any()) {
@@ -535,7 +558,7 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
   // create child window
   if (ImGui::BeginChild("#Container1", MathUtil::ScaleVec2(ImVec2(200, 500)))) {
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 3));
-    if (ImGui::BeginChild("#SongSelectChild2",
+    if (ImGui::BeginChild("#SongSelectDetailsChild",
                           MathUtil::ScaleVec2(ImVec2(200, 200)), true)) {
       ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
       ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0, 0));
@@ -554,17 +577,18 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
       }
 
       ImVec4 color = ImGui::GetStyleColorVec4(ImGuiCol_Button);
+      float textBgWidth = ImGui::GetContentRegionAvail().x - 4.0f;
 
       ImGui::Text("Title\r");
-      imgui_extends::TextBackground(color, MathUtil::ScaleVec2(340, 0), "%s",
+      imgui_extends::TextBackground(color, ImVec2(textBgWidth, 0), "%s",
                                     (const char *)item.Title);
 
       ImGui::Text("Artist / Composer\r");
-      imgui_extends::TextBackground(color, MathUtil::ScaleVec2(340, 0), "%s",
+      imgui_extends::TextBackground(color, ImVec2(textBgWidth, 0), "%s",
                                     (const char *)item.Artist);
 
       ImGui::Text("Notecharter\r");
-      imgui_extends::TextBackground(color, MathUtil::ScaleVec2(340, 0), "%s",
+      imgui_extends::TextBackground(color, ImVec2(textBgWidth, 0), "%s",
                                     (const char *)item.Noter);
 
       ImGui::Text("Total Notes\r");
@@ -573,14 +597,14 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
       int count = item.Id == -1 && EnvironmentSetup::GetInt("FileOpen") == 0
                       ? 0
                       : item.MaxNotes[difficulty];
-      imgui_extends::TextBackground(color, MathUtil::ScaleVec2(340, 0), "%d",
+      imgui_extends::TextBackground(color, ImVec2(textBgWidth, 0), "%d",
                                     count);
 
       ImGui::Text("BPM\r");
       float bpm = item.Id == -1 && EnvironmentSetup::GetInt("FileOpen") == 0
                       ? 0.0f
                       : item.BPM;
-      imgui_extends::TextBackground(color, MathUtil::ScaleVec2(340, 0), "%.2f",
+      imgui_extends::TextBackground(color, ImVec2(textBgWidth, 0), "%.2f",
                                     bpm);
 
       ImGui::PopItemFlag();
@@ -589,39 +613,97 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
       ImGui::EndChild();
     }
 
-    if (ImGui::BeginChild("#test2", MathUtil::ScaleVec2(ImVec2(200, 290)),
+    if (ImGui::BeginChild("#test2",
+                          ImVec2(MathUtil::ScaleVec2(ImVec2(200, 0)).x, 0),
                           true)) {
       ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 2));
-      std::vector<std::string> difficulty = {"EZ", "NM", "HD"};
 
-      ImGui::Text("Note difficulty");
+      DB_MusicItem currentItem = {};
+      if (index != -1) {
+        auto it = std::find_if(m_musicList.begin(), m_musicList.end(),
+                               [&](const DB_MusicItem &it) { return it.Id == index; });
+        if (it != m_musicList.end()) {
+          currentItem = *it;
+        }
+      }
 
-      for (int i = 0; i < difficulty.size(); i++) {
-        int index = currentDifficulty;
+      if (currentItem.Category == 0) {
+        std::vector<std::string> difficulty = {"EZ", "NM", "HD"};
 
-        if (index == i) {
-          ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-          ImGui::PushStyleVar(ImGuiStyleVar_Alpha,
-                              ImGui::GetStyle().Alpha * 0.5f);
+        ImGui::Text("Note difficulty");
+
+        for (int i = 0; i < difficulty.size(); i++) {
+          int diffIdx = currentDifficulty;
+
+          if (diffIdx == i) {
+            ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+            ImGui::PushStyleVar(ImGuiStyleVar_Alpha,
+                                ImGui::GetStyle().Alpha * 0.5f);
+          }
+
+          if (ImGui::Button(difficulty[i].c_str(),
+                            MathUtil::ScaleVec2(ImVec2(30, 30)))) {
+            EnvironmentSetup::SetInt("Difficulty", i);
+            currentDifficulty = i;
+          }
+
+          if (diffIdx == i) {
+            ImGui::PopItemFlag();
+            ImGui::PopStyleVar();
+          }
+
+          if (i != difficulty.size() - 1) {
+            ImGui::SameLine();
+          }
+        }
+      } else {
+        if (currentItem.Category == 1) {
+          ImGui::Text("osu!mania Difficulty");
+        } else {
+          ImGui::Text("BMS Difficulty");
         }
 
-        if (ImGui::Button(difficulty[i].c_str(),
-                          MathUtil::ScaleVec2(ImVec2(30, 30)))) {
-          EnvironmentSetup::SetInt("Difficulty", i); // 0 EZ, 1 NM, 2 HD
-        }
+        if (ImGui::BeginChild("###DiffScrollList",
+                              ImVec2(0, MathUtil::ScaleVec2(0, 85).y),
+                              true, ImGuiWindowFlags_AlwaysVerticalScrollbar)) {
+          if (m_difficultyOptions.empty()) {
+            ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "No charts");
+          } else {
+            for (int d = 0; d < static_cast<int>(m_difficultyOptions.size()); d++) {
+              const auto &opt = m_difficultyOptions[d];
+              bool isSelected = (d == m_selectedDiffIndex);
 
-        if (index == i) {
-          ImGui::PopItemFlag();
-          ImGui::PopStyleVar();
-        }
+              char label[256];
+              if (currentItem.Category == 1) {
+                snprintf(label, sizeof(label), "[%dK] %s (OD %.1f)###Diff_%d",
+                         opt.KeyCount, opt.Name.c_str(), opt.Rating, d);
+              } else {
+                snprintf(label, sizeof(label), "[%dK] Lv.%02d %s###Diff_%d",
+                         opt.KeyCount, static_cast<int>(opt.Rating), opt.Name.c_str(), d);
+              }
 
-        if (i != difficulty.size() - 1) {
-          ImGui::SameLine();
+              if (isSelected) {
+                ImGui::PushStyleColor(ImGuiCol_Button,
+                                      ImVec4(0.3f, 0.5f, 0.8f, 1.0f));
+              }
+
+              if (ImGui::Button(label,
+                                ImVec2(ImGui::GetContentRegionAvail().x,
+                                       MathUtil::ScaleVec2(0, 22).y))) {
+                SelectDifficultyOption(d);
+              }
+
+              if (isSelected) {
+                ImGui::PopStyleColor();
+              }
+            }
+          }
+          ImGui::EndChild();
         }
       }
 
       ImGui::Spacing();
-      ImGui::PushItemWidth(ImGui::GetCurrentWindow()->Size.x - 15);
+      ImGui::PushItemWidth(-FLT_MIN);
 
       ImGui::Text("Note speed");
       {
@@ -639,6 +721,11 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
 
       ImGui::Text("Modifier");
 
+      float modBtnWidth =
+          floorf((ImGui::GetContentRegionAvail().x -
+                  ImGui::GetStyle().ItemSpacing.x) *
+                 0.5f);
+
       for (int i = 0; i < Mods.size(); i++) {
         auto &mod = Mods[i];
 
@@ -652,7 +739,7 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
               ImVec4(color.x * 1.2f, color.y * 1.2f, color.z * 1.2f, 1.0f));
         }
 
-        if (ImGui::Button(mod.c_str(), MathUtil::ScaleVec2(ImVec2(80, 0)))) {
+        if (ImGui::Button(mod.c_str(), ImVec2(modBtnWidth, 0))) {
           EnvironmentSetup::SetInt(mod, value == 1 ? 0 : 1);
 
           switch (i) {
@@ -703,8 +790,8 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
         }
       }
 
-      ImGui::NewLine();
-      ImGui::PushItemWidth(ImGui::GetCurrentWindow()->Size.x - 15);
+      ImGui::Spacing();
+      ImGui::PushItemWidth(-FLT_MIN);
       ImGui::Text("Arena");
 
       // select
@@ -749,19 +836,50 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
   if (ImGui::BeginChild("#SongSelectChild", MathUtil::ScaleVec2(size), true)) {
     static char search[256] = {};
     static char previous[256] = {};
+    static int previousCategory = -2;
 
-    if (ImGui::BeginChild("#SongSelectChild2", MathUtil::ScaleVec2(245, 500),
-                          false, ImGuiWindowFlags_AlwaysVerticalScrollbar)) {
+    const char *categories[] = {"All", "O2Jam", "osu!mania", "BMS"};
+    const int catValues[] = {-1, 0, 1, 2};
+    float tabWidth = floorf((ImGui::GetContentRegionAvail().x - (3 * ImGui::GetStyle().ItemSpacing.x)) / 4.0f);
+
+    for (int c = 0; c < 4; c++) {
+      if (c > 0) ImGui::SameLine();
+      bool isSelectedCat = (m_selectedCategory == catValues[c]);
+      if (isSelectedCat) {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.45f, 0.75f, 1.0f));
+      }
+      if (ImGui::Button(categories[c], ImVec2(tabWidth, MathUtil::ScaleVec2(0, 24).y))) {
+        if (m_selectedCategory != catValues[c]) {
+          m_selectedCategory = catValues[c];
+          m_musicList = music->FindQuery(search, m_selectedCategory);
+          isScrolled = true;
+        }
+      }
+      if (isSelectedCat) {
+        ImGui::PopStyleColor();
+      }
+    }
+    ImGui::Spacing();
+
+    float sortControlsHeight = ImGui::GetTextLineHeightWithSpacing() + MathUtil::ScaleVec2(0, 24).y;
+    float searchBoxHeight = MathUtil::ScaleVec2(0, 48).y + sortControlsHeight + ImGui::GetStyle().ItemSpacing.y;
+    float listHeight = ImGui::GetContentRegionAvail().y - searchBoxHeight;
+
+    if (ImGui::BeginChild("#SongSelectChild2",
+                          ImVec2(0, listHeight), false,
+                          ImGuiWindowFlags_AlwaysVerticalScrollbar)) {
       ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0, 0));
 
-      if (m_musicList.empty() || strcmp(search, previous) != 0) {
+      if (m_musicList.empty() || strcmp(search, previous) != 0 || previousCategory != m_selectedCategory) {
         memset(previous, 0, sizeof(previous));
 
-        auto lists = music->FindQuery(search);
+        auto lists = music->FindQuery(search, m_selectedCategory);
         m_musicList = lists;
+        SortSongs();
 
         isScrolled = true;
         strcpy(previous, search);
+        previousCategory = m_selectedCategory;
       }
 
       for (int i = 0; i < m_musicList.size(); i++) {
@@ -778,20 +896,24 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
         }
 
         char buffer[256];
-        sprintf(buffer, "Lv.%03d | %s", item.Difficulty[currentDifficulty],
-                (char *)item.Title);
+        if (item.Category == 0) {
+          sprintf(buffer, "Lv.%03d | %s", item.Difficulty[currentDifficulty],
+                  (char *)item.Title);
+        } else {
+          sprintf(buffer, "[%dK] | %s", item.KeyCount, (char *)item.Title);
+        }
 
         std::string content = buffer + Id;
-        auto cursorPos = ImGui::GetCursorPos();
 
-        if (ImGui::ButtonEx(content.c_str(), MathUtil::ScaleVec2(245, 25),
-                            ImGuiButtonFlags_MouseButtonLeft |
-                                ImGuiButtonFlags_MouseButtonRight)) {
+        if (ImGui::ButtonEx(
+                content.c_str(),
+                ImVec2(ImGui::GetContentRegionAvail().x,
+                       MathUtil::ScaleVec2(0, 25).y),
+                ImGuiButtonFlags_MouseButtonLeft |
+                    ImGuiButtonFlags_MouseButtonRight)) {
 
           if (item.Id != index) {
             index = item.Id;
-            EnvironmentSetup::SetInt("FileOpen", 0);
-
             bSelectNewSong = true;
           }
         }
@@ -818,31 +940,65 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
           }
         }
       }
+      isScrolled = false;
 
       ImGui::PopStyleVar();
       ImGui::EndChild();
     }
 
-    // set cursor pos Y at bottom of window
-    ImGui::SetCursorPosY(cursorPos.y - 20);
     ImGui::Separator();
 
-    if (ImGui::BeginChild("###CHILD", ImVec2(0, 0), false, 0)) {
-      ImGui::PushItemWidth(ImGui::GetWindowSize().x);
-      ImGui::Text("Search:");
-      ImGui::InputTextEx(
-          "###Search", "Search by Title, Artist, Notecharter or ID...", search,
-          sizeof(search), ImVec2(0, 0), ImGuiInputTextFlags_AutoSelectAll);
+    ImGui::Text("Sort by:");
+    const char *sortModes[] = {"Default", "Level", "Name"};
+    float sortBtnH = MathUtil::ScaleVec2(0, 22).y;
+    float sortComboW = ImGui::GetContentRegionAvail().x - MathUtil::ScaleVec2(60, 0).x - ImGui::GetStyle().ItemSpacing.x;
 
-      // if press Enter
-      if (ImGui::IsKeyPressed(ImGuiKey_Enter)) {
-        // set focus to InputText
-        ImGui::SetKeyboardFocusHere();
+    ImGui::PushItemWidth(sortComboW);
+    if (ImGui::BeginCombo("###SortMode", sortModes[m_sortMode], 0)) {
+      for (int s = 0; s < 3; s++) {
+        bool isSelectedSort = (m_sortMode == s);
+        if (ImGui::Selectable(sortModes[s], isSelectedSort)) {
+          if (m_sortMode != s) {
+            m_sortMode = s;
+            auto lists = music->FindQuery(search, m_selectedCategory);
+            m_musicList = lists;
+            SortSongs();
+            isScrolled = true;
+          }
+        }
       }
-
-      ImGui::PopItemWidth();
-      ImGui::EndChild();
+      ImGui::EndCombo();
     }
+    ImGui::PopItemWidth();
+
+    ImGui::SameLine();
+    const char *orderLabel = m_sortAscending ? "Asc" : "Desc";
+    if (ImGui::Button(orderLabel, ImVec2(MathUtil::ScaleVec2(60, 0).x, sortBtnH))) {
+      m_sortAscending = !m_sortAscending;
+      SortSongs();
+      isScrolled = true;
+    }
+    if (ImGui::IsItemHovered()) {
+      if (m_sortMode == 1) {
+        ImGui::SetTooltip("%s (Difficulty / Level)", m_sortAscending ? "Small -> Big" : "Big -> Small");
+      } else {
+        ImGui::SetTooltip("%s", m_sortAscending ? "A -> Z (Ascending)" : "Z -> A (Descending)");
+      }
+    }
+
+    ImGui::PushItemWidth(-FLT_MIN);
+    ImGui::Text("Search:");
+    ImGui::InputTextEx(
+        "###Search", "Search by Title, Artist, Notecharter...", search,
+        sizeof(search), ImVec2(0, 0), ImGuiInputTextFlags_AutoSelectAll);
+
+    // if press Enter
+    if (ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+      // set focus to InputText
+      ImGui::SetKeyboardFocusHere();
+    }
+
+    ImGui::PopItemWidth();
 
     ImGui::EndChild();
   }
@@ -914,14 +1070,10 @@ void SongSelectScene::Update(double delta) {
     auto db = GameDatabase::GetInstance();
     db->Reset();
 
-    auto path = db->GetPath();
-    if (db->FindAll().size() == 0 && std::filesystem::exists(path)) {
-      m_tempMusicLists = MusicListMaker::Prepare(path);
+    m_tempMusicLists = MusicListMaker::PrepareAll();
 
-      db->Reset();
-      scene_index = 1;
-      m_tempMusicIndex = 0;
-    }
+    scene_index = 1;
+    m_tempMusicIndex = 0;
   }
 }
 
@@ -932,6 +1084,19 @@ void SongSelectScene::OnMouseDown(const MouseState &state) {}
 bool SongSelectScene::Attach() {
   SkinManager::GetInstance()->ReloadSkin();
   SceneManager::DisplayFade(0, [] {});
+
+  EnvironmentSetup::SetInt("Score", 0);
+  EnvironmentSetup::SetInt("Cool", 0);
+  EnvironmentSetup::SetInt("Good", 0);
+  EnvironmentSetup::SetInt("Bad", 0);
+  EnvironmentSetup::SetInt("Miss", 0);
+  EnvironmentSetup::SetInt("JamCombo", 0);
+  EnvironmentSetup::SetInt("MaxJamCombo", 0);
+  EnvironmentSetup::SetInt("Combo", 0);
+  EnvironmentSetup::SetInt("MaxCombo", 0);
+  EnvironmentSetup::SetInt("LNCombo", 0);
+  EnvironmentSetup::SetInt("LNMaxCombo", 0);
+  EnvironmentSetup::SetInt("Failed", 0);
 
   isScrolled = true;
   currentAlpha = 100;
@@ -944,11 +1109,8 @@ bool SongSelectScene::Attach() {
   if (music_reload_required) {
     scene_index = 1;
 
-    auto path = db->GetPath();
-    if (db->FindAll().size() == 0 && std::filesystem::exists(path)) {
-      m_tempMusicLists = MusicListMaker::Prepare(path);
-      m_tempMusicIndex = 0;
-    }
+    m_tempMusicLists = MusicListMaker::PrepareAll();
+    m_tempMusicIndex = 0;
   } else {
     if (EnvironmentSetup::GetInt("FileOpen") == 1) {
       index = -1;
@@ -1005,6 +1167,9 @@ bool SongSelectScene::Attach() {
   std::string mod;
   while (std::getline(iss, mod, ',')) {
     EnvironmentSetup::SetInt(mod, 1);
+  }
+  if (EnvironmentSetup::GetInt("ParameterAutoplay") == 1) {
+    EnvironmentSetup::SetInt("Autoplay", 1);
   }
 
   m_arenas = SkinManager::GetInstance()->GetArenas();
@@ -1166,11 +1331,32 @@ void SongSelectScene::LoadChartImage() {
           audioFile = (file.parent_path() / beatmap.AudioFilename).string();
         }
       }
-    } else if (ext == ".bms" || ext == ".bme" || ext == ".bml") {
+    } else if (ext == ".bms" || ext == ".bme" || ext == ".bml" || ext == ".bmsc") {
       BMS::BMSFile bms;
       bms.Load(file);
       if (bms.IsValid() && !bms.StageFile.empty()) {
         bgFile = (file.parent_path() / bms.StageFile).string();
+      }
+      if (bgFile.empty() || !std::filesystem::exists(bgFile)) {
+        std::error_code ec;
+        std::filesystem::path bestImage;
+        uintmax_t maxImageSize = 0;
+        for (const auto &entry : std::filesystem::directory_iterator(file.parent_path(), ec)) {
+          if (entry.is_regular_file(ec)) {
+            std::string imgExt = entry.path().extension().string();
+            std::transform(imgExt.begin(), imgExt.end(), imgExt.begin(), ::tolower);
+            if (imgExt == ".png" || imgExt == ".jpg" || imgExt == ".jpeg" || imgExt == ".bmp") {
+              auto sz = entry.file_size(ec);
+              if (!ec && sz > maxImageSize) {
+                maxImageSize = sz;
+                bestImage = entry.path();
+              }
+            }
+          }
+        }
+        if (maxImageSize > 0 && !bestImage.empty()) {
+          bgFile = bestImage.string();
+        }
       }
     } else if (ext == ".ojn") {
       O2::OJN ojn;
@@ -1214,8 +1400,54 @@ void SongSelectScene::LoadChartImage() {
       return;
     }
 
-    std::filesystem::path file = GameDatabase::GetInstance()->GetPath();
-    file /= "o2ma" + std::to_string(item.Id) + ".ojn";
+    std::filesystem::path file;
+    if (item.FilePath[0] != '\0' && std::filesystem::exists(item.FilePath)) {
+      file = item.FilePath;
+    } else {
+      file = GameDatabase::GetInstance()->GetPath() / ("o2ma" + std::to_string(item.Id) + ".ojn");
+    }
+
+    if (item.Category == 2) {
+      std::filesystem::path bmsDir = file.parent_path();
+      std::string bgFile;
+      BMS::BMSFile bms;
+      bms.Load(file);
+      if (bms.IsValid() && !bms.StageFile.empty()) {
+        bgFile = (bmsDir / bms.StageFile).string();
+      }
+      if (bgFile.empty() || !std::filesystem::exists(bgFile)) {
+        std::error_code ec;
+        std::filesystem::path bestImage;
+        uintmax_t maxImageSize = 0;
+        for (const auto &entry : std::filesystem::directory_iterator(bmsDir, ec)) {
+          if (entry.is_regular_file(ec)) {
+            std::string imgExt = entry.path().extension().string();
+            std::transform(imgExt.begin(), imgExt.end(), imgExt.begin(), ::tolower);
+            if (imgExt == ".png" || imgExt == ".jpg" || imgExt == ".jpeg" || imgExt == ".bmp") {
+              auto sz = entry.file_size(ec);
+              if (!ec && sz > maxImageSize) {
+                maxImageSize = sz;
+                bestImage = entry.path();
+              }
+            }
+          }
+        }
+        if (maxImageSize > 0 && !bestImage.empty()) {
+          bgFile = bestImage.string();
+        }
+      }
+
+      if (!bgFile.empty()) {
+        GameWindow *wnd = GameWindow::GetInstance();
+        try {
+          m_songBackground = std::make_unique<Texture2D>(bgFile);
+          m_songBackground->Size =
+              UDim2::fromOffset(wnd->GetBufferWidth(), wnd->GetBufferHeight());
+        } catch (...) {
+        }
+      }
+      return;
+    }
 
     try {
       if (item.CoverSize < 1) {
@@ -1243,6 +1475,146 @@ void SongSelectScene::LoadChartImage() {
   }
 }
 
+void SongSelectScene::LoadDifficultyOptions(const DB_MusicItem &item) {
+  m_difficultyOptions.clear();
+  m_selectedDiffIndex = 0;
+
+  if (item.Category == 0) {
+    return;
+  }
+
+  std::filesystem::path folder = std::filesystem::path(item.FilePath).parent_path();
+  if (!std::filesystem::exists(folder)) {
+    return;
+  }
+
+  std::error_code ec;
+  if (item.Category == 1) {
+    for (auto &entry : std::filesystem::directory_iterator(folder, ec)) {
+      if (entry.is_regular_file()) {
+        std::string ext = entry.path().extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        if (ext == ".osu") {
+          std::filesystem::path p = entry.path();
+          Osu::Beatmap bm(p);
+          if (bm.IsValid() && bm.Mode == 3 && (int)bm.CircleSize >= 4 && (int)bm.CircleSize <= 7) {
+            DifficultyOption opt;
+            opt.Name = bm.Version.empty() ? entry.path().stem().string() : bm.Version;
+            opt.KeyCount = (int)bm.CircleSize;
+            opt.Rating = bm.OverallDifficulty;
+            int totalNotes = 0;
+            for (const auto &ho : bm.HitObjects) {
+              totalNotes += (ho.Type == 128) ? 2 : 1;
+            }
+            opt.TotalNotes = totalNotes;
+            opt.FilePath = entry.path();
+            m_difficultyOptions.push_back(opt);
+          }
+        }
+      }
+    }
+  } else if (item.Category == 2) {
+    for (auto &entry : std::filesystem::directory_iterator(folder, ec)) {
+      if (entry.is_regular_file()) {
+        std::string ext = entry.path().extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        if (ext == ".bms" || ext == ".bme" || ext == ".bml" || ext == ".bmsc") {
+          std::filesystem::path p = entry.path();
+          BMS::BMSFile bms;
+          bms.Load(p);
+          if (bms.IsValid() && bms.KeyCount >= 4 && bms.KeyCount <= 7) {
+            DifficultyOption opt;
+            opt.Name = bms.SubArtist.empty() ? entry.path().stem().string() : bms.SubArtist;
+            if (opt.Name.empty() || opt.Name == "-") {
+              opt.Name = entry.path().stem().string();
+            }
+            opt.KeyCount = bms.KeyCount;
+            opt.Rating = static_cast<float>(bms.Level);
+            int totalNotes = 0;
+            for (const auto &n : bms.Notes) {
+              totalNotes += (n.EndTime != -1) ? 2 : 1;
+            }
+            opt.TotalNotes = totalNotes;
+            opt.FilePath = entry.path();
+            m_difficultyOptions.push_back(opt);
+          }
+        }
+      }
+    }
+  }
+
+  std::sort(m_difficultyOptions.begin(), m_difficultyOptions.end(),
+            [](const DifficultyOption &a, const DifficultyOption &b) {
+              if (a.KeyCount != b.KeyCount) {
+                return a.KeyCount < b.KeyCount;
+              }
+              if (a.Rating != b.Rating) {
+                return a.Rating < b.Rating;
+              }
+              return a.TotalNotes < b.TotalNotes;
+            });
+
+  int selected = 0;
+  for (size_t i = 0; i < m_difficultyOptions.size(); i++) {
+    if (m_difficultyOptions[i].FilePath == item.FilePath) {
+      selected = static_cast<int>(i);
+      break;
+    }
+  }
+  m_selectedDiffIndex = selected;
+  if (!m_difficultyOptions.empty()) {
+    SelectDifficultyOption(selected);
+  }
+}
+
+void SongSelectScene::SelectDifficultyOption(int optIndex) {
+  if (optIndex < 0 || optIndex >= static_cast<int>(m_difficultyOptions.size())) {
+    return;
+  }
+  m_selectedDiffIndex = optIndex;
+  const auto &opt = m_difficultyOptions[optIndex];
+
+  EnvironmentSetup::SetInt("FileOpen", 1);
+  EnvironmentSetup::SetPath("FILE", opt.FilePath);
+  EnvironmentSetup::SetInt("Difficulty", 0);
+
+  ParseExternalChart(opt.FilePath);
+  LoadChartImage();
+
+  Audio *extBgm = AudioManager::GetInstance()->Get("ExternalBGM");
+  if (extBgm) {
+    extBgm->FadeOut();
+  }
+  if (m_bgm->IsPlaying()) {
+    m_bgm->Stop();
+  }
+
+  std::string ext = opt.FilePath.extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+
+  if (ext == ".ojn" || ext == ".bms" || ext == ".bme" || ext == ".bml" || ext == ".bmsc") {
+    m_bgm->Load();
+  } else {
+    Audio *bgm = AudioManager::GetInstance()->Get("BGM");
+    if (bgm) {
+      bgm->SetVolume(100);
+      bgm->FadeOut();
+    }
+
+    std::string currentFile = opt.FilePath.string();
+    SceneManager::ExecuteAfter(1000, [currentFile]() {
+      if (EnvironmentSetup::GetInt("FileOpen") == 1 &&
+          EnvironmentSetup::GetPath("FILE").string() == currentFile) {
+        Audio *extBgm = AudioManager::GetInstance()->Get("ExternalBGM");
+        if (extBgm) {
+          extBgm->SetVolume(100);
+          extBgm->Play();
+        }
+      }
+    });
+  }
+}
+
 void SongSelectScene::ParseExternalChart(std::filesystem::path file) {
   m_externalItem = {};
   m_externalItem.Id = -1;
@@ -1253,10 +1625,12 @@ void SongSelectScene::ParseExternalChart(std::filesystem::path file) {
   if (ext == ".osu") {
     Osu::Beatmap beatmap(file);
     if (beatmap.IsValid()) {
+      std::string title = !beatmap.TitleUnicode.empty() ? beatmap.TitleUnicode : beatmap.Title;
+      std::string artist = !beatmap.ArtistUnicode.empty() ? beatmap.ArtistUnicode : beatmap.Artist;
       snprintf((char *)m_externalItem.Title, sizeof(m_externalItem.Title), "%s",
-               beatmap.Title.c_str());
+               title.c_str());
       snprintf((char *)m_externalItem.Artist, sizeof(m_externalItem.Artist),
-               "%s", beatmap.Artist.c_str());
+               "%s", artist.c_str());
       snprintf((char *)m_externalItem.Noter, sizeof(m_externalItem.Noter), "%s",
                beatmap.Creator.c_str());
 
@@ -1271,6 +1645,7 @@ void SongSelectScene::ParseExternalChart(std::filesystem::path file) {
       m_externalItem.MaxNotes[0] = totalNotes;
       m_externalItem.MaxNotes[1] = totalNotes;
       m_externalItem.MaxNotes[2] = totalNotes;
+      m_externalItem.KeyCount = (int)beatmap.CircleSize;
 
       if (!beatmap.TimingPoints.empty()) {
         std::vector<Osu::OsuTimingPoint> bpms;
@@ -1343,7 +1718,8 @@ void SongSelectScene::ParseExternalChart(std::filesystem::path file) {
                bms.Title.c_str());
       snprintf((char *)m_externalItem.Artist, sizeof(m_externalItem.Artist),
                "%s", bms.Artist.c_str());
-      snprintf((char *)m_externalItem.Noter, sizeof(m_externalItem.Noter), "-");
+      snprintf((char *)m_externalItem.Noter, sizeof(m_externalItem.Noter), "%s",
+               bms.SubArtist.empty() ? "-" : bms.SubArtist.c_str());
 
       int totalNotes = 0;
       for (const auto &note : bms.Notes) {
@@ -1358,17 +1734,15 @@ void SongSelectScene::ParseExternalChart(std::filesystem::path file) {
       m_externalItem.MaxNotes[2] = totalNotes;
 
       m_externalItem.BPM = bms.BPM;
+      m_externalItem.KeyCount = bms.KeyCount;
     }
   } else if (ext == ".ojn") {
     O2::OJN ojn;
     ojn.Load(file, false);
     if (ojn.IsValid()) {
-      std::u8string title =
-          CodepageToUtf8(ojn.Header.title, sizeof(ojn.Header.title), "euc-kr");
-      std::u8string artist = CodepageToUtf8(
-          ojn.Header.artist, sizeof(ojn.Header.artist), "euc-kr");
-      std::u8string noter =
-          CodepageToUtf8(ojn.Header.noter, sizeof(ojn.Header.noter), "euc-kr");
+      std::u8string title = EnsureUtf8(ojn.Header.title, sizeof(ojn.Header.title));
+      std::u8string artist = EnsureUtf8(ojn.Header.artist, sizeof(ojn.Header.artist));
+      std::u8string noter = EnsureUtf8(ojn.Header.noter, sizeof(ojn.Header.noter));
 
       snprintf((char *)m_externalItem.Title, sizeof(m_externalItem.Title), "%s",
                (const char *)title.c_str());
@@ -1385,3 +1759,33 @@ void SongSelectScene::ParseExternalChart(std::filesystem::path file) {
     }
   }
 }
+
+void SongSelectScene::SortSongs() {
+  if (m_sortMode == 0) {
+    return;
+  }
+
+  std::sort(m_musicList.begin(), m_musicList.end(),
+            [this](const DB_MusicItem &a, const DB_MusicItem &b) {
+              if (m_sortMode == 1) {
+                // Sort by Level / Difficulty
+                int diffA = (a.Category == 0) ? a.Difficulty[currentDifficulty] : a.Difficulty[0];
+                int diffB = (b.Category == 0) ? b.Difficulty[currentDifficulty] : b.Difficulty[0];
+                if (diffA != diffB) {
+                  return m_sortAscending ? (diffA < diffB) : (diffA > diffB);
+                }
+              }
+
+              // Sort by Name / Title (fallback for same level or when sortMode == 2)
+              std::string titleA = (const char *)a.Title;
+              std::string titleB = (const char *)b.Title;
+              std::transform(titleA.begin(), titleA.end(), titleA.begin(), ::tolower);
+              std::transform(titleB.begin(), titleB.end(), titleB.begin(), ::tolower);
+
+              if (titleA != titleB) {
+                return m_sortAscending ? (titleA < titleB) : (titleA > titleB);
+              }
+              return a.Id < b.Id;
+            });
+}
+

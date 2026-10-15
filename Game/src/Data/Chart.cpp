@@ -71,10 +71,13 @@ Chart::Chart(Osu::Beatmap &beatmap) // Refactor
         "osu beatmap's Mania key must be between 1 and 7");
   }
 
-  m_title = std::u8string(beatmap.Title.begin(), beatmap.Title.end());
+  std::string songTitle = !beatmap.TitleUnicode.empty() ? beatmap.TitleUnicode : beatmap.Title;
+  std::string songArtist = !beatmap.ArtistUnicode.empty() ? beatmap.ArtistUnicode : beatmap.Artist;
+  m_title = std::u8string((const char8_t*)songTitle.data(), songTitle.size());
   m_keyCount = (int)beatmap.CircleSize;
-  m_artist = std::u8string(beatmap.Artist.begin(), beatmap.Artist.end());
-  m_difname = std::u8string(beatmap.Version.begin(), beatmap.Version.end());
+  m_artist = std::u8string((const char8_t*)songArtist.data(), songArtist.size());
+  m_difname = std::u8string((const char8_t*)beatmap.Version.data(), beatmap.Version.size());
+  m_level = (int)::round(beatmap.OverallDifficulty);
   m_beatmapDirectory = beatmap.CurrentDir;
 
   for (auto &event : beatmap.Events) {
@@ -206,13 +209,15 @@ Chart::Chart(BMS::BMSFile &file) {
   m_beatmapDirectory = file.CurrentDir;
   m_title = std::u8string(file.Title.begin(), file.Title.end());
   m_audio = ""; // file.FileDirectory + "/" + "test.mp3";
-  m_keyCount = 7;
+  m_keyCount = file.KeyCount;
   m_artist = std::u8string(file.Artist.begin(), file.Artist.end());
+  m_difname = std::u8string(file.SubArtist.begin(), file.SubArtist.end());
+  m_level = file.Level;
   m_backgroundFile = file.StageFile;
   BaseBPM = file.BPM;
   m_customMeasures = file.Measures;
 
-  double lastTime[7] = {};
+  std::vector<double> lastTime(16, 0.0);
   std::sort(file.Notes.begin(), file.Notes.end(),
             [](const BMS::BMSNote &note1, const BMS::BMSNote note2) {
               return note1.StartTime < note2.StartTime;
@@ -223,7 +228,7 @@ Chart::Chart(BMS::BMSFile &file) {
     info.StartTime = note.StartTime;
     info.Type = NoteType::NORMAL;
     info.LaneIndex = note.Lane;
-    if (info.LaneIndex < 0 || info.LaneIndex >= 7)
+    if (info.LaneIndex < 0 || info.LaneIndex >= m_keyCount)
       continue;
     info.Keysound = note.SampleIndex;
     info.Volume = 1.0f;
@@ -311,17 +316,14 @@ Chart::Chart(BMS::BMSFile &file) {
 
   PredefinedAudioLength = file.AudioLength;
   NormalizeTimings();
-  ComputeKeyCount();
   ComputeHash();
 }
 
 Chart::Chart(O2::OJN &file, int diffIndex) {
   auto &diff = file.Difficulties[diffIndex];
 
-  m_title =
-      CodepageToUtf8(file.Header.title, sizeof(file.Header.title), "euc-kr");
-  m_artist =
-      CodepageToUtf8(file.Header.artist, sizeof(file.Header.artist), "euc-kr");
+  m_title = EnsureUtf8(file.Header.title, sizeof(file.Header.title));
+  m_artist = EnsureUtf8(file.Header.artist, sizeof(file.Header.artist));
 
   m_backgroundBuffer = file.BackgroundImage;
   m_keyCount = 7;
@@ -799,40 +801,64 @@ void Chart::NormalizeTimings() {
 }
 
 void Chart::ComputeKeyCount() {
-  bool Lanes[7] = {false, false, false, false, false, false};
+  bool Lanes[7] = {false, false, false, false, false, false, false};
+  int activeCount = 0;
 
   for (auto &note : m_notes) {
     if (note.LaneIndex >= 0 && note.LaneIndex < 7) {
       if (!Lanes[note.LaneIndex]) {
         Lanes[note.LaneIndex] = true;
+        activeCount++;
       }
     }
   }
 
   // BMS-O2 4K is: X X - - - X X
   // BMS-O2 5K is: X X - X - X X
-  // BMS-O2 6K is: X X X X X X -
+  // BMS-O2 6K is: X X X - X X X
   // BMS-O2 7K is: X X X X X X X
 
-  // Check for 7K first since it has the highest priority
+  // Check for 7K first since it has highest priority
   if (Lanes[0] && Lanes[1] && Lanes[2] && Lanes[3] && Lanes[4] && Lanes[5] &&
       Lanes[6]) {
     m_keyCount = 7;
   }
-  // Check for 6K
+  // Check for 6K (consecutive 0..5)
   else if (Lanes[0] && Lanes[1] && Lanes[2] && Lanes[3] && Lanes[4] &&
            Lanes[5] && !Lanes[6]) {
     m_keyCount = 6;
   }
-  // Check for 5K
+  // Check for 5K (consecutive 0..4)
+  else if (Lanes[0] && Lanes[1] && Lanes[2] && Lanes[3] && Lanes[4] &&
+           !Lanes[5] && !Lanes[6]) {
+    m_keyCount = 5;
+  }
+  // Check for 5K (O2Jam spread: 0, 1, 3, 5, 6)
   else if (Lanes[0] && Lanes[1] && !Lanes[2] && Lanes[3] && !Lanes[4] &&
            Lanes[5] && Lanes[6]) {
     m_keyCount = 5;
+    for (auto &note : m_notes) {
+      if (note.LaneIndex == 3) note.LaneIndex = 2;
+      else if (note.LaneIndex == 5) note.LaneIndex = 3;
+      else if (note.LaneIndex == 6) note.LaneIndex = 4;
+    }
   }
-  // Check for 4K
+  // Check for 4K (consecutive 0..3)
+  else if (Lanes[0] && Lanes[1] && Lanes[2] && Lanes[3] && !Lanes[4] &&
+           !Lanes[5] && !Lanes[6]) {
+    m_keyCount = 4;
+  }
+  // Check for 4K (O2Jam spread: 0, 1, 5, 6)
   else if (Lanes[0] && Lanes[1] && !Lanes[2] && !Lanes[3] && !Lanes[4] &&
            Lanes[5] && Lanes[6]) {
     m_keyCount = 4;
+    for (auto &note : m_notes) {
+      if (note.LaneIndex == 5) note.LaneIndex = 2;
+      else if (note.LaneIndex == 6) note.LaneIndex = 3;
+    }
+  }
+  else if (activeCount >= 4 && activeCount <= 7) {
+    m_keyCount = activeCount;
   } else {
     Logs::Puts("[Chart] Unknown lane pattern, fallback to 7K");
     m_keyCount = 7;

@@ -4,7 +4,27 @@
         {
             "label": "cmake-gcc-build",
             "type": "shell",
-            "command": "cmake --build ${workspaceRoot}/build -- -j 4",
+            "command": "cmake --build ${workspaceRoot}/build --config Release -- -j 4",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            }
+        },
+        {
+            "label": "cmake-gcc-build-debug",
+            "type": "shell",
+            "command": "cmake --build ${workspaceRoot}/build --config Debug -- -j 4",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            }
+        },
+        {
+            "label": "cmake-gcc-build-release",
+            "type": "shell",
+            "command": "cmake --build ${workspaceRoot}/build --config Release -- -j 4",
             "presentation": {
                 "reveal": "always",
                 "panel": "shared",
@@ -14,7 +34,27 @@
         {
             "label": "cmake-msvc-build",
             "type": "shell",
-            "command": "cmake --build ${workspaceRoot}/build",
+            "command": "cmake --build ${workspaceRoot}/build --config Release",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            }
+        },
+        {
+            "label": "cmake-msvc-build-debug",
+            "type": "shell",
+            "command": "cmake --build ${workspaceRoot}/build --config Debug",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            }
+        },
+        {
+            "label": "cmake-msvc-build-release",
+            "type": "shell",
+            "command": "cmake --build ${workspaceRoot}/build --config Release",
             "presentation": {
                 "reveal": "always",
                 "panel": "shared",

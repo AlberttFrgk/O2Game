@@ -60,11 +60,13 @@ namespace BMS {
 
         std::string           Title = "";
         std::string           Artist = "";
+        std::string           SubArtist = "";
         std::string           StageFile = "";
         std::filesystem::path CurrentDir;
         int                   Level = 0;
         float                 BPM = 130.0f;
         double                AudioLength = 0;
+        int                   KeyCount = 7;
 
         std::vector<BMSNote>       Notes;
         std::vector<BMSTiming>     Timings;

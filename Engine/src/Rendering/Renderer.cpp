@@ -50,6 +50,11 @@ bool Renderer::Create(RendererMode mode, GameWindow *window, bool failed) {
       break;
     }
 
+    case RendererMode::DIRECTX11: {
+      rendererName = "direct3d11";
+      break;
+    }
+
     case RendererMode::DIRECTX12: {
       rendererName = "direct3d12";
       break;
@@ -91,8 +96,11 @@ bool Renderer::Create(RendererMode mode, GameWindow *window, bool failed) {
       }
 
       std::string frameLimitStr = Configuration::Load("Game", "FrameLimit");
+      bool vsync = (frameLimitStr == "VSync");
+      SDL_SetHint(SDL_HINT_RENDER_VSYNC, vsync ? "1" : "0");
+
       Uint32 renderFlags = SDL_RENDERER_ACCELERATED;
-      if (frameLimitStr == "VSync") {
+      if (vsync) {
           renderFlags |= SDL_RENDERER_PRESENTVSYNC;
       }
 
@@ -104,6 +112,17 @@ bool Renderer::Create(RendererMode mode, GameWindow *window, bool failed) {
       }
 
 #if defined(_WIN32)
+      if (rendererName == "direct3d11") {
+        ID3D11Device *d3dDevice = SDL_RenderGetD3D11Device(m_renderer);
+        if (d3dDevice) {
+          IDXGIDevice1 *dxgiDevice = nullptr;
+          if (SUCCEEDED(d3dDevice->QueryInterface(__uuidof(IDXGIDevice1),
+                                                  (void **)&dxgiDevice))) {
+            dxgiDevice->SetMaximumFrameLatency(1);
+            dxgiDevice->Release();
+          }
+        }
+      }
 #endif
 
       if (failed) {
@@ -145,6 +164,8 @@ bool Renderer::Create(RendererMode mode, GameWindow *window, bool failed) {
         throw SDLException();
       }
 
+      ImguiUtil::SetVulkan(false);
+
       return true;
     } else {
       try {
@@ -157,12 +178,13 @@ bool Renderer::Create(RendererMode mode, GameWindow *window, bool failed) {
 
         m_vulkan->init(window->GetWindow(), window->GetWidth(),
                        window->GetHeight());
-      } catch (const std::exception &) {
+      } catch (const std::exception &e) {
+        Logs::Write("Renderer", "Failed to initialize Vulkan: %s", e.what());
         m_vulkan = nullptr;
         VulkanEngine::Release();
 
         MsgBox::ShowOut("EstEngine Error",
-                        "Failed to load vulkan functions, fallback to OpenGL",
+                        "Failed to load Vulkan functions, falling back to OpenGL",
                         MsgBoxType::OK, MsgBoxFlags::BTN_ERROR);
         return Create(RendererMode::OPENGL, window, true);
       }
@@ -208,6 +230,9 @@ bool Renderer::Resize() {
       if (SDL_RenderSetLogicalSize(m_renderer, new_width, new_height) == -1) {
         throw SDLException();
       }
+
+      bool vsync = Configuration::Load("Game", "FrameLimit") == "VSync";
+      SDL_RenderSetVSync(m_renderer, vsync ? 1 : 0);
     }
 
     return true;
@@ -224,13 +249,12 @@ bool Renderer::BeginRender() {
       return false;
     }
 
-    m_vulkan->begin();
+    return m_vulkan->begin();
   } else {
     SDL_SetRenderDrawColor(m_renderer, 0, 0, 0, 255);
     SDL_RenderClear(m_renderer);
+    return true;
   }
-
-  return true;
 }
 
 bool Renderer::EndRender() {
@@ -256,6 +280,15 @@ bool Renderer::EndRender() {
 }
 
 void Renderer::ResetImGui() {}
+
+void Renderer::SetVSync(bool enabled) {
+  if (m_renderer) {
+    SDL_RenderSetVSync(m_renderer, enabled ? 1 : 0);
+  }
+  if (m_vulkan) {
+    m_vulkan->set_vsync(enabled);
+  }
+}
 
 SDL_Renderer *Renderer::GetSDLRenderer() { return m_renderer; }
 
@@ -291,7 +324,7 @@ void Renderer::Release() {
 
 RendererMode Renderer::GetBestRendererMode() {
 #if _WIN32
-  return RendererMode::DIRECTX;
+  return RendererMode::DIRECTX11;
 #elif __APPLE__
   return RendererMode::METAL; // Not sure if this work
 #else

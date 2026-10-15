@@ -26,23 +26,23 @@ else()
     add_compile_options(-Wall -Wextra -pedantic)
 endif()
 
-if (CMAKE_BUILD_TYPE MATCHES Debug)
-    if (MSVC)
-        set(CMAKE_C_FLAGS_DEBUG "/Od /ZI /DVK_NO_PROTOTYPES")
-        set(CMAKE_CXX_FLAGS_DEBUG "/Od /ZI /DVK_NO_PROTOTYPES")
-    else()
-        set(CMAKE_C_FLAGS_DEBUG "-g -DVK_NO_PROTOTYPES")
-        set(CMAKE_CXX_FLAGS_DEBUG "-g -DVK_NO_PROTOTYPES")
-    endif()
-elseif (CMAKE_BUILD_TYPE MATCHES Release)
-    if (MSVC)
-        set(CMAKE_C_FLAGS_RELEASE "/O2 /Ob2 /Oi /Ot /GL /DVK_NO_PROTOTYPES")
-        set(CMAKE_CXX_FLAGS_RELEASE "/O2 /Ob2 /Oi /Ot /GL /DVK_NO_PROTOTYPES")
-        set(CMAKE_EXE_LINKER_FLAGS_RELEASE "/LTCG")
-    else()
-        set(CMAKE_C_FLAGS_RELEASE "-O3 -DVK_NO_PROTOTYPES")
-        set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DVK_NO_PROTOTYPES")
-    endif()
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;MinSizeRel" CACHE STRING "Supported configuration types" FORCE)
+else()
+    set(CMAKE_CONFIGURATION_TYPES "Release;Debug;RelWithDebInfo;MinSizeRel" CACHE STRING "Supported configuration types" FORCE)
+endif()
+
+if (MSVC)
+    set(CMAKE_C_FLAGS_DEBUG "/Od /ZI /DVK_NO_PROTOTYPES")
+    set(CMAKE_CXX_FLAGS_DEBUG "/Od /ZI /DVK_NO_PROTOTYPES")
+    set(CMAKE_C_FLAGS_RELEASE "/O2 /Ob2 /Oi /Ot /GL /DVK_NO_PROTOTYPES")
+    set(CMAKE_CXX_FLAGS_RELEASE "/O2 /Ob2 /Oi /Ot /GL /DVK_NO_PROTOTYPES")
+    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "/LTCG")
+else()
+    set(CMAKE_C_FLAGS_DEBUG "-g -DVK_NO_PROTOTYPES")
+    set(CMAKE_CXX_FLAGS_DEBUG "-g -DVK_NO_PROTOTYPES")
+    set(CMAKE_C_FLAGS_RELEASE "-O3 -DVK_NO_PROTOTYPES")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DVK_NO_PROTOTYPES")
 endif()
 
 set(GFLAGS_USE_TARGET_NAMESPACE ON)
@@ -87,6 +87,7 @@ include_directories(
 	${SDL2_INCLUDE_DIRS}
 	${GLM_INCLUDE_DIRS} 
     ${Iconv_INCLUDE_DIRS} 
+	${ZLIB_INCLUDE_DIRS}
 )
 
 if (WIN32)
@@ -109,6 +110,7 @@ set(LIB_FREETYPE Freetype::Freetype)
 set(LIB_JPEG JPEG::JPEG)
 set(LIB_PNG PNG::PNG)
 set(LIB_BZIP2 BZip2::BZip2)
+set(LIB_ZLIB ZLIB::ZLIB)
 
 if (WIN32)
     set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR)
@@ -126,6 +128,7 @@ set(O2GAME_LIBRARIES
     ${LIB_PNG} 
     ${LIB_JPEG} 
     ${LIB_BZIP2} 
+    ${LIB_ZLIB}
     ${THIRD_PARTY_LIBS} 
     ${Iconv_LIBRARIES}
     PkgConfig::FFMPEG

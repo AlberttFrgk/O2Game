@@ -49,8 +49,12 @@ void BGMPreview::Load()
             int          index = EnvironmentSetup::GetInt("Key");
             DB_MusicItem item = GameDatabase::GetInstance()->Find(index);
 
-            file = GameDatabase::GetInstance()->GetPath();
-            file /= "o2ma" + std::to_string(index) + ".ojn";
+            if (item.Id != -1 && item.FilePath[0] != '\0' && std::filesystem::exists(item.FilePath)) {
+                file = item.FilePath;
+            } else {
+                file = GameDatabase::GetInstance()->GetPath();
+                file /= "o2ma" + std::to_string(index) + ".ojn";
+            }
         }
 
         if (file.string() != m_currentFilePath || GameAudioSampleCache::SetRate() != 1.0 || GameAudioSampleCache::IsEmpty()) {
@@ -93,7 +97,7 @@ void BGMPreview::Load()
             m_autoSamples.clear();
 
             for (auto &sample : m_currentChart->m_autoSamples) {
-                m_autoSamples.emplace_back(sample);
+                m_autoSamples.push_back(sample);
             }
 
             for (auto &note : m_currentChart->m_notes) {
@@ -104,7 +108,7 @@ void BGMPreview::Load()
                     sm.Volume = note.Volume;
                     sm.Pan = note.Pan;
 
-                    m_autoSamples.emplace_back(sm);
+                    m_autoSamples.push_back(sm);
                 }
             }
 

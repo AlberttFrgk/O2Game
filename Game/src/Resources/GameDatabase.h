@@ -21,6 +21,9 @@ struct DB_MusicItem
     int CoverOffset;
     int ThumbnailSize;
     int CoverSize;
+
+    int  Category = 0; // 0: O2Jam, 1: osu!mania, 2: BMS
+    char FilePath[512] = {};
 };
 
 class GameDatabase
@@ -33,8 +36,8 @@ public:
     DB_MusicItem Find(int id);
     DB_MusicItem Random();
 
-    std::vector<DB_MusicItem> FindAll();
-    std::vector<DB_MusicItem> FindQuery(std::string query);
+    std::vector<DB_MusicItem> FindAll(int category = -1);
+    std::vector<DB_MusicItem> FindQuery(std::string query, int category = -1);
 
     std::filesystem::path GetPath();
     int                   GetMusicCount();

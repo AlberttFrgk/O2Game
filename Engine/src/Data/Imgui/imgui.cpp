@@ -5096,17 +5096,21 @@ IMGUI_API ImVec2 ImGui::CalcTextSizeWithSize(const char* text, const float _font
     else
         text_display_end = text_end;
 
-    ImFont* font = g.Font;
-    const float font_size = g.FontSize;
     if (text == text_display_end)
         return ImVec2(0.0f, _font_size);
-    ImVec2 text_size = font->CalcTextSizeA(_font_size, FLT_MAX, wrap_width, text, text_display_end, NULL);
 
-    // Round
-    // FIXME: This has been here since Dec 2015 (7b0bf230) but down the line we want this out.
-    // FIXME: Investigate using ceilf or e.g.
-    // - https://git.musl-libc.org/cgit/musl/tree/src/math/ceilf.c
-    // - https://embarkstudios.github.io/rust-gpu/api/src/libm/math/ceilf.rs.html
+    ImFont* font = g.Font;
+    if (!font) {
+        font = g.IO.FontDefault;
+    }
+    if (!font && g.IO.Fonts && g.IO.Fonts->Fonts.Size > 0) {
+        font = g.IO.Fonts->Fonts[0];
+    }
+    if (!font) {
+        return ImVec2(0.0f, _font_size);
+    }
+
+    ImVec2 text_size = font->CalcTextSizeA(_font_size, FLT_MAX, wrap_width, text, text_display_end, NULL);
     text_size.x = IM_FLOOR(text_size.x + 0.99999f);
 
     return text_size;

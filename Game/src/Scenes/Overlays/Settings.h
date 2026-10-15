@@ -38,4 +38,8 @@ private:
 
     std::string              currentSkin = "";
     std::vector<std::string> skins = {};
+
+    char m_o2jamDir[512] = {};
+    char m_osuDir[512] = {};
+    char m_bmsDir[512] = {};
 };

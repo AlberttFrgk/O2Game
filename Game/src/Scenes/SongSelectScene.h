@@ -13,6 +13,15 @@
 
 struct MouseState;
 
+struct DifficultyOption
+{
+    std::string           Name;
+    int                   KeyCount = 7;
+    float                 Rating = 0.0f;
+    int                   TotalNotes = 0;
+    std::filesystem::path FilePath;
+};
+
 class SongSelectScene : public Scene
 {
 public:
@@ -37,10 +46,16 @@ private:
     void SaveModifiers();
     void LoadChartImage();
     void ParseExternalChart(std::filesystem::path file);
+    void LoadDifficultyOptions(const DB_MusicItem &item);
+    void SelectDifficultyOption(int index);
 
     int scene_index = 0;
     int index = -1;
     int page = 0;
+    int m_selectedCategory = -1;
+    int m_sortMode = 0;       // 0: Default, 1: Level/Difficulty, 2: Name
+    bool m_sortAscending = true; // true: Small -> Big (A->Z), false: Big -> Small (Z->A)
+    void SortSongs();
 
     bool  isWait = false;
     bool  isScrolled = false;
@@ -94,4 +109,7 @@ private:
 
     std::filesystem::path              m_externalFilePath;
     DB_MusicItem                       m_externalItem;
+
+    std::vector<DifficultyOption>      m_difficultyOptions;
+    int                                m_selectedDiffIndex = 0;
 };

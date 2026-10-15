@@ -6,6 +6,11 @@
 #include "Imgui/imgui.h"
 #include "MsgBox.h"
 #include "Texture/MathUtils.h"
+#include <Logs.h>
+
+#if defined(_WIN32)
+#include <windows.h>
+#endif
 
 struct MsgBoxSession
 {
@@ -166,6 +171,9 @@ int MsgBox::ShowOut(std::string title, std::string fmt)
 
 int MsgBox::ShowOut(std::string title, std::string fmt, MsgBoxType type, MsgBoxFlags flags)
 {
+    Logs::Write("MsgBox", "[%s] %s", title.c_str(), fmt.c_str());
+    Logs::Flush();
+
     SDL_MessageBoxData data = {};
     data.title = title.c_str();
     data.message = fmt.c_str();
@@ -231,8 +239,17 @@ int MsgBox::ShowOut(std::string title, std::string fmt, MsgBoxType type, MsgBoxF
     data.numbuttons = (int)buttons.size();
     data.buttons = buttons.data();
 
-    int buttonid;
-    SDL_ShowMessageBox(&data, &buttonid);
+    int buttonid = 0;
+    if (SDL_ShowMessageBox(&data, &buttonid) < 0) {
+#if defined(_WIN32)
+        UINT uType = MB_OK | MB_TOPMOST;
+        if (flags == MsgBoxFlags::BTN_ERROR) uType |= MB_ICONERROR;
+        else if (flags == MsgBoxFlags::BTN_WARNING) uType |= MB_ICONWARNING;
+        else if (flags == MsgBoxFlags::BTN_INFO) uType |= MB_ICONINFORMATION;
+        MessageBoxA(NULL, fmt.c_str(), title.c_str(), uType);
+        buttonid = 4;
+#endif
+    }
 
     return buttonid;
 }

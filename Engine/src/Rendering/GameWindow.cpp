@@ -57,6 +57,10 @@ bool GameWindow::Create(RendererMode mode, std::string title, int width, int hei
         is_fullscreen = true;
     }
 
+    if (is_fullscreen) {
+        flags |= SDL_WINDOW_FULLSCREEN;
+    }
+
     m_window = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, flags);
 
     if (m_window == nullptr) {
@@ -67,6 +71,7 @@ bool GameWindow::Create(RendererMode mode, std::string title, int width, int hei
 
     if (is_fullscreen) {
         SDL_SetWindowBordered(m_window, SDL_FALSE);
+        SDL_SetWindowDisplayMode(m_window, &dm);
     }
 
     return true;
@@ -100,11 +105,19 @@ void GameWindow::ResizeWindow(int width, int height)
     m_width = width;
     m_height = height;
 
-    SDL_SetWindowSize(m_window, width, height);
-    SDL_SetWindowFullscreen(m_window, is_fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
-    SDL_SetWindowBordered(m_window, is_fullscreen ? SDL_FALSE : SDL_TRUE);
-
-    if (!is_fullscreen) {
+    if (is_fullscreen) {
+        SDL_DisplayMode mode;
+        if (SDL_GetCurrentDisplayMode(0, &mode) == 0) {
+            mode.w = width;
+            mode.h = height;
+            SDL_SetWindowDisplayMode(m_window, &mode);
+        }
+        SDL_SetWindowBordered(m_window, SDL_FALSE);
+        SDL_SetWindowFullscreen(m_window, SDL_WINDOW_FULLSCREEN);
+    } else {
+        SDL_SetWindowFullscreen(m_window, 0);
+        SDL_SetWindowBordered(m_window, SDL_TRUE);
+        SDL_SetWindowSize(m_window, width, height);
         SDL_SetWindowPosition(m_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     }
 

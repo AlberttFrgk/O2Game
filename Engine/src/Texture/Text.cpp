@@ -108,6 +108,8 @@ void Text::InternalDraw(std::u8string &formated)
     xPos *= window->GetWidthScale();
     yPos *= window->GetHeightScale();
 
+    ImguiUtil::NewFrame();
+
     int width = GameWindow::GetInstance()->GetBufferWidth();
     int height = GameWindow::GetInstance()->GetBufferHeight();
 
@@ -130,7 +132,18 @@ void Text::InternalDraw(std::u8string &formated)
 
     float scale = targetScale / originScale;
 
-    auto textSize = ImGui::CalcTextSizeWithSize((const char *)formated.c_str(), Size * scale);
+    ImFont *font = FontResources::GetFont();
+    if (!font) {
+        font = ImGui::GetFont();
+    }
+
+    ImVec2 textSize;
+    if (font) {
+        textSize = font->CalcTextSizeA(Size * scale, FLT_MAX, -1.0f, (const char *)formated.c_str(), NULL, NULL);
+        textSize.x = IM_FLOOR(textSize.x + 0.99999f);
+    } else {
+        textSize = ImGui::CalcTextSizeWithSize((const char *)formated.c_str(), Size * scale);
+    }
 
     ImVec2 pos = ImVec2(
         xPos - 5.0f,
@@ -149,12 +162,15 @@ void Text::InternalDraw(std::u8string &formated)
         draw_list = ImGui::GetWindowDrawList();
     }
 
-    ImRotationStart();
+    bool rotate = (Rotation != 0.0f);
+    if (rotate) {
+        ImRotationStart(draw_list);
+    }
 
-    ImGui::PushFont(FontResources::GetFont());
+    ImGui::PushFont(font);
     draw_list->PushClipRect(ImVec2(clipRect.x, clipRect.y), ImVec2(clipRect.z, clipRect.w));
     draw_list->AddText(
-        NULL,
+        font,
         Size * scale,
         ImVec2(xPos, yPos) - MathUtil::ScaleVec2(0, 2.5),
         ImColor(255 * red, 255 * green, 255 * blue),
@@ -165,7 +181,9 @@ void Text::InternalDraw(std::u8string &formated)
 
     ImGui::PopFont();
 
-    ImRotationEnd(radians, ImRotationCenter());
+    if (rotate) {
+        ImRotationEnd(draw_list, radians, ImRotationCenter(draw_list));
+    }
     ImguiUtil::EndText();
 }
 
@@ -183,31 +201,41 @@ int Text::CalculateSize(std::u8string text)
 
     float scale = targetScale / originScale;
 
+    ImFont *font = FontResources::GetFont();
+    if (!font) {
+        font = ImGui::GetFont();
+    }
+
+    if (font) {
+        ImVec2 size = font->CalcTextSizeA(Size * scale, FLT_MAX, -1.0f, (const char *)text.c_str(), NULL, NULL);
+        return static_cast<int>(IM_FLOOR(size.x + 0.99999f));
+    }
+
     return static_cast<int>(ImGui::CalcTextSizeWithSize((const char *)text.c_str(), Size * scale).x);
 }
 
-void Text::ImRotationStart()
+void Text::ImRotationStart(ImDrawList *draw_list)
 {
-    rotation_start_index = ImGui::GetWindowDrawList()->VtxBuffer.Size;
+    rotation_start_index = draw_list->VtxBuffer.Size;
 }
 
-ImVec2 Text::ImRotationCenter()
+ImVec2 Text::ImRotationCenter(ImDrawList *draw_list)
 {
-    ImVec2 l(FLT_MAX, FLT_MAX), u(-FLT_MAX, -FLT_MAX); // bounds
+    ImVec2 l(FLT_MAX, FLT_MAX), u(-FLT_MAX, -FLT_MAX);
 
-    const auto &buf = ImGui::GetWindowDrawList()->VtxBuffer;
+    const auto &buf = draw_list->VtxBuffer;
     for (int i = rotation_start_index; i < buf.Size; i++)
         l = ImMin(l, buf[i].pos), u = ImMax(u, buf[i].pos);
 
-    return ImVec2((l.x + u.x) / 2, (l.y + u.y) / 2); // or use _ClipRectStack?
+    return ImVec2((l.x + u.x) / 2, (l.y + u.y) / 2);
 }
 
-void Text::ImRotationEnd(float rad, ImVec2 center)
+void Text::ImRotationEnd(ImDrawList *draw_list, float rad, ImVec2 center)
 {
     float s = sin(rad), c = cos(rad);
     center = ImRotate(center, s, c) - center;
 
-    auto &buf = ImGui::GetWindowDrawList()->VtxBuffer;
+    auto &buf = draw_list->VtxBuffer;
     for (int i = rotation_start_index; i < buf.Size; i++)
         buf[i].pos = ImRotate(buf[i].pos, s, c) - center;
 }

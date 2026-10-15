@@ -38,10 +38,7 @@ add_library(EstEngine
 
 	#Fonts
 	"src/Fonts/FontResources.cpp"
-	"src/Fonts/FallbackFonts/arial.ttf.cpp"  
-	"src/Fonts/FallbackFonts/ch.ttf.cpp" 
-	"src/Fonts/FallbackFonts/jp.ttf.cpp" 
-	"src/Fonts/FallbackFonts/kr.ttf.cpp"
+	"src/Fonts/FallbackFonts/FallbackFont.cpp"
 	
 	#Inputs
 	"src/Inputs/InputManager.cpp"
@@ -52,6 +49,7 @@ add_library(EstEngine
 	"src/Misc/SDLException.cpp"
 	"src/Misc/Lodepng.cpp"
 	"src/Misc/md5.cpp"
+	"src/Misc/CrashHandler.cpp"
 
 	#Logs
 	"src/Logs/Console.cpp" 
@@ -115,6 +113,9 @@ execute_process(
 
 if (MSVC)
 	target_compile_options(EstEngine PUBLIC "/MP")
+endif()
+if (WIN32)
+	target_link_libraries(EstEngine PUBLIC dbghelp version)
 endif()
 target_include_directories(EstEngine PUBLIC ./include/)
 

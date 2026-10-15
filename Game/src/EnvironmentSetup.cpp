@@ -2,7 +2,6 @@
 #include <mutex>
 #include <unordered_map>
 
-
 namespace {
 struct EnvironmentData {
   std::unordered_map<std::string, std::string> stores;
@@ -13,8 +12,8 @@ struct EnvironmentData {
 };
 
 EnvironmentData &GetData() {
-  static EnvironmentData data;
-  return data;
+  static auto *data = new EnvironmentData();
+  return *data;
 }
 } // namespace
 

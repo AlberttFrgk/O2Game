@@ -768,8 +768,13 @@ bool EditorScene::Attach()
             m_bpms = { { 0, 240.0 } };
         } else {
             std::filesystem::path file;
-            file = GameDatabase::GetInstance()->GetPath();
-            file /= "o2ma" + std::to_string(songId) + ".ojn";
+            auto item = GameDatabase::GetInstance()->Find(songId);
+            if (item.Id != -1 && item.FilePath[0] != '\0' && std::filesystem::exists(item.FilePath)) {
+                file = item.FilePath;
+            } else {
+                file = GameDatabase::GetInstance()->GetPath();
+                file /= "o2ma" + std::to_string(songId) + ".ojn";
+            }
 
             try {
                 m_ojn.reset();

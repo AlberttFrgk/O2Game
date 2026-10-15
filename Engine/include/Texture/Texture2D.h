@@ -35,6 +35,7 @@ public:
 
     void CalculateSize();
     void UpdateTexture(uint8_t* buffer, int width, int height, int pitch);
+    void *GetTextureID();
 
     float Transparency;
     float Rotation;

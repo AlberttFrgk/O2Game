@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <numeric>
+#include <set>
 #include <sstream>
 #include <string>
 
@@ -27,7 +28,6 @@ namespace BMS {
             return;
         }
 
-        fs.imbue(std::locale{ ".932" });
         CurrentDir = std::filesystem::path(path).parent_path();
 
         std::stringstream ss;
@@ -38,6 +38,59 @@ namespace BMS {
         CompileData(lines);
         CompileNoteData();
         VerifyNote();
+
+        bool foundCover = false;
+        if (!StageFile.empty()) {
+            StageFile.erase(std::remove(StageFile.begin(), StageFile.end(), '\"'), StageFile.end());
+            StageFile.erase(std::remove(StageFile.begin(), StageFile.end(), '\r'), StageFile.end());
+            while (!StageFile.empty() && (StageFile.front() == ' ' || StageFile.front() == '\t')) {
+                StageFile.erase(StageFile.begin());
+            }
+            while (!StageFile.empty() && (StageFile.back() == ' ' || StageFile.back() == '\t')) {
+                StageFile.pop_back();
+            }
+
+            if (!StageFile.empty() && std::filesystem::exists(CurrentDir / StageFile)) {
+                foundCover = true;
+            } else if (!StageFile.empty()) {
+                std::filesystem::path orig = CurrentDir / StageFile;
+                const char *commonExts[] = { ".png", ".jpg", ".jpeg", ".bmp" };
+                for (const char *e : commonExts) {
+                    std::filesystem::path p = orig;
+                    p.replace_extension(e);
+                    if (std::filesystem::exists(p)) {
+                        StageFile = p.filename().string();
+                        foundCover = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!foundCover) {
+            std::error_code ec;
+            std::filesystem::path bestImage;
+            uintmax_t maxImageSize = 0;
+
+            for (const auto &entry : std::filesystem::directory_iterator(CurrentDir, ec)) {
+                if (entry.is_regular_file(ec)) {
+                    std::string ext = entry.path().extension().string();
+                    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+                    if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp") {
+                        auto sz = entry.file_size(ec);
+                        if (!ec && sz > maxImageSize) {
+                            maxImageSize = sz;
+                            bestImage = entry.path().filename();
+                        }
+                    }
+                }
+            }
+
+            if (maxImageSize > 0 && !bestImage.empty()) {
+                StageFile = bestImage.string();
+                Logs::Puts("[BMS] Selected largest image as cover fallback: %s (%llu bytes)", StageFile.c_str(), maxImageSize);
+            }
+        }
 
         m_valid = true;
     }
@@ -83,12 +136,17 @@ namespace BMS {
                 }
 
                 if (command.starts_with("TITLE")) {
-                    Title = mergeVectorWith(data, 1);
+                    Title = EnsureUtf8(mergeVectorWith(data, 1));
                     continue;
                 }
 
                 if (command.starts_with("ARTIST")) {
-                    Artist = mergeVectorWith(data, 1);
+                    Artist = EnsureUtf8(mergeVectorWith(data, 1));
+                    continue;
+                }
+
+                if (command.starts_with("SUBARTIST")) {
+                    SubArtist = EnsureUtf8(mergeVectorWith(data, 1));
                     continue;
                 }
 
@@ -97,8 +155,26 @@ namespace BMS {
                     continue;
                 }
 
+                if ((command.starts_with("BACKBMP") || command.starts_with("BANNER")) && StageFile.empty()) {
+                    StageFile = mergeVectorWith(data, 1);
+                    continue;
+                }
+
                 if (command.starts_with("BPM") && command.size() == 3) {
                     BPM = (float)std::atof(mergeVector(data, 1).c_str());
+                    continue;
+                }
+
+                if (command.starts_with("PLAYLEVEL") || command.starts_with("LEVEL")) {
+                    Level = std::atoi(mergeVector(data, 1).c_str());
+                    continue;
+                }
+
+                if (command.starts_with("DIFFICULTY")) {
+                    int diff = std::atoi(mergeVector(data, 1).c_str());
+                    if (Level == 0) {
+                        Level = diff;
+                    }
                     continue;
                 }
 
@@ -257,9 +333,73 @@ namespace BMS {
 
     void BMSFile::CompileNoteData()
     {
-        const std::vector<int> PlayfieldChannel = { 11, 12, 13, 14, 15, 18, 19 };
-        const std::vector<int> PlayfieldHoldChannel = { 51, 52, 53, 54, 55, 58, 59 };
-        const std::vector<int> ScratchChannel = { 16, 56 };
+        std::set<int> activeChannels;
+        for (const auto &event : m_events) {
+            if (event.Channel >= 11 && event.Channel <= 19) {
+                activeChannels.insert(event.Channel);
+            } else if (event.Channel >= 51 && event.Channel <= 59) {
+                activeChannels.insert(event.Channel - 40);
+            }
+        }
+
+        if (activeChannels.empty()) {
+            for (const auto &event : m_events) {
+                if (event.Channel >= 21 && event.Channel <= 29) {
+                    activeChannels.insert(event.Channel);
+                } else if (event.Channel >= 61 && event.Channel <= 69) {
+                    activeChannels.insert(event.Channel - 40);
+                }
+            }
+        }
+
+        std::vector<int> ScratchChannel;
+        bool hasAll7StandardKeys = (activeChannels.count(11) && activeChannels.count(12) &&
+                                    activeChannels.count(13) && activeChannels.count(14) &&
+                                    activeChannels.count(15) && activeChannels.count(18) &&
+                                    activeChannels.count(19)) ||
+                                   (activeChannels.count(21) && activeChannels.count(22) &&
+                                    activeChannels.count(23) && activeChannels.count(24) &&
+                                    activeChannels.count(25) && activeChannels.count(28) &&
+                                    activeChannels.count(29));
+
+        if (activeChannels.count(16) && (hasAll7StandardKeys || activeChannels.size() > 7)) {
+            ScratchChannel = { 16, 56 };
+            activeChannels.erase(16);
+        } else if (activeChannels.count(26) && (hasAll7StandardKeys || activeChannels.size() > 7)) {
+            ScratchChannel = { 26, 66 };
+            activeChannels.erase(26);
+        }
+
+        static const std::vector<int> canonical1P = { 16, 11, 12, 13, 14, 15, 17, 18, 19 };
+        static const std::vector<int> canonical2P = { 26, 21, 22, 23, 24, 25, 27, 28, 29 };
+
+        std::vector<int> PlayfieldChannel;
+        for (int ch : canonical1P) {
+            if (activeChannels.count(ch)) {
+                PlayfieldChannel.push_back(ch);
+            }
+        }
+        for (int ch : canonical2P) {
+            if (activeChannels.count(ch)) {
+                PlayfieldChannel.push_back(ch);
+            }
+        }
+        for (int ch : activeChannels) {
+            if (std::find(PlayfieldChannel.begin(), PlayfieldChannel.end(), ch) == PlayfieldChannel.end()) {
+                PlayfieldChannel.push_back(ch);
+            }
+        }
+
+        if (PlayfieldChannel.size() > 7) {
+            PlayfieldChannel.resize(7);
+        }
+
+        std::vector<int> PlayfieldHoldChannel;
+        for (int ch : PlayfieldChannel) {
+            PlayfieldHoldChannel.push_back(ch + 40);
+        }
+
+        KeyCount = PlayfieldChannel.empty() ? 7 : (int)PlayfieldChannel.size();
 
         constexpr auto IsExist = [](const std::vector<int> &vec, int value, int *index) {
             auto it = std::find(vec.begin(), vec.end(), value);
@@ -287,7 +427,7 @@ namespace BMS {
         double measurePosition = 0;
         double timer = 0;
 
-        double holdNotes[7] = { -1, -1, -1, -1, -1, -1, -1 };
+        std::vector<double> holdNotes(16, -1.0);
         int    currentMeasure = 0;
 
         std::sort(m_events.begin(), m_events.end(), [](const BMSEvent &a, const BMSEvent &b) {
@@ -422,9 +562,9 @@ namespace BMS {
 
         AudioLength = timer + 500;
 
-        for (int i = 0; i < 7; i++) {
+        for (size_t i = 0; i < PlayfieldChannel.size(); i++) {
             if (holdNotes[i] != -1) {
-                Logs::Puts("[BMS] Unreleased hold note at index: %d, time: %.2f", i, holdNotes[i]);
+                Logs::Puts("[BMS] Unreleased hold note at index: %zu, time: %.2f", i, holdNotes[i]);
             }
         }
     }

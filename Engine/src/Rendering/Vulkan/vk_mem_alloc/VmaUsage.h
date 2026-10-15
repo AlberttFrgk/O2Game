@@ -23,6 +23,9 @@
 #ifndef VMA_USAGE_H_
 #define VMA_USAGE_H_
 
+#define VMA_STATIC_VULKAN_FUNCTIONS 0
+#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
+
 #ifdef _WIN32
 
 #define NOMINMAX
@@ -32,11 +35,9 @@
     #define VK_USE_PLATFORM_WIN32_KHR
 #endif // #if !defined(VK_USE_PLATFORM_WIN32_KHR)
 
-#else  // #ifdef _WIN32
+#endif
 
 #include <Rendering/Vulkan/volk/volk.h>
-
-#endif  // #ifdef _WIN32
 
 #ifdef _MSVC_LANG
 

@@ -8,6 +8,7 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <Logs.h>
 
 constexpr auto DEFAULT_SAMPLE_RATE = 48000;
 
@@ -36,19 +37,28 @@ bool AudioManager::Init(GameWindow *window)
 {
     m_currentWindow = window;
 
-    if (HIWORD(BASS_GetVersion()) != BASSVERSION) {
+    DWORD bassVer = BASS_GetVersion();
+    if (HIWORD(bassVer) != BASSVERSION) {
+        Logs::Write("AudioManager", "Incorrect BASS version loaded: %u (expected %u)", HIWORD(bassVer), BASSVERSION);
         MsgBox::ShowOut("An incorrect version of BASS was loaded (2.4 is required)", "Incorrect BASS", MsgBoxType::OK, MsgBoxFlags::BTN_ERROR);
         return false;
     }
 
-    if (HIWORD(BASS_FX_GetVersion()) != BASSVERSION) {
+    DWORD bassFxVer = BASS_FX_GetVersion();
+    if (HIWORD(bassFxVer) != BASSVERSION) {
+        Logs::Write("AudioManager", "Incorrect BASS_FX version loaded: %u (expected %u)", HIWORD(bassFxVer), BASSVERSION);
         MsgBox::ShowOut("An incorrect version of BASS was loaded (2.4 is required)", "Incorrect BASS", MsgBoxType::OK, MsgBoxFlags::BTN_ERROR);
         return false;
     }
 
     if (!BASS_Init(-1, DEFAULT_SAMPLE_RATE, BASS_DEVICE_STEREO, NULL, NULL)) {
-        MsgBox::ShowOut("Failed to init BASS", "Incorrect BASS", MsgBoxType::OK, MsgBoxFlags::BTN_ERROR);
-        return false;
+        int err = BASS_ErrorGetCode();
+        if (err != BASS_ERROR_ALREADY) {
+            Logs::Write("AudioManager", "Failed to init BASS. Error code: %d", err);
+            MsgBox::ShowOut("Failed to init BASS (Error " + std::to_string(err) + ")", "Incorrect BASS", MsgBoxType::OK, MsgBoxFlags::BTN_ERROR);
+            return false;
+        }
+        Logs::Write("AudioManager", "BASS was already initialized.");
     }
 
     // BASS_SetConfig(BASS_CONFIG_UPDATEPERIOD, 0);
@@ -56,7 +66,7 @@ bool AudioManager::Init(GameWindow *window)
     BASS_SetConfig(BASS_CONFIG_DEV_NONSTOP, TRUE);
     BASS_SetConfig(BASS_CONFIG_FLOATDSP, TRUE);
 
-    ::printf("BASS and BASS_FX initialized\n");
+    Logs::Write("AudioManager", "BASS and BASS_FX initialized successfully.");
 
     // Prepare the BASS thread to play without delay.
     PrepareBASS();

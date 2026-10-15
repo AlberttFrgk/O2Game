@@ -43,13 +43,6 @@ void SceneManager::Update(double delta) {
       m_onSceneChange();
     }
 
-    if (!m_nextScene->Attach()) {
-      MsgBox::ShowOut("EstEngine Error", "Failed to init next scene",
-                      MsgBoxType::OK, MsgBoxFlags::BTN_ERROR);
-      m_parent->Stop();
-      return;
-    }
-
     if (m_currentScene) {
       auto curScene = m_currentScene;
       m_currentScene = nullptr;
@@ -60,6 +53,13 @@ void SceneManager::Update(double delta) {
         m_parent->Stop();
         return;
       }
+    }
+
+    if (!m_nextScene->Attach()) {
+      MsgBox::ShowOut("EstEngine Error", "Failed to init next scene",
+                      MsgBoxType::OK, MsgBoxFlags::BTN_ERROR);
+      m_parent->Stop();
+      return;
     }
 
     m_currentScene = m_nextScene;
@@ -84,13 +84,6 @@ void SceneManager::Update(double delta) {
   if (m_nextOverlay != nullptr) {
     // std::lock_guard<std::mutex> lock(m_mutex);
 
-    if (!m_nextOverlay->Attach()) {
-      MsgBox::ShowOut("EstEngine Error", "Failed to init next overlay",
-                      MsgBoxType::OK, MsgBoxFlags::BTN_ERROR);
-      m_parent->Stop();
-      return;
-    }
-
     if (m_currentOverlay) {
       auto curOverlay = m_currentOverlay;
       m_currentOverlay = nullptr;
@@ -101,6 +94,13 @@ void SceneManager::Update(double delta) {
         m_parent->Stop();
         return;
       }
+    }
+
+    if (!m_nextOverlay->Attach()) {
+      MsgBox::ShowOut("EstEngine Error", "Failed to init next overlay",
+                      MsgBoxType::OK, MsgBoxFlags::BTN_ERROR);
+      m_parent->Stop();
+      return;
     }
 
     m_currentOverlay = m_nextOverlay;

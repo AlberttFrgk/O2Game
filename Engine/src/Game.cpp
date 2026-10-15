@@ -1,6 +1,10 @@
+#include <atomic>
+#include <cmath>
 #include <iostream>
 
+
 #include "Audio/AudioManager.h"
+#include "Configuration.h"
 #include "Data/Imgui/imgui_impl_sdl2.h"
 #include "Data/Imgui/imgui_impl_sdlrenderer2.h"
 #include "Fonts/FontResources.h"
@@ -11,10 +15,10 @@
 #include "Rendering/Vulkan/VulkanEngine.h"
 #include "Rendering/Window.h"
 #include "Texture/MathUtils.h"
+#include "Texture/Text.h"
 #include <Logs.h>
 #include <SDL2/SDL_image.h>
-#include "Configuration.h"
-#include "Texture/Text.h"
+
 
 constexpr auto kInputDefaultRate = 1000.0;
 constexpr auto kMenuDefaultRate = 60.0;
@@ -22,499 +26,534 @@ constexpr auto kAudioDefaultRate = 60.0;
 
 namespace {
 
-    bool InitSDL()
-    {
-        if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
-            return false;
-        }
+	bool InitSDL()
+	{
+		if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
+			return false;
+		}
 
-        return IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG) != 0;
-    }
+		return IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG) != 0;
+	}
 
-    void DeInitSDL()
-    {
-        SDL_Quit();
-        IMG_Quit();
-    }
+	void DeInitSDL()
+	{
+		SDL_Quit();
+		IMG_Quit();
+	}
 
-    thread_local double curTick = 0.0;
-    thread_local double lastTick = 0.0;
+	thread_local double curTick = 0.0;
+	thread_local double lastTick = 0.0;
 
-    double FrameLimit(double MaxFrameRate)
-    {
-        double newTick = static_cast<double>(SDL_GetPerformanceCounter()) * 1000.0 / SDL_GetPerformanceFrequency();
-        
-        if (MaxFrameRate > 0.0) {
-            const double targetFrameTime = 1000.0 / MaxFrameRate;
-            double frameTime = newTick - curTick;
+	double FrameLimit(double MaxFrameRate)
+	{
+		double newTick = static_cast<double>(SDL_GetPerformanceCounter()) * 1000.0 / SDL_GetPerformanceFrequency();
+		if (curTick == 0.0) {
+			curTick = newTick;
+		}
 
-            if (frameTime < targetFrameTime)
-            {
-                double delayTime = targetFrameTime - frameTime;
-                
-                // Sleep to save CPU if we have more than 2ms to wait
-                if (delayTime > 2.0) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<long long>(delayTime - 2.0)));
-                }
+		if (MaxFrameRate >= 5000.0 || MaxFrameRate <= 0.0) {
+			double delta = (newTick - curTick) / 1000.0;
+			lastTick = curTick;
+			curTick = newTick;
 
-                // Spin-lock for precision
-                while (true) {
-                    newTick = static_cast<double>(SDL_GetPerformanceCounter()) * 1000.0 / SDL_GetPerformanceFrequency();
-                    if (newTick - curTick >= targetFrameTime) {
-                        break;
-                    }
-                    std::this_thread::yield();
-                }
-            }
-        }
+			if (delta > 0.1)
+				delta = 0.1;
+			if (delta <= 0.0)
+				delta = 0.000001;
 
-        double delta = (newTick - curTick) / 1000.0;
+			return delta;
+		}
 
-        lastTick = curTick;
-        curTick = newTick;
+		const double targetFrameTime = 1000.0 / MaxFrameRate;
+		double		 frameTime = newTick - curTick;
 
-        // Prevent crazy large delta on pause or huge lag spike
-        if (delta > 0.1) delta = 0.1;
-        if (delta <= 0.0) delta = 0.0001; // Prevent zero delta
+		if (frameTime < targetFrameTime) {
+			double delayTime = targetFrameTime - frameTime;
 
-        return delta;
-    }
+			if (delayTime > 1.5) {
+				std::this_thread::sleep_for(std::chrono::microseconds(static_cast<long long>((delayTime - 1.0) * 1000.0)));
+			}
+
+			while (true) {
+				newTick = static_cast<double>(SDL_GetPerformanceCounter()) * 1000.0 / SDL_GetPerformanceFrequency();
+				if (newTick - curTick >= targetFrameTime) {
+					break;
+				}
+				std::this_thread::yield();
+			}
+		}
+
+		double delta = (newTick - curTick) / 1000.0;
+
+		lastTick = curTick;
+		curTick = newTick;
+
+		if (delta > 0.1)
+			delta = 0.1;
+		if (delta <= 0.0)
+			delta = 0.000001;
+
+		return delta;
+	}
 } // namespace
 
 Game::Game()
 {
-    m_frameLimit = 60.0;
-    m_running = false;
-    m_notify = false;
+	m_frameLimit = 60.0;
+	m_running = false;
+	m_notify = false;
 
-    m_window = nullptr;
-    m_renderer = nullptr;
-    m_inputManager = nullptr;
-    m_sceneManager = nullptr;
+	m_window = nullptr;
+	m_renderer = nullptr;
+	m_inputManager = nullptr;
+	m_sceneManager = nullptr;
 
-    m_renderMode = RendererMode::DIRECTX;
-    m_threadMode = ThreadMode::MULTI_THREAD;
+	m_renderMode = RendererMode::DIRECTX11;
+	m_threadMode = ThreadMode::MULTI_THREAD;
 }
 
 Game::~Game()
 {
-    if (m_running) {
-        Stop();
+	if (m_running) {
+		Stop();
 
-        if (m_notify) {
-            std::unique_lock<std::mutex> lock(m_mutex);
-            m_cv.wait(lock, [this] { return !m_notify; });
-        }
-    }
+		if (m_notify) {
+			std::unique_lock<std::mutex> lock(m_mutex);
+			m_cv.wait(lock, [this] { return !m_notify; });
+		}
+	}
 
-    SceneManager::Release();
-    AudioManager::Release();
-    InputManager::Release();
-    Renderer::Release();
-    GameWindow::Release();
+	SceneManager::Release();
+	AudioManager::Release();
+	InputManager::Release();
+	Renderer::Release();
+	GameWindow::Release();
 
-    DeInitSDL();
+	DeInitSDL();
 }
 
 bool Game::Init()
 {
-    if (!InitSDL()) {
-        MsgBox::ShowOut("SDL Failed to Initialize", "EstEngine Error");
+	Logs::Write("Game", "Initializing SDL...");
+	if (!InitSDL()) {
+		Logs::Write("Game", "SDL failed to initialize: %s", SDL_GetError());
+		MsgBox::ShowOut("SDL Failed to Initialize", "EstEngine Error");
+		return false;
+	}
+	Logs::Write("Game", "SDL initialized.");
 
-        return false;
-    }
+	m_window = GameWindow::GetInstance();
 
-    m_window = GameWindow::GetInstance();
+	int width = m_windowWidth;
+	int height = m_windowHeight;
+	if (m_fullscreen) {
+		SDL_DisplayMode dm;
+		SDL_GetCurrentDisplayMode(0, &dm);
+		width = dm.w;
+		height = dm.h;
+	}
 
-    int width = m_windowWidth;
-    int height = m_windowHeight;
-    if (m_fullscreen) {
-        SDL_DisplayMode dm;
-        SDL_GetCurrentDisplayMode(0, &dm);
-        width = dm.w;
-        height = dm.h;
-    }
+	Logs::Write("Game", "Creating window (%dx%d)...", width, height);
+	if (!m_window->Create(m_renderMode, "Game", width, height, m_bufferWidth, m_bufferHeight)) {
+		Logs::Write("Game", "Failed to create game window: %s", SDL_GetError());
+		return false;
+	}
+	Logs::Write("Game", "Game window created.");
 
-    if (!m_window->Create(m_renderMode, "Game", width, height, m_bufferWidth, m_bufferHeight)) {
-        return false;
-    }
+	m_renderer = Renderer::GetInstance();
+	Logs::Write("Game", "Creating renderer...");
+	if (!m_renderer->Create(m_renderMode, m_window)) {
+		Logs::Write("Game", "Failed to create renderer: %s", SDL_GetError());
+		return false;
+	}
+	Logs::Write("Game", "Renderer created.");
 
-    m_renderer = Renderer::GetInstance();
-    if (!m_renderer->Create(m_renderMode, m_window)) {
-        return false;
-    }
+	m_threadMode = ThreadMode::SINGLE_THREAD;
 
-    if (!m_renderer->IsVulkan()) {
-        m_threadMode = ThreadMode::SINGLE_THREAD; // SDL_Renderer doesn't support multithreading
-    }
+	m_inputManager = InputManager::GetInstance();
 
-    m_inputManager = InputManager::GetInstance();
+	m_sceneManager = SceneManager::GetInstance();
+	m_sceneManager->SetParent(this);
 
-    m_sceneManager = SceneManager::GetInstance();
-    m_sceneManager->SetParent(this);
+	Logs::Write("Game", "Initializing Audio Manager...");
+	if (!AudioManager::GetInstance()->Init(m_window)) {
+		Logs::Write("Game", "Failed to initialize Audio Manager.");
+		return false;
+	}
+	Logs::Write("Game", "Audio Manager initialized.");
 
-    if (!AudioManager::GetInstance()->Init(m_window)) {
-        return false;
-    }
+	Logs::Write("Game", "Preloading font caches...");
+	FontResources::PreloadFontCaches();
+	m_currentFade = 0;
+	m_targetFade = 0;
 
-    FontResources::PreloadFontCaches();
-    m_currentFade = 0;
-    m_targetFade = 0;
-
-    return true;
+	Logs::Write("Game", "Game::Init completed successfully.");
+	return true;
 }
 
 void Game::Run()
 {
-    m_running = true;
-    m_notify = true;
-    // m_frameLimit = m_frameLimit == 0 ? kMenuDefaultRate : m_frameLimit; // 0 is used for VSync
-    m_frameLimitMode = FrameLimitMode::MENU;
+	m_running = true;
+	m_notify = true;
+	// m_frameLimit = m_frameLimit == 0 ? kMenuDefaultRate : m_frameLimit; // 0 is used for VSync
+	m_frameLimitMode = FrameLimitMode::MENU;
 
-    mAudioThread.Run([&] {
-        double delta = FrameLimit(kAudioDefaultRate);
-        AudioManager::GetInstance()->Update(delta);
-        },
-        true);
+	mAudioThread.Run([&] {
+		double delta = FrameLimit(kAudioDefaultRate);
+		AudioManager::GetInstance()->Update(delta);
+	},
+					 true);
 
-    std::mutex m1, m2;
+	std::mutex m1, m2;
 
-    int    frameWithoutSwapchain = 0;
-    int    frames = 0;
-    double time = 0;
-    
-    int current_fps = 0;
-    bool show_fps = false;
-    bool show_latency = false;
+	int	   frameWithoutSwapchain = 0;
+	double time = 0;
 
-    fpsText = std::make_unique<Text>(14);
-    fpsText->DrawOverEverything = true;
-    latencyText = std::make_unique<Text>(14);
-    latencyText->DrawOverEverything = true;
+	std::atomic<double> current_fps{ 0.0 };
+	std::atomic<double> current_latency{ 0.0 };
+	std::atomic<int>	current_fps_int{ 0 };
 
-    auto CalculateMetrics = [](double& outFramerate, double& outLatency) {
-        outFramerate = ImGui::GetIO().Framerate;
-        outLatency = outFramerate > 0 ? 1000.0 / outFramerate : 0.0;
-    };
+	bool show_fps = Configuration::Load("Game", "ShowFPS") == "1";
+	bool show_latency = Configuration::Load("Game", "ShowLatency") == "1";
 
-    auto DrawFPSOverlay = [&]() {
-        if (!show_fps) return;
-        
-        char buffer[128];
-        double framerate, latency;
-        CalculateMetrics(framerate, latency);
+	fpsText = std::make_unique<Text>(14);
+	fpsText->DrawOverEverything = true;
+	latencyText = std::make_unique<Text>(14);
+	latencyText->DrawOverEverything = true;
 
-        snprintf(buffer, sizeof(buffer), "%.0ffps", framerate);
-        fpsText->Position = UDim2::fromOffset(3, 0);
-        fpsText->Draw(buffer);
+	uint64_t perf_freq = SDL_GetPerformanceFrequency();
+	uint64_t fps_window_start = SDL_GetPerformanceCounter();
+	int		 fps_window_frames = 0;
 
-        if (show_latency) {
-            char latency_buffer[128];
-            snprintf(latency_buffer, sizeof(latency_buffer), "%.2fms", latency);
-            latencyText->Position = UDim2::fromOffset(3, 12);
-            latencyText->Draw(latency_buffer);
-        }
-    };
+	auto RecordRenderFrame = [&]() {
+		fps_window_frames++;
+		uint64_t now = SDL_GetPerformanceCounter();
+		double	 elapsed = static_cast<double>(now - fps_window_start) / static_cast<double>(perf_freq);
+		if (elapsed >= 0.25 || (fps_window_frames >= 5 && current_fps.load() == 0.0 && elapsed >= 0.1)) {
+			if (fps_window_frames > 0 && elapsed > 0.0) {
+				double fps = static_cast<double>(fps_window_frames) / elapsed;
+				double latency = (elapsed / static_cast<double>(fps_window_frames)) * 1000.0;
+				current_fps.store(fps);
+				current_latency.store(latency);
+				current_fps_int.store(static_cast<int>(std::round(fps)));
+			}
+			fps_window_frames = 0;
+			fps_window_start = now;
+		}
+	};
 
-    mRenderThread.Run([&] {
-        if (m_threadMode == ThreadMode::MULTI_THREAD) {
-            double delta = 0;
+	auto DrawFPSOverlay = [&]() {
+		if (!show_fps)
+			return;
 
-            switch (m_frameLimitMode) {
-                case FrameLimitMode::GAME:
-                {
-                delta = FrameLimit(m_frameLimit);
-                    break;
-                }
+		char buffer[128];
+		snprintf(buffer, sizeof(buffer), "%.0ffps", current_fps.load());
+		fpsText->Position = UDim2::fromOffset(3, 0);
+		fpsText->Draw(buffer);
 
-                case FrameLimitMode::MENU:
-                {
-                    delta = FrameLimit(kMenuDefaultRate);
-                    break;
-                }
-            }
+		if (show_latency) {
+			char latency_buffer[128];
+			snprintf(latency_buffer, sizeof(latency_buffer), "%.2fms", current_latency.load());
+			latencyText->Position = UDim2::fromOffset(3, 12);
+			latencyText->Draw(latency_buffer);
+		}
+	};
 
-                CheckFont();
+	mRenderThread.Run([&] {
+		if (m_threadMode == ThreadMode::MULTI_THREAD) {
+			double delta = 0;
 
-                Update(delta);
+			switch (m_frameLimitMode) {
+				case FrameLimitMode::GAME:
+				{
+					delta = FrameLimit(m_frameLimit);
+					break;
+				}
+				case FrameLimitMode::MENU:
+				{
+					delta = FrameLimit(kMenuDefaultRate);
+					break;
+				}
+			}
 
-                UpdateFade(delta);
+			CheckFont();
 
-                if (!m_minimized && m_renderer->BeginRender()) {
-                    if (frameWithoutSwapchain > 0) {
-                        Logs::Puts("[Game] Game iterate %d times without swap chain", frameWithoutSwapchain);
-                        frameWithoutSwapchain = 0;
-                    }
+			Update(delta);
 
-                    std::lock_guard<std::mutex> lock(m1);
+			UpdateFade(delta);
 
-                    Render(delta);
-                    DrawFPSOverlay();
-                    MsgBox::Draw();
-                    DrawFade(delta);
+			if (!m_minimized && m_renderer->BeginRender()) {
+				if (frameWithoutSwapchain > 0) {
+					Logs::Puts("[Game] Game iterate %d times without swap chain", frameWithoutSwapchain);
+					frameWithoutSwapchain = 0;
+					fps_window_start = SDL_GetPerformanceCounter();
+					fps_window_frames = 0;
+				}
 
-                    DrawConsole();
-                    m_renderer->EndRender();
+				std::lock_guard<std::mutex> lock(m1);
 
-                    frames++;
-            } else {
-                frameWithoutSwapchain++;
+				Render(delta);
+				DrawFPSOverlay();
+				MsgBox::Draw();
+				DrawFade(delta);
 
-                // Flush ImGui events when skipping render so the queue doesn't overflow and freeze
-                ImguiUtil::NewFrame();
-                ImguiUtil::Reset();
-            }
-        } else {
-                FrameLimit(15.0f);
-            }
-    },
-                      true);
+				DrawConsole();
+				m_renderer->EndRender();
 
-    m_inputManager->ListenKeyEvent([&](const KeyState &state) {
-        if (state.type == KeyEventType::KEY_DOWN) {
-            m_sceneManager->OnKeyDown(state);
-        } else {
-            m_sceneManager->OnKeyUp(state);
-        }
-        });
+				RecordRenderFrame();
+			} else {
+				frameWithoutSwapchain++;
 
-    m_inputManager->ListenMouseEvent([&](const MouseState &state) {
-        if (state.isDown) {
-            m_sceneManager->OnMouseDown(state);
-        } else {
-            m_sceneManager->OnMouseUp(state);
-        }
-        });
+				// Flush ImGui events when skipping render so the queue doesn't overflow and freeze
+				ImguiUtil::NewFrame();
+				ImguiUtil::Reset();
+			}
+		} else {
+			FrameLimit(15.0f);
+		}
+	},
+					  true);
 
-    m_minimized = false;
-    mLocalThread.Run([&] {
-        double delta = 0;
-        switch (m_frameLimitMode) {
-        case FrameLimitMode::GAME:
-        {
-            delta = FrameLimit(m_threadMode == ThreadMode::MULTI_THREAD ? kInputDefaultRate : m_frameLimit);
-            break;
-        }
+	m_inputManager->ListenKeyEvent([&](const KeyState &state) {
+		if (state.type == KeyEventType::KEY_DOWN) {
+			m_sceneManager->OnKeyDown(state);
+		} else {
+			m_sceneManager->OnKeyUp(state);
+		}
+	});
 
-        case FrameLimitMode::MENU:
-        {
-            delta = FrameLimit(kMenuDefaultRate);
-            break;
-        }
-        }
+	m_inputManager->ListenMouseEvent([&](const MouseState &state) {
+		if (state.isDown) {
+			m_sceneManager->OnMouseDown(state);
+		} else {
+			m_sceneManager->OnMouseUp(state);
+		}
+	});
 
-        m_imguiInterval += delta;
+	m_minimized = false;
+	mLocalThread.Run([&] {
+		double delta = 0;
+		switch (m_frameLimitMode) {
+			case FrameLimitMode::GAME:
+			{
+				delta = FrameLimit(m_threadMode == ThreadMode::MULTI_THREAD ? kInputDefaultRate : m_frameLimit);
+				break;
+			}
+			case FrameLimitMode::MENU:
+			{
+				delta = FrameLimit(kMenuDefaultRate);
+				break;
+			}
+		}
 
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            switch (event.type) {
-            case SDL_QUIT:
-                MsgBox::Show("Quit", "Quit confirmation", "Are you sure you want to quit?", MsgBoxType::YESNO);
-                break;
-            case SDL_DROPFILE:
-                OnDropFile(event.drop.file);
-                SDL_free(event.drop.file);
-                break;
-            }
+		m_imguiInterval += delta;
 
-            m_minimized = SDL_GetWindowFlags(m_window->GetWindow()) & SDL_WINDOW_MINIMIZED;
+		SDL_Event event;
+		while (SDL_PollEvent(&event)) {
+			switch (event.type) {
+				case SDL_QUIT:
+					MsgBox::Show("Quit", "Quit confirmation", "Are you sure you want to quit?", MsgBoxType::YESNO);
+					break;
+				case SDL_DROPFILE:
+					OnDropFile(event.drop.file);
+					SDL_free(event.drop.file);
+					break;
+			}
 
-            ImGui_ImplSDL2_ProcessEvent(&event);
-            m_inputManager->Update(event);
-        }
+			m_minimized = SDL_GetWindowFlags(m_window->GetWindow()) & SDL_WINDOW_MINIMIZED;
 
-        if (MsgBox::GetResult("Quit") == 1) {
-            Stop();
-        }
+			ImGui_ImplSDL2_ProcessEvent(&event);
+			m_inputManager->Update(event);
+		}
 
-        if (m_renderer->IsVulkan() && !m_minimized) {
-            m_renderer->ReInitVulkan();
-        }
+		if (MsgBox::GetResult("Quit") == 1) {
+			Stop();
+		}
 
-        if (m_threadMode == ThreadMode::MULTI_THREAD) {
-            Input(delta);
-        } else {
-            CheckFont();
+		if (m_renderer->IsVulkan() && !m_minimized) {
+			m_renderer->ReInitVulkan();
+		}
 
-            Input(delta);
+		if (m_threadMode == ThreadMode::MULTI_THREAD) {
+			Input(delta);
+		} else {
+			CheckFont();
 
-            Update(delta);
+			Input(delta);
 
-            UpdateFade(delta);
+			Update(delta);
 
-            if (!m_minimized && m_renderer->BeginRender()) {
-                if (frameWithoutSwapchain > 0) {
-                    Logs::Puts("[Game] Game iterate %d times without swap chain", frameWithoutSwapchain);
-                    frameWithoutSwapchain = 0;
-                }
+			UpdateFade(delta);
 
-                Render(delta);
-                DrawFPSOverlay();
-                MsgBox::Draw();
-                DrawFade(delta);
+			if (!m_minimized && m_renderer->BeginRender()) {
+				if (frameWithoutSwapchain > 0) {
+					Logs::Puts("[Game] Game iterate %d times without swap chain", frameWithoutSwapchain);
+					frameWithoutSwapchain = 0;
+					fps_window_start = SDL_GetPerformanceCounter();
+					fps_window_frames = 0;
+				}
 
-                DrawConsole();
-                m_renderer->EndRender();
+				Render(delta);
+				DrawFPSOverlay();
+				MsgBox::Draw();
+				DrawFade(delta);
 
-                frames++;
-            } else {
-                frameWithoutSwapchain++;
+				DrawConsole();
+				m_renderer->EndRender();
 
-                // Flush ImGui events when skipping render so the queue doesn't overflow and freeze
-                ImguiUtil::NewFrame();
-                ImguiUtil::Reset();
-            }
-        }
+				RecordRenderFrame();
+			} else {
+				frameWithoutSwapchain++;
 
-        if ((time += delta) > 1.0) {
-            double framerate, latency;
-            CalculateMetrics(framerate, latency);
-            
-            char title_buf[128];
-            snprintf(title_buf, sizeof(title_buf), "FPS: %d Latency: %.2f ms", frames, latency);
-            std::string title_str = title_buf;
-            m_window->SetWindowSubTitle(title_str);
-            
-            current_fps = frames;
-            show_fps = Configuration::Load("Game", "ShowFPS") == "1";
-            show_latency = Configuration::Load("Game", "ShowLatency") == "1";
+				// Flush ImGui events when skipping render so the queue doesn't overflow and freeze
+				ImguiUtil::NewFrame();
+				ImguiUtil::Reset();
+			}
+		}
 
-            frames = 0;
-            time = 0;
-        }
-        },
-        false);
+		if ((time += delta) >= 1.0) {
+			char title_buf[128];
+			snprintf(title_buf, sizeof(title_buf), "FPS: %d Latency: %.2f ms", current_fps_int.load(), current_latency.load());
+			std::string title_str = title_buf;
+			m_window->SetWindowSubTitle(title_str);
 
-    while (m_running) {
-        mLocalThread.Update();
-    }
+			show_fps = Configuration::Load("Game", "ShowFPS") == "1";
+			show_latency = Configuration::Load("Game", "ShowLatency") == "1";
 
-    mAudioThread.Stop();
-    mRenderThread.Stop();
+			time = 0;
+		}
+	},
+					 false);
 
-    m_notify = false;
+	while (m_running) {
+		mLocalThread.Update();
+	}
+
+	mAudioThread.Stop();
+	mRenderThread.Stop();
+
+	m_notify = false;
 }
 
 void Game::DrawFade(double delta)
 {
-    if (static_cast<int>(m_currentFade) != 0) {
-        auto  drawList = ImGui::GetForegroundDrawList();
-        float a = m_currentFade / 100.0f;
+	if (static_cast<int>(m_currentFade) != 0) {
+		auto  drawList = ImGui::GetForegroundDrawList();
+		float a = m_currentFade / 100.0f;
 
-        drawList->AddRectFilled(ImVec2(0, 0), MathUtil::ScaleVec2(m_window->GetBufferWidth(), m_window->GetBufferHeight()), IM_COL32(0, 0, 0, a * 255));
-    }
+		drawList->AddRectFilled(ImVec2(0, 0), MathUtil::ScaleVec2(m_window->GetBufferWidth(), m_window->GetBufferHeight()), IM_COL32(0, 0, 0, a * 255));
+	}
 }
 
 void Game::DrawConsole()
 {
-    Console::Draw();
+	Console::Draw();
 }
 
 void Game::UpdateFade(double delta)
 {
-    if (static_cast<int>(m_currentFade) != static_cast<int>(m_targetFade)) {
-        float increment = (static_cast<float>(delta) * 5.0f) * 100.0f;
+	if (static_cast<int>(m_currentFade) != static_cast<int>(m_targetFade)) {
+		float increment = (static_cast<float>(delta) * 5.0f) * 100.0f;
 
-        // compare it using epsilon
-        if (std::abs(m_currentFade - m_targetFade) < FLT_EPSILON) {
-            m_currentFade = m_targetFade;
-        } else {
-            if (m_currentFade < m_targetFade) {
-                m_currentFade = std::clamp(m_currentFade + increment, 0.0f, 100.0f);
-            } else {
-                m_currentFade = std::clamp(m_currentFade - increment, 0.0f, 100.0f);
-            }
-        }
-    }
+		// compare it using epsilon
+		if (std::abs(m_currentFade - m_targetFade) < FLT_EPSILON) {
+			m_currentFade = m_targetFade;
+		} else {
+			if (m_currentFade < m_targetFade) {
+				m_currentFade = std::clamp(m_currentFade + increment, 0.0f, 100.0f);
+			} else {
+				m_currentFade = std::clamp(m_currentFade - increment, 0.0f, 100.0f);
+			}
+		}
+	}
 }
 
 void Game::CheckFont()
 {
-    if (m_window->ShouldResizeRenderer()) {
-        m_renderer->Resize();
+	if (m_window->ShouldResizeRenderer()) {
+		m_renderer->Resize();
 
-        FontResources::DoRebuild();
-        m_window->HandleResizeRenderer();
-    }
+		FontResources::DoRebuild();
+		m_window->HandleResizeRenderer();
+	}
 
-    if (FontResources::ShouldRebuild()) {
-        FontResources::PreloadFontCaches();
-    }
+	if (FontResources::ShouldRebuild()) {
+		FontResources::PreloadFontCaches();
+	}
 }
 
 void Game::Stop()
 {
-    if (m_running) {
-        {
-            std::unique_lock<std::mutex> lock(m_mutex);
-            m_running = false;
-            m_notify = true;
-        }
-        m_cv.notify_one();
-    }
+	if (m_running) {
+		{
+			std::unique_lock<std::mutex> lock(m_mutex);
+			m_running = false;
+			m_notify = true;
+		}
+		m_cv.notify_one();
+	}
 }
-
 
 void Game::SetThreadMode(ThreadMode mode)
 {
-    m_threadMode = mode;
+	m_threadMode = mode;
 }
 
 void Game::SetRenderMode(RendererMode mode)
 {
-    m_renderMode = mode;
+	m_renderMode = mode;
 }
 
 void Game::SetFrameLimitMode(FrameLimitMode mode)
 {
-    m_frameLimitMode = mode;
+	m_frameLimitMode = mode;
 }
 
 void Game::SetFramelimit(double frameRate)
 {
-    m_frameLimit = frameRate;
+	m_frameLimit = frameRate;
 }
 
 void Game::SetBufferSize(int width, int height)
 {
-    m_bufferWidth = width;
-    m_bufferHeight = height;
+	m_bufferWidth = width;
+	m_bufferHeight = height;
 }
 
 void Game::SetWindowSize(int width, int height)
 {
-    m_windowWidth = width;
-    m_windowHeight = height;
+	m_windowWidth = width;
+	m_windowHeight = height;
 }
 
 void Game::SetFullscreen(bool fullscreen)
 {
-    m_fullscreen = fullscreen;
+	m_fullscreen = fullscreen;
 }
 
 GameThread *Game::GetRenderThread()
 {
-    return &mRenderThread;
+	return &mRenderThread;
 }
 
 GameThread *Game::GetMainThread()
 {
-    return &mLocalThread;
+	return &mLocalThread;
 }
 
 void Game::DisplayFade(int transparency)
 {
-    m_targetFade = static_cast<float>(transparency);
+	m_targetFade = static_cast<float>(transparency);
 }
 
 float Game::GetDisplayFade()
 {
-    return m_currentFade;
+	return m_currentFade;
 }
 
 ThreadMode Game::GetThreadMode()
 {
-    return m_threadMode;
+	return m_threadMode;
 }
 
 void Game::Update(double deltaTime)

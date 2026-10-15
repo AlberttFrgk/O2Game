@@ -19,16 +19,17 @@ static std::unique_ptr<Texture2D_Vulkan>                          m_dummyTexture
 
 Texture2D_Vulkan* CreateTexture()
 {
-    // find the empty slot
+    std::lock_guard<std::mutex> lock(m_textureMutex);
+
     for (int i = 0; i < m_textureCount; i++) {
-        if (m_textures[i] == nullptr) {
+        auto it = m_textures.find(i);
+        if (it == m_textures.end() || it->second == nullptr) {
             m_textures[i] = std::make_unique<Texture2D_Vulkan>();
             m_textures[i]->Id = i;
             return m_textures[i].get();
         }
     }
 
-    // if no empty slot, create a new one
     m_textures[m_textureCount] = std::make_unique<Texture2D_Vulkan>();
     m_textures[m_textureCount]->Id = m_textureCount;
     m_textureCount++;
@@ -454,26 +455,32 @@ void vkTexture::ReleaseTexture(Texture2D_Vulkan* tex_data)
         return;
     }
 
-    VulkanEngine::GetInstance()->_perFrameDeletionQueue.push_function([=] {
+    VkDeviceMemory uploadMem = tex_data->UploadBufferMemory;
+    VkBuffer uploadBuf = tex_data->UploadBuffer;
+    VkSampler sampler = tex_data->Sampler;
+    VkImageView imageView = tex_data->ImageView;
+    VkImage image = tex_data->Image;
+    VkDeviceMemory imageMem = tex_data->ImageMemory;
+    VkDescriptorSet ds = tex_data->DS;
+    int texId = tex_data->Id;
+
+    VulkanEngine::GetInstance()->_perFrameDeletionQueue.push_function([=]() {
         auto device = VulkanEngine::GetInstance()->_device;
 
-        vkFreeMemory(device, tex_data->UploadBufferMemory, nullptr);
-        vkDestroyBuffer(device, tex_data->UploadBuffer, nullptr);
-        vkDestroySampler(device, tex_data->Sampler, nullptr);
-        vkDestroyImageView(device, tex_data->ImageView, nullptr);
-        vkDestroyImage(device, tex_data->Image, nullptr);
-        vkFreeMemory(device, tex_data->ImageMemory, nullptr);
+        if (uploadMem != VK_NULL_HANDLE) vkFreeMemory(device, uploadMem, nullptr);
+        if (uploadBuf != VK_NULL_HANDLE) vkDestroyBuffer(device, uploadBuf, nullptr);
+        if (sampler != VK_NULL_HANDLE) vkDestroySampler(device, sampler, nullptr);
+        if (imageView != VK_NULL_HANDLE) vkDestroyImageView(device, imageView, nullptr);
+        if (image != VK_NULL_HANDLE) vkDestroyImage(device, image, nullptr);
+        if (imageMem != VK_NULL_HANDLE) vkFreeMemory(device, imageMem, nullptr);
+        if (ds != VK_NULL_HANDLE) ImGui_ImplVulkan_RemoveTexture(ds);
 
-        ImGui_ImplVulkan_RemoveTexture(tex_data->DS);
-
-        auto it = std::find_if(m_textures.begin(), m_textures.end(), [&](auto& pair) {
-            return pair.second != nullptr && pair.second->Id == tex_data->Id;
-            });
-
+        std::lock_guard<std::mutex> lock(m_textureMutex);
+        auto it = m_textures.find(texId);
         if (it != m_textures.end()) {
             it->second.reset();
         }
-        });
+    });
 }
 
 // This must be called from VulkanEngine!

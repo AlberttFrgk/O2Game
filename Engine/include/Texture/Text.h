@@ -6,6 +6,7 @@
 #include <filesystem>
 
 struct ImVec2;
+struct ImDrawList;
 
 class Text
 {
@@ -36,7 +37,7 @@ private:
     void InternalDraw(std::u8string &text);
 
     int    rotation_start_index;
-    void   ImRotationStart();
-    ImVec2 ImRotationCenter();
-    void   ImRotationEnd(float rad, ImVec2 center);
+    void   ImRotationStart(ImDrawList *draw_list);
+    ImVec2 ImRotationCenter(ImDrawList *draw_list);
+    void   ImRotationEnd(ImDrawList *draw_list, float rad, ImVec2 center);
 };

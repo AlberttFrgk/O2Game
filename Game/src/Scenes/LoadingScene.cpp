@@ -44,17 +44,24 @@ void LoadingScene::Update(double delta)
             std::filesystem::path file;
 
             if (songId != -1 && EnvironmentSetup::GetInt("FileOpen") == 0) {
-                file = GameDatabase::GetInstance()->GetPath();
-                file /= "o2ma" + std::to_string(songId) + ".ojn";
+                auto dbItem = GameDatabase::GetInstance()->Find(songId);
+                if (dbItem.Id != -1 && dbItem.FilePath[0] != '\0' && std::filesystem::exists(dbItem.FilePath)) {
+                    file = dbItem.FilePath;
+                } else {
+                    file = GameDatabase::GetInstance()->GetPath();
+                    file /= "o2ma" + std::to_string(songId) + ".ojn";
+                }
             } else {
                 file = EnvironmentSetup::GetPath("FILE");
                 IsFile = true;
 
-                auto autoplay = EnvironmentSetup::GetInt("ParameterAutoplay");
+                if (EnvironmentSetup::GetInt("ParameterAutoplay") == 1) {
+                    EnvironmentSetup::SetInt("Autoplay", 1);
+                }
                 auto rate = EnvironmentSetup::Get("ParameterRate");
-
-                EnvironmentSetup::SetInt("Autoplay", autoplay);
-                EnvironmentSetup::Set("SongRate", rate);
+                if (!rate.empty()) {
+                    EnvironmentSetup::Set("SongRate", rate);
+                }
 
                 if (EnvironmentSetup::GetInt("FileOpen") == 1) {
                     LoadModifiers();
@@ -141,6 +148,30 @@ void LoadingScene::Update(double delta)
                     m_background->Size = UDim2::fromOffset(window->GetBufferWidth(), window->GetBufferHeight());
                 }
 
+                if (m_background == nullptr && !chart->m_beatmapDirectory.empty() && std::filesystem::exists(chart->m_beatmapDirectory)) {
+                    std::error_code ec;
+                    std::filesystem::path bestImg;
+                    uintmax_t maxSz = 0;
+                    for (const auto &entry : std::filesystem::directory_iterator(chart->m_beatmapDirectory, ec)) {
+                        if (entry.is_regular_file(ec)) {
+                            std::string ext = entry.path().extension().string();
+                            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+                            if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp") {
+                                auto sz = entry.file_size(ec);
+                                if (!ec && sz > maxSz) {
+                                    maxSz = sz;
+                                    bestImg = entry.path();
+                                }
+                            }
+                        }
+                    }
+                    if (maxSz > 0 && !bestImg.empty()) {
+                        m_background = new Texture2D(bestImg.string());
+                        m_background->Size = UDim2::fromOffset(window->GetBufferWidth(), window->GetBufferHeight());
+                        IsFile = true;
+                    }
+                }
+
                 if (m_background == nullptr) {
                     IsFile = true;
                     auto skinPath = SkinManager::GetInstance()->GetPath();
@@ -183,17 +214,12 @@ void LoadingScene::Update(double delta)
 void LoadingScene::LoadModifiers() // For File Opened
 {
     std::string difficultyValue = Configuration::Load("Gameplay", "Difficulty");
-    int setDifficulty = std::stoi(difficultyValue);
-    switch (setDifficulty) {
-    case 0: // EZ
-        EnvironmentSetup::SetInt("Difficulty", 0);
-        break;
-    case 1: // NM
-        EnvironmentSetup::SetInt("Difficulty", 1);
-        break;
-    case 2: // HD
-        EnvironmentSetup::SetInt("Difficulty", 2);
-        break;
+    if (!difficultyValue.empty()) {
+        try {
+            int setDifficulty = std::stoi(difficultyValue);
+            EnvironmentSetup::SetInt("Difficulty", std::clamp(setDifficulty, 0, 2));
+        } catch (...) {
+        }
     }
 
     std::string selectedMods = Configuration::Load("Gameplay", "Modifiers");
@@ -204,7 +230,12 @@ void LoadingScene::LoadModifiers() // For File Opened
     }
 
     std::string arenaValue = Configuration::Load("Gameplay", "Arena");
-    EnvironmentSetup::SetInt("Arena", std::stoi(arenaValue));
+    if (!arenaValue.empty()) {
+        try {
+            EnvironmentSetup::SetInt("Arena", std::stoi(arenaValue));
+        } catch (...) {
+        }
+    }
 }
 
 void LoadingScene::Render(double delta)

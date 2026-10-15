@@ -11,7 +11,7 @@
             "request": "launch",
             "args": [],
             "cwd": "${workspaceFolder}/build/Game",
-            "preLaunchTask": "cmake-gcc-build"
+            "preLaunchTask": "cmake-gcc-build-debug"
         },
         {
             "program": "${workspaceFolder}/build/Game/Game",
@@ -20,7 +20,7 @@
             "request": "launch",
             "args": [],
             "cwd": "${workspaceFolder}/build/Game",
-            "preLaunchTask": "cmake-gcc-build"
+            "preLaunchTask": "cmake-gcc-build-release"
         },
         {
             "program": "${workspaceFolder}/build/Game/Debug/Game.exe",
@@ -30,7 +30,7 @@
             "args": [],
             "cwd": "${workspaceFolder}/build/Game/Debug",
             "console": "integratedTerminal",
-            "preLaunchTask": "cmake-msvc-build"
+            "preLaunchTask": "cmake-msvc-build-debug"
         },
         {
             "program": "${workspaceFolder}/build/Game/Release/Game.exe",
@@ -40,7 +40,7 @@
             "args": [],
             "cwd": "${workspaceFolder}/build/Game/Release",
             "console": "integratedTerminal",
-            "preLaunchTask": "cmake-msvc-build"
+            "preLaunchTask": "cmake-msvc-build-release"
         }
     ]
 }

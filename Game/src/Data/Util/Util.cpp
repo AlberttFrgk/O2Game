@@ -176,3 +176,64 @@ std::u8string CodepageToUtf8(const char* string, size_t str_len, const char* enc
     iconv_close(conv);
     return result;
 }
+
+bool IsValidUtf8(const std::string &str)
+{
+    int bytesToFollow = 0;
+    for (unsigned char c : str) {
+        if (bytesToFollow == 0) {
+            if (c <= 0x7F) {
+                continue;
+            } else if ((c & 0xE0) == 0xC0) {
+                if (c < 0xC2) return false;
+                bytesToFollow = 1;
+            } else if ((c & 0xF0) == 0xE0) {
+                bytesToFollow = 2;
+            } else if ((c & 0xF8) == 0xF0) {
+                if (c > 0xF4) return false;
+                bytesToFollow = 3;
+            } else {
+                return false;
+            }
+        } else {
+            if ((c & 0xC0) != 0x80) return false;
+            bytesToFollow--;
+        }
+    }
+    return bytesToFollow == 0;
+}
+
+std::u8string EnsureUtf8(const char* str, size_t maxLen)
+{
+    if (!str) return u8"";
+    size_t len = (maxLen > 0) ? strnlen(str, maxLen) : strlen(str);
+    if (len == 0) return u8"";
+
+    std::string s(str, len);
+    if (IsValidUtf8(s)) {
+        return std::u8string((const char8_t*)str, len);
+    }
+
+    std::u8string u8 = CodepageToUtf8(str, len, "euc-kr");
+    if (u8 != u8"<encoding error>" && !u8.empty()) {
+        return u8;
+    }
+
+    u8 = CodepageToUtf8(str, len, "CP949");
+    if (u8 != u8"<encoding error>" && !u8.empty()) {
+        return u8;
+    }
+
+    u8 = CodepageToUtf8(str, len, "CP932");
+    if (u8 != u8"<encoding error>" && !u8.empty()) {
+        return u8;
+    }
+
+    return std::u8string((const char8_t*)str, len);
+}
+
+std::string EnsureUtf8(const std::string &str)
+{
+    std::u8string u8 = EnsureUtf8(str.data(), str.size());
+    return std::string((const char*)u8.data(), u8.size());
+}

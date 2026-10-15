@@ -100,5 +100,16 @@
         "stack": "cpp",
         "unordered_set": "cpp"
     },
-    "C_Cpp.default.compilerPath": "cl.exe"
+    "C_Cpp.default.compilerPath": "cl.exe",
+    "cmake.configurePreset": "x64-windows",
+    "cmake.buildPreset": "x64-windows",
+    "cmake.defaultConfiguration": "Release",
+    "cmake.buildArgs": [
+        "--config",
+        "Release"
+    ],
+    "cmake.buildConfigArgs": [
+        "--config",
+        "Release"
+    ]
 }

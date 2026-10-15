@@ -83,10 +83,10 @@ void GameplayScene::Update(double delta)
 
 	if (m_starting && m_game->GetState() == GameState::NotGame) {
 		lifeFillDuration += delta;
-		if (lifeFillDuration > 1.60 && EnvironmentSetup::GetInt("FillStart") == 1) {
+		if (lifeFillDuration >= 1.50 && EnvironmentSetup::GetInt("FillStart") == 1) {
 			EnvironmentSetup::SetInt("FillStart", 0);
 		}
-		if (lifeFillDuration > 1.60) {
+		if (lifeFillDuration >= 1.50) {
 			m_game->Start();
 		}
 	}
@@ -98,26 +98,43 @@ void GameplayScene::Update(double delta)
 		if (m_counter > 2.0) {
 			m_ended = true;
 			m_counter = 0.0; // Reset
+			SaveScore();
 			SceneManager::DisplayFade(100, [] { SceneManager::ChangeScene(GameScene::RESULT); });
 		}
 	}
 
 	if (m_game->GetState() == GameState::Fail && !m_ended) {
+		if (m_failPositionMs < 0.0 && m_game) {
+			m_failPositionMs = m_game->GetGameAudioPosition();
+		}
 		m_ended = true;
 		m_counter = 0.0; // Reset
+		SaveScore();
 		SceneManager::DisplayFade(100, [] { SceneManager::ChangeScene(GameScene::RESULT); });
 	}
 
 	int	  difficulty = EnvironmentSetup::GetInt("Difficulty");
 	float health = m_game->GetScoreManager()->GetLife();
+	if (m_starting && m_game) {
+		float audioPos = (float)m_game->GetGameAudioPosition();
+		if (m_healthRecords.empty() || (audioPos - m_healthRecords.back().TimeMs) >= 50.0f) {
+			m_healthRecords.push_back({ audioPos, health });
+		}
+	}
 	if (difficulty >= 1 && m_starting) {
 		if (health <= 0) {
+			if (m_failPositionMs < 0.0 && m_game) {
+				m_failPositionMs = m_game->GetGameAudioPosition();
+			}
 			m_game->Fail();
 			EnvironmentSetup::SetInt("NowPlaying", 0);
 			EnvironmentSetup::SetInt("Failed", 1);
 		}
 	} else {
 		if (health <= 0) {
+			if (m_failPositionMs < 0.0 && m_game) {
+				m_failPositionMs = m_game->GetGameAudioPosition();
+			}
 			EnvironmentSetup::SetInt("Failed", 1);
 		}
 	}
@@ -132,8 +149,12 @@ void GameplayScene::Update(double delta)
 			if (m_game->GetState() == GameState::PosGame) {
 				EnvironmentSetup::SetInt("Failed", 0);
 			} else {
+				if (m_failPositionMs < 0.0 && m_game) {
+					m_failPositionMs = m_game->GetGameAudioPosition();
+				}
 				EnvironmentSetup::SetInt("Failed", 1);
 			}
+			SaveScore();
 			SceneManager::DisplayFade(100, [] { SceneManager::ChangeScene(GameScene::RESULT); });
 		} else {
 			SceneManager::DisplayFade(100, [] { SceneManager::ChangeScene(GameScene::SONGSELECT); });
@@ -159,7 +180,14 @@ void GameplayScene::Render(double delta)
 	bool   hasActiveVisuals = isGameActive && (m_videoPlayer && m_videoPlayer->IsValid());
 
 	if (!hasActiveVisuals) {
-		if (EnvironmentSetup::GetInt("Background") == 1) {
+		bool useSongBG = EnvironmentSetup::GetInt("Song Background") == 1 ||
+		                 EnvironmentSetup::GetInt("Song BG") == 1 ||
+		                 EnvironmentSetup::GetInt("Background") == 1;
+		bool blackBG = EnvironmentSetup::GetInt("Black Background") == 1 ||
+		               EnvironmentSetup::GetInt("Black BG") == 1 ||
+		               EnvironmentSetup::GetInt("Background") == 2;
+
+		if (useSongBG) {
 			auto songBG = (Texture2D *)EnvironmentSetup::GetObj("SongBackground");
 			if (songBG) {
 				int dim = EnvironmentSetup::GetInt("BackgroundDim");
@@ -170,8 +198,10 @@ void GameplayScene::Render(double delta)
 				int colorVal = (int)(255.0f * (100.0f - dim) / 100.0f);
 				songBG->TintColor = Color3::FromRGB(colorVal, colorVal, colorVal);
 				songBG->Draw();
+			} else if (m_PlayBG) {
+				m_PlayBG->Draw();
 			}
-		} else if (EnvironmentSetup::GetInt("Background") == 2) {
+		} else if (blackBG) {
 			// Do nothing
 		} else {
 			if (m_PlayBG) {
@@ -190,7 +220,7 @@ void GameplayScene::Render(double delta)
 	if (m_PlayFooter)
 		m_PlayFooter->Draw();
 
-	if (m_targetBar && lifeFillDuration > 1.60) {
+	if (m_targetBar && lifeFillDuration >= 1.50) {
 		int maxFrames = m_targetBar->GetFrameCount();
 		if (maxFrames > 0) {
 			double bpm = m_game->GetCurrentBPM();
@@ -248,7 +278,7 @@ void GameplayScene::Render(double delta)
 		m_pills[i]->Draw();
 	}
 
-	if (m_lifeBar && lifeFillDuration > 1.60) {
+	if (m_lifeBar && lifeFillDuration >= 1.50) {
 		int maxFrames = m_lifeBar->GetFrameCount();
 		if (maxFrames > 0) {
 			double bpm = m_game->GetCurrentBPM();
@@ -258,7 +288,7 @@ void GameplayScene::Render(double delta)
 		}
 	}
 
-	bool fillstart = EnvironmentSetup::GetInt("FillStart") == 1;
+	bool fillstart = EnvironmentSetup::GetInt("FillStart") == 1 && lifeFillDuration < 1.50;
 
 	if (fillstart) {
 		float progress = 0.0f;
@@ -318,24 +348,33 @@ void GameplayScene::Render(double delta)
 		m_lifeBar->Draw(delta, &rc);
 	}
 
+	constexpr double kJudgeScaleDuration = 0.12083333;
+	constexpr double kJudgeHoldDuration = 0.750;
+	constexpr double kJudgeTotalDuration = kJudgeScaleDuration + kJudgeHoldDuration;
+
 	if (m_drawJudge) {
+		m_judgeTimer += delta;
+		if (m_judgeTimer < kJudgeScaleDuration) {
+			float progress = static_cast<float>(std::clamp(m_judgeTimer / kJudgeScaleDuration, 0.0, 1.0));
+			m_judgeSize = 0.5f + (0.5f * progress);
+		} else {
+			m_judgeSize = 1.0f;
+		}
+
 		if (m_judgementSprite.find(m_judgeIndex) != m_judgementSprite.end() && m_judgementSprite[m_judgeIndex] != nullptr) {
+			m_judgementSprite[m_judgeIndex]->Size =
+				UDim2::fromScale(m_judgeSize, m_judgeSize);
 			m_judgementSprite[m_judgeIndex]->AnchorPoint = { 0.5, 0.5 };
 			m_judgementSprite[m_judgeIndex]->DrawOnce(delta);
-
-			if ((m_judgeTimer += delta) > 0.60) {
-				m_drawJudge = false;
-			}
 		} else if (m_judgement[m_judgeIndex] != nullptr) {
 			m_judgement[m_judgeIndex]->Size =
 				UDim2::fromScale(m_judgeSize, m_judgeSize);
 			m_judgement[m_judgeIndex]->AnchorPoint = { 0.5, 0.5 };
 			m_judgement[m_judgeIndex]->Draw();
+		}
 
-			m_judgeSize = std::clamp(m_judgeSize + (delta * 6), 0.4, 1.0); // Nice
-			if ((m_judgeTimer += delta) > 0.60) {
-				m_drawJudge = false;
-			}
+		if (m_judgeTimer >= kJudgeTotalDuration) {
+			m_drawJudge = false;
 		}
 	}
 
@@ -350,54 +389,60 @@ void GameplayScene::Render(double delta)
 		}
 	}
 
-	if (m_drawCombo &&
-		std::get<7>(scores) > 0) { // O2Jam Replication by Albert Frengki!
-		const double positionStart = 30.0;
+	constexpr double kComboMoveDuration = 0.06;
+	constexpr double kComboDelayDuration = 1.000;
+	constexpr double kComboTotalDuration = kComboMoveDuration + kComboDelayDuration;
+	constexpr double kComboStartOffsetY = 30.0;
 
-		// Animate over 0.10 seconds
-		double t = std::clamp(m_comboTimer / 0.10, 0.0, 1.0);
+	int combo = std::get<7>(scores);
+	if (combo <= 0) {
+		m_drawCombo = false;
+		m_comboTimer = 0.0;
+	}
 
-		// Ease-Out Cubic curve for a fast, clean stop without bouncing
-		double t_m_1 = t - 1.0;
-		double easeOut = 1.0 + (t_m_1 * t_m_1 * t_m_1);
-
-		double currentPosition = positionStart * (1.0 - easeOut);
+	if (m_drawCombo && combo > 0) {
+		double currentPosition = 0.0;
+		if (m_comboTimer < kComboMoveDuration) {
+			double t = std::clamp(m_comboTimer / kComboMoveDuration, 0.0, 1.0);
+			currentPosition = kComboStartOffsetY * (1.0 - t);
+		}
 
 		m_comboLogo->Position2 = UDim2::fromOffset(0, currentPosition / 3.0);
 		m_comboNum->Position2 = UDim2::fromOffset(0, currentPosition);
 
 		m_comboLogo->Draw(delta);
-		m_comboNum->DrawNumber(std::get<7>(scores));
+		m_comboNum->DrawNumber(combo);
 
 		m_comboTimer += delta;
 
-		if (m_comboTimer >= 1.0) {
+		if (m_comboTimer >= kComboTotalDuration) {
 			m_comboTimer = 0.0;
 			m_drawCombo = false;
 		}
 	}
 
-	if (m_drawLN && std::get<9>(scores) > 0) {
-		const double positionStart = 5.0;
+	int lnCombo = std::get<9>(scores);
+	if (lnCombo <= 0) {
+		m_drawLN = false;
+		m_lnTimer = 0.0;
+	}
 
-		// Animate over 0.10 seconds
-		double t = std::clamp(m_lnTimer / 0.10, 0.0, 1.0);
-
-		// Ease-Out Cubic curve for a fast, clean stop without bouncing
-		double t_m_1 = t - 1.0;
-		double easeOut = 1.0 + (t_m_1 * t_m_1 * t_m_1);
-
-		double currentPosition = positionStart * (1.0 - easeOut);
+	if (m_drawLN && lnCombo > 0) {
+		double currentPosition = 0.0;
+		if (m_lnTimer < kComboMoveDuration) {
+			double t = std::clamp(m_lnTimer / kComboMoveDuration, 0.0, 1.0);
+			currentPosition = (kComboStartOffsetY / 5.0) * (1.0 - t);
+		}
 
 		m_lnLogo->Position2 = UDim2::fromOffset(0, currentPosition);
 		m_lnLogo->Draw(delta);
 
 		m_lnComboNum->Position2 = UDim2::fromOffset(0, currentPosition);
-		m_lnComboNum->DrawNumber(std::get<9>(scores));
+		m_lnComboNum->DrawNumber(lnCombo);
 
 		m_lnTimer += delta;
 
-		if (m_lnTimer > 1.0) {
+		if (m_lnTimer >= kComboTotalDuration) {
 			m_lnTimer = 0.0;
 			m_drawLN = false;
 		}
@@ -415,8 +460,7 @@ void GameplayScene::Render(double delta)
 				std::lerp(0.0, m_jamGauge->AbsoluteSize.Y, (double)gaugeVal));
 			Rect rc = {
 				(int)m_jamGauge->AbsolutePosition.X,
-				(int)(m_jamGauge->AbsolutePosition.Y + m_jamGauge->AbsoluteSize.Y -
-					  lerp),
+				(int)(m_jamGauge->AbsolutePosition.Y + m_jamGauge->AbsoluteSize.Y - lerp),
 				(int)(m_jamGauge->AbsolutePosition.X + m_jamGauge->AbsoluteSize.X),
 				(int)(m_jamGauge->AbsolutePosition.Y + m_jamGauge->AbsoluteSize.Y)
 			};
@@ -462,7 +506,13 @@ void GameplayScene::Render(double delta)
 	int currentMinutes = m_lastPlayTime / 60;
 	int currentSeconds = m_lastPlayTime % 60;
 
+	int minuteDigits = (currentMinutes >= 10) ? (int)std::to_string(currentMinutes).length() : 1;
+	m_minuteNum->MaxDigits = minuteDigits;
+	m_minuteNum->FillWithZeros = false;
 	m_minuteNum->DrawNumber(currentMinutes);
+
+	m_secondNum->MaxDigits = 2;
+	m_secondNum->FillWithZeros = true;
 	m_secondNum->DrawNumber(currentSeconds);
 
 	for (int i = 0; i < m_keyCount; i++) {
@@ -558,6 +608,24 @@ bool GameplayScene::Attach()
 	m_drawJudge = false;
 	lifeFillDuration = 0.0;
 	m_autoPlay = EnvironmentSetup::GetInt("Autoplay") == 1;
+	m_scoreSaved = false;
+	m_failPositionMs = -1.0;
+	m_hitOffsets.clear();
+	m_hitRecords.clear();
+	m_healthRecords.clear();
+
+	EnvironmentSetup::SetInt("Score", 0);
+	EnvironmentSetup::SetInt("Cool", 0);
+	EnvironmentSetup::SetInt("Good", 0);
+	EnvironmentSetup::SetInt("Bad", 0);
+	EnvironmentSetup::SetInt("Miss", 0);
+	EnvironmentSetup::SetInt("JamCombo", 0);
+	EnvironmentSetup::SetInt("MaxJamCombo", 0);
+	EnvironmentSetup::SetInt("Combo", 0);
+	EnvironmentSetup::SetInt("MaxCombo", 0);
+	EnvironmentSetup::SetInt("LNCombo", 0);
+	EnvironmentSetup::SetInt("LNMaxCombo", 0);
+	EnvironmentSetup::SetInt("Failed", 0);
 
 	try {
 		auto manager = SkinManager::GetInstance();
@@ -637,14 +705,12 @@ bool GameplayScene::Attach()
 		}
 
 		m_title = std::make_unique<Text>(13);
-		auto TitlePos = manager->GetPosition(SkinGroup::Playing,
-											 "Title"); // conf.GetPosition("Title");
+		auto TitlePos = manager->GetPosition(SkinGroup::Playing, "Title"); // conf.GetPosition("Title");
 		auto RectPos =
 			manager->GetRect(SkinGroup::Playing, "Title"); // conf.GetRect("Title");
 		m_title->Position = UDim2::fromOffset(TitlePos[0].X, TitlePos[0].Y);
 		m_title->AnchorPoint = { TitlePos[0].AnchorPointX, TitlePos[0].AnchorPointY };
-		m_title->Clip = { RectPos[0].X, RectPos[0].Y, RectPos[0].Width,
-						  RectPos[0].Height };
+		m_title->Clip = { RectPos[0].X, RectPos[0].Y, RectPos[0].Width, RectPos[0].Height };
 
 		m_autoText = std::make_unique<Text>(12);
 		m_autoTextSize = m_autoText->CalculateSize(AUTOPLAY_TEXT);
@@ -660,11 +726,10 @@ bool GameplayScene::Attach()
 		m_gameInfo = std::make_unique<Text>(8);
 		m_gameInfoSize = m_gameInfo->CalculateSize(GAMEINFO_TEXT);
 		m_gameInfoPos =
-			UDim2::fromOffset(/*GameWindow::GetInstance()->GetBufferWidth()*/ 0,
-							  GameWindow::GetInstance()->GetBufferHeight() - 10);
+			UDim2::fromOffset(/*GameWindow::GetInstance()->GetBufferWidth()*/ 0, GameWindow::GetInstance()->GetBufferHeight() - 10);
 
 		std::filesystem::path playBgPath = arenaPath / "PlayingBG.png";
-		bool				  hasBg = true;
+		bool hasBg = true;
 		if (!std::filesystem::exists(playBgPath)) {
 			Chart *chartCheck = (Chart *)EnvironmentSetup::GetObj("SONG");
 			if (chartCheck && !chartCheck->m_backgroundFile.empty()) {
@@ -812,12 +877,10 @@ bool GameplayScene::Attach()
 
 		auto playfieldPos = manager->GetPosition(SkinGroup::Playing, "Playfield");
 		m_Playfield = std::make_unique<Texture2D>(playingPath / (playfieldImg + ".png"));
-		m_Playfield->Position =
-			UDim2::fromOffset(playfieldPos[0].X, playfieldPos[0].Y);
-		m_Playfield->AnchorPoint = { playfieldPos[0].AnchorPointX,
-									 playfieldPos[0].AnchorPointY };
+		m_Playfield->Position = UDim2::fromOffset(playfieldPos[0].X, playfieldPos[0].Y);
+		m_Playfield->AnchorPoint = { playfieldPos[0].AnchorPointX, playfieldPos[0].AnchorPointY };
 
-		std::string		  imageFlipStr = manager->GetImageMapping(SkinGroup::Playing, "ImageFlip");
+		std::string imageFlipStr = manager->GetImageMapping(SkinGroup::Playing, "ImageFlip");
 		std::vector<bool> imageFlip;
 		if (!imageFlipStr.empty()) {
 			auto splits = splitString(imageFlipStr, '|');
@@ -861,8 +924,7 @@ bool GameplayScene::Attach()
 				keyMap = { "1", "2", "1", "S", "1", "2", "1" };
 				break;
 			default:
-				for (int i = 0; i < m_keyCount; i++)
-					keyMap.push_back("1");
+				for (int i = 0; i < m_keyCount; i++) keyMap.push_back("1");
 				break;
 		}
 
@@ -892,21 +954,21 @@ bool GameplayScene::Attach()
 			if (std::filesystem::exists(playingPath / (btnBase + "-0.png"))) {
 				int frame = 0;
 				while (std::filesystem::exists(playingPath / (btnBase + "-" + std::to_string(frame) + ".png"))) {
-					btnPaths.push_back(playingPath / (btnBase + "-" + std::to_string(frame) + ".png"));
+					btnPaths.emplace_back(playingPath / (btnBase + "-" + std::to_string(frame) + ".png"));
 					frame++;
 				}
 			} else {
-				btnPaths.push_back(playingPath / (btnBase + ".png"));
+				btnPaths.emplace_back(playingPath / (btnBase + ".png"));
 			}
 
 			if (std::filesystem::exists(playingPath / (dwnBase + "-0.png"))) {
 				int frame = 0;
 				while (std::filesystem::exists(playingPath / (dwnBase + "-" + std::to_string(frame) + ".png"))) {
-					dwnPaths.push_back(playingPath / (dwnBase + "-" + std::to_string(frame) + ".png"));
+					dwnPaths.emplace_back(playingPath / (dwnBase + "-" + std::to_string(frame) + ".png"));
 					frame++;
 				}
 			} else if (std::filesystem::exists(playingPath / (dwnBase + ".png"))) {
-				dwnPaths.push_back(playingPath / (dwnBase + ".png"));
+				dwnPaths.emplace_back(playingPath / (dwnBase + ".png"));
 			} else {
 				dwnPaths = btnPaths; // Fallback to KeyButton if KeyDown doesn't exist
 			}
@@ -914,11 +976,11 @@ bool GameplayScene::Attach()
 			if (std::filesystem::exists(playingPath / (lgtBase + "-0.png"))) {
 				int frame = 0;
 				while (std::filesystem::exists(playingPath / (lgtBase + "-" + std::to_string(frame) + ".png"))) {
-					lgtPaths.push_back(playingPath / (lgtBase + "-" + std::to_string(frame) + ".png"));
+					lgtPaths.emplace_back(playingPath / (lgtBase + "-" + std::to_string(frame) + ".png"));
 					frame++;
 				}
 			} else {
-				lgtPaths.push_back(playingPath / (lgtBase + ".png"));
+				lgtPaths.emplace_back(playingPath / (lgtBase + ".png"));
 			}
 
 			m_keyButtons[i] = std::make_unique<Sprite2D>(btnPaths, 0.016f);
@@ -1110,9 +1172,9 @@ bool GameplayScene::Attach()
 					   std::filesystem::exists(filePathBase.string() + "-" + std::to_string(frame) + ".png")) {
 
 					if (std::filesystem::exists(filePathBase.string() + std::to_string(frame) + ".png")) {
-						animPaths.push_back(filePathBase.string() + std::to_string(frame) + ".png");
+						animPaths.emplace_back(filePathBase.string() + std::to_string(frame) + ".png");
 					} else {
-						animPaths.push_back(filePathBase.string() + "-" + std::to_string(frame) + ".png");
+						animPaths.emplace_back(filePathBase.string() + "-" + std::to_string(frame) + ".png");
 					}
 					frame++;
 				}
@@ -1466,15 +1528,15 @@ bool GameplayScene::Attach()
 			SkinGroup::Playing, "Minute"); // conf.GetNumeric("Minute");
 		m_minuteNum->NumberPosition = IntToPos(minutePos[0].Direction);
 		m_minuteNum->MaxDigits = minutePos[0].MaxDigit;
-		m_minuteNum->FillWithZeros = minutePos[0].FillWithZero;
+		m_minuteNum->FillWithZeros = false;
 		m_minuteNum->Position = UDim2::fromOffset(minutePos[0].X, minutePos[0].Y);
 
 		m_secondNum = std::make_unique<NumericTexture>(numTimerPaths);
 		auto secondPos = manager->GetNumeric(
 			SkinGroup::Playing, "Second"); // conf.GetNumeric("Second");
 		m_secondNum->NumberPosition = IntToPos(secondPos[0].Direction);
-		m_secondNum->MaxDigits = secondPos[0].MaxDigit;
-		m_secondNum->FillWithZeros = secondPos[0].FillWithZero;
+		m_secondNum->MaxDigits = 2;
+		m_secondNum->FillWithZeros = true;
 		m_secondNum->Position = UDim2::fromOffset(secondPos[0].X, secondPos[0].Y);
 
 		auto pillsPosition = manager->GetPosition(
@@ -1596,9 +1658,22 @@ bool GameplayScene::Attach()
 			keyName = std::to_string(chart->m_keyCount) + "_" + keyName;
 		}
 
+		static const std::unordered_map<int, std::vector<std::string>> defaultKeybinds = {
+			{ 4, { "A", "S", "K", "L" } },
+			{ 5, { "A", "S", "Space", "K", "L" } },
+			{ 6, { "A", "S", "F", "J", "K", "L" } },
+			{ 7, { "A", "S", "D", "Space", "J", "K", "L" } },
+		};
+
 		for (int i = 0; i < chart->m_keyCount; i++) {
 			auto value =
 				Configuration::Load("KeyMapping", keyName + std::to_string(i + 1));
+			if (value.empty()) {
+				auto it = defaultKeybinds.find(chart->m_keyCount);
+				if (it != defaultKeybinds.end() && i < it->second.size()) {
+					value = it->second[i];
+				}
+			}
 			auto key = static_cast<Keys>(SDL_GetScancodeFromName(value.c_str()));
 			if (key == Keys::INVALID_KEY) {
 				throw std::runtime_error(
@@ -1768,8 +1843,7 @@ bool GameplayScene::Attach()
 		bool VisualModEnabled =
 			IsHD || IsFL || IsSD; // Check if any of the VisualMods are active (Hidden or Flashlight)
 		bool NoteModEnabled =
-			IsMR || IsRD ||
-			IsPC; // Check if any of the NoteMods are active (Mirror or Random)
+			IsMR || IsRD || IsPC; // Check if any of the NoteMods are active (Mirror or Random)
 
 		if (VisualModEnabled) { // Draw VisualMods (Hidden, Flashlight, and Sudden)
 			if (IsHD) {
@@ -1907,7 +1981,7 @@ bool GameplayScene::Attach()
 		auto OnHitEvent = [&](NoteHitInfo info) {
 			m_scoreTimer = 0;
 			m_judgeTimer = 0;
-			m_judgeSize = 0.6;
+			m_judgeSize = 0.5f;
 
 			m_drawCombo = true;
 			m_drawJudge = true;
@@ -1918,6 +1992,21 @@ bool GameplayScene::Attach()
 
 			if (m_judgementSprite.find(m_judgeIndex) != m_judgementSprite.end() && m_judgementSprite[m_judgeIndex] != nullptr) {
 				m_judgementSprite[m_judgeIndex]->Reset();
+			}
+
+			if (!info.Ignore) {
+				float audioPos = m_game ? (float)m_game->GetGameAudioPosition() : 0.0f;
+				float offset = (float)info.Overshoot;
+				int resType = 0;
+				if (info.Result == NoteResult::COOL) resType = 0;
+				else if (info.Result == NoteResult::GOOD) resType = 1;
+				else if (info.Result == NoteResult::BAD) resType = 2;
+				else resType = 3;
+
+				m_hitRecords.push_back({ audioPos, offset, resType });
+				if (info.Result != NoteResult::MISS) {
+					m_hitOffsets.push_back(offset);
+				}
 			}
 		};
 
@@ -1999,6 +2088,28 @@ bool GameplayScene::Detach()
 	m_minuteNum.reset();
 	m_secondNum.reset();
 
+	SaveScore();
+
+	m_game.reset();
+	m_title.reset();
+	m_exitButtonFunc.reset();
+
+	auto songBG = (Texture2D *)EnvironmentSetup::GetObj("SongBackground");
+	if (songBG) {
+		songBG->TintColor = Color3::FromRGB(255, 255, 255);
+	}
+
+	SceneManager::GetInstance()->SetFrameLimitMode(FrameLimitMode::MENU);
+	return true;
+}
+
+void GameplayScene::SaveScore()
+{
+	if (m_scoreSaved) {
+		return;
+	}
+	m_scoreSaved = true;
+
 	if (m_game) {
 		auto manager = m_game->GetScoreManager();
 		if (manager) {
@@ -2018,17 +2129,55 @@ bool GameplayScene::Detach()
 		}
 	}
 
-	m_game.reset();
-	m_title.reset();
-	m_exitButtonFunc.reset();
-
-	auto songBG = (Texture2D *)EnvironmentSetup::GetObj("SongBackground");
-	if (songBG) {
-		songBG->TintColor = Color3::FromRGB(255, 255, 255);
+	double audioLen = m_game ? m_game->GetAudioLength() : 0.0;
+	if (audioLen <= 0.0) {
+		Chart* songChart = (Chart*)EnvironmentSetup::GetObj("SONG");
+		if (songChart) {
+			audioLen = (double)songChart->GetLength();
+		}
 	}
 
-	SceneManager::GetInstance()->SetFrameLimitMode(FrameLimitMode::MENU);
-	return true;
+	bool isFailed = EnvironmentSetup::GetInt("Failed") == 1;
+	double failPos = (m_failPositionMs >= 0.0) ? m_failPositionMs : (m_game ? m_game->GetGameAudioPosition() : 0.0);
+	if (failPos < 0.0) {
+		failPos = 0.0;
+	}
+
+	double progress = 1.0;
+	if (isFailed) {
+		if (audioLen > 0.0) {
+			progress = std::clamp(failPos / audioLen, 0.0, 1.0);
+		} else {
+			progress = 0.0;
+		}
+	} else {
+		progress = 1.0;
+		failPos = audioLen;
+	}
+
+	auto* oldOffsets = (std::vector<float>*)EnvironmentSetup::GetObj("HitOffsets");
+	if (oldOffsets) delete oldOffsets;
+	EnvironmentSetup::SetObj("HitOffsets", new std::vector<float>(m_hitOffsets));
+
+	auto* oldRecords = (std::vector<HitRecord>*)EnvironmentSetup::GetObj("HitRecords");
+	if (oldRecords) delete oldRecords;
+	EnvironmentSetup::SetObj("HitRecords", new std::vector<HitRecord>(m_hitRecords));
+
+	auto* oldHealth = (std::vector<HealthRecord>*)EnvironmentSetup::GetObj("HealthRecords");
+	if (oldHealth) delete oldHealth;
+	EnvironmentSetup::SetObj("HealthRecords", new std::vector<HealthRecord>(m_healthRecords));
+
+	auto* oldLen = (double*)EnvironmentSetup::GetObj("SongAudioLength");
+	if (oldLen) delete oldLen;
+	EnvironmentSetup::SetObj("SongAudioLength", new double(audioLen));
+
+	auto* oldPos = (double*)EnvironmentSetup::GetObj("SongAudioPosition");
+	if (oldPos) delete oldPos;
+	EnvironmentSetup::SetObj("SongAudioPosition", new double(failPos));
+
+	auto* oldProg = (double*)EnvironmentSetup::GetObj("SongProgress");
+	if (oldProg) delete oldProg;
+	EnvironmentSetup::SetObj("SongProgress", new double(progress));
 }
 
 void *GameplayScene::CreateScreenshotWin32() { return nullptr; }

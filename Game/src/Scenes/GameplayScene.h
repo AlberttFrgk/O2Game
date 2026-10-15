@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include "Scene.h"
+#include "ResultScene.h"
 #include "Texture/NumericTexture.h"
 #include "Texture/Sprite2D.h"
 #include "Texture/Text.h"
@@ -89,7 +90,10 @@ private:
     bool m_resourceFucked;
     bool m_starting;
     bool m_ended;
+    bool m_scoreSaved = false;
     int  m_judgeIndex;
+
+    void SaveScore();
 
     /* Scoring */
     bool m_drawJam;
@@ -106,6 +110,7 @@ private:
     double m_lnTimer;
     double m_counter;
     int    m_lastPlayTime = 0;
+    double m_failPositionMs = -1.0;
 
     /* other stuff */
     std::unique_ptr<VideoPlayer> m_videoPlayer;
@@ -130,4 +135,8 @@ private:
     /* game info */
     int m_gameInfoSize;
     UDim2 m_gameInfoPos;
+
+    std::vector<float> m_hitOffsets;
+    std::vector<HitRecord> m_hitRecords;
+    std::vector<HealthRecord> m_healthRecords;
 };

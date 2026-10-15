@@ -11,6 +11,7 @@ enum class RendererMode {
     OPENGL,    // 0
     VULKAN,    // 1
     DIRECTX,   // 2
+    DIRECTX11, // 3
     DIRECTX12, // 4
     METAL,     // 5
 };
@@ -30,6 +31,8 @@ public:
     bool EndRender();
 
     void ResetImGui();
+
+    void SetVSync(bool enabled);
 
     SDL_Renderer *GetSDLRenderer();
     SDL_BlendMode GetSDLBlendMode();

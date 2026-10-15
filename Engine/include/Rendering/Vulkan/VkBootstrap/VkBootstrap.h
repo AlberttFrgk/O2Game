@@ -75,11 +75,15 @@ template <typename T> class Result {
 			m_error = expected.m_error;
 	}
 	Result& operator=(Result const& result) noexcept {
-		m_init = result.m_init;
-		if (m_init)
-			new (&m_value) T{ result.m_value };
-		else
-			m_error = result.m_error;
+		if (this != &result) {
+			destroy();
+			m_init = result.m_init;
+			if (m_init)
+				new (&m_value) T{ result.m_value };
+			else
+				m_error = result.m_error;
+		}
+		return *this;
 	}
 	Result(Result&& expected) noexcept : m_init(expected.m_init) {
 		if (m_init)
@@ -89,11 +93,17 @@ template <typename T> class Result {
 		expected.destroy();
 	}
 	Result& operator=(Result&& result) noexcept {
-		m_init = result.m_init;
-		if (m_init)
-			new (&m_value) T{ std::move(result.m_value) };
-		else
-			m_error = std::move(result.m_error);
+		if (this != &result) {
+			destroy();
+			m_init = result.m_init;
+			if (m_init)
+				new (&m_value) T{ std::move(result.m_value) };
+			else
+				m_error = std::move(result.m_error);
+			result.destroy();
+			result.m_init = false;
+		}
+		return *this;
 	}
 	Result& operator=(const T& expect) noexcept {
 		destroy();

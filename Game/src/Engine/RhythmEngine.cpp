@@ -233,7 +233,7 @@ bool RhythmEngine::Load(Chart *chart) {
     m_title = chart->m_title;
     std::string titleStr =
         std::string(chart->m_title.begin(), chart->m_title.end());
-    std::snprintf(buffer, MAX_BUFFER_TXT_SIZE, "%d %s", chart->m_level,
+    std::snprintf(buffer, MAX_BUFFER_TXT_SIZE, "Lv.%d %s", chart->m_level,
                   titleStr.c_str());
   }
 

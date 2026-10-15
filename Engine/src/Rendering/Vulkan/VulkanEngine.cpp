@@ -34,7 +34,7 @@ using namespace std;
 #define VK_CHECK(x)                                                          \
     do {                                                                     \
         VkResult err = x;                                                    \
-        if (err) {                                                           \
+        if (err < 0) {                                                       \
             _DEBUGBREAK_WIN32                                                \
             throw std::runtime_error("VulkanError: " + std::to_string(err)); \
         }                                                                    \
@@ -78,9 +78,13 @@ void VulkanEngine::init(SDL_Window *window, int width, int height)
     _windowExtent.height = height;
 
     init_vulkan();
-    init_swapchain();
+    if (!init_swapchain()) {
+        throw std::runtime_error("Failed to initialize Vulkan swapchain");
+    }
     init_default_renderpass();
-    init_framebuffers();
+    if (!init_framebuffers()) {
+        throw std::runtime_error("Failed to initialize Vulkan framebuffers");
+    }
     init_commands();
     init_sync_structures();
     init_descriptors();
@@ -88,6 +92,7 @@ void VulkanEngine::init(SDL_Window *window, int width, int height)
     init_pipeline();
     imgui_init();
 
+    _swapChainOutdated = false;
     _isInitialized = true;
 }
 void VulkanEngine::cleanup()
@@ -100,17 +105,31 @@ void VulkanEngine::cleanup()
         _swapChainQueue.flush();
         _mainDeletionQueue.flush();
 
-        for (int i = 0; i < _swapchainImageViews.size(); i++) {
-            vkDestroyImageView(_device, _swapchainImageViews[i], nullptr);
+        _swapchainData.destroy_image_views(_swapchainImageViews);
+        _swapchainImageViews.clear();
+
+        vkb::destroy_swapchain(_swapchainData);
+        _swapchain = VK_NULL_HANDLE;
+        _swapchainData.swapchain = VK_NULL_HANDLE;
+        if (_surface != VK_NULL_HANDLE) {
+            vkDestroySurfaceKHR(_instance, _surface, nullptr);
+            _surface = VK_NULL_HANDLE;
         }
 
-        // vkb::destroy_swapchain(_swapchainData);
-        vkDestroySwapchainKHR(_device, _swapchain, nullptr);
-        vkDestroySurfaceKHR(_instance, _surface, nullptr);
+        if (_device != VK_NULL_HANDLE) {
+            vkDestroyDevice(_device, nullptr);
+            _device = VK_NULL_HANDLE;
+        }
+        if (_debug_messenger != VK_NULL_HANDLE) {
+            vkb::destroy_debug_utils_messenger(_instance, _debug_messenger);
+            _debug_messenger = VK_NULL_HANDLE;
+        }
+        if (_instance != VK_NULL_HANDLE) {
+            vkDestroyInstance(_instance, nullptr);
+            _instance = VK_NULL_HANDLE;
+        }
 
-        vkDestroyDevice(_device, nullptr);
-        vkb::destroy_debug_utils_messenger(_instance, _debug_messenger);
-        vkDestroyInstance(_instance, nullptr);
+        _isInitialized = false;
     }
 }
 
@@ -119,20 +138,22 @@ bool minized(SDL_Window *wnd)
     return SDL_GetWindowFlags(wnd) & SDL_WINDOW_MINIMIZED;
 }
 
-void VulkanEngine::begin()
+bool VulkanEngine::begin()
 {
+    _isFrameActive = false;
+
     if (_swapChainOutdated || _swapchain == VK_NULL_HANDLE)
-        return;
+        return false;
 
     if (SDL_GetWindowFlags(_window) & SDL_WINDOW_MINIMIZED)
-        return;
+        return false;
 
     auto waitdevice = vkDeviceWaitIdle(_device);
     VK_CHECK(waitdevice);
 
     auto waitFence = vkWaitForFences(_device, 1, &get_current_frame()._renderFence, true, static_cast<int64_t>(1e+9));
     if (waitFence == VK_TIMEOUT) {
-        return;
+        return false;
     }
 
     VK_CHECK(waitFence);
@@ -140,7 +161,9 @@ void VulkanEngine::begin()
     auto requestResult = vkAcquireNextImageKHR(_device, _swapchain, static_cast<int64_t>(1e+9), get_current_frame()._presentSemaphore, nullptr, &_swapchainNumber);
     if (requestResult == VK_ERROR_OUT_OF_DATE_KHR) {
         _swapChainOutdated = true;
-        return;
+        return false;
+    } else if (requestResult == VK_SUBOPTIMAL_KHR) {
+        // Suboptimal swapchain still acquired a valid image for presentation
     } else {
         VK_CHECK(requestResult);
     }
@@ -152,7 +175,7 @@ void VulkanEngine::begin()
     _perFrameDeletionQueue.flush();
 
     if (!get_current_frame().IsValid)
-        return;
+        return false;
     VkCommandBuffer cmd = get_current_frame()._mainCommandBuffer;
 
     VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT);
@@ -174,11 +197,17 @@ void VulkanEngine::begin()
     rpInfo.pClearValues = &clearValues[0];
 
     vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+    _isFrameActive = true;
+    return true;
 }
 
 void VulkanEngine::end()
 {
-    if (_swapChainOutdated || _swapchain == VK_NULL_HANDLE)
+    if (!_isFrameActive)
+        return;
+    _isFrameActive = false;
+
+    if (_swapchain == VK_NULL_HANDLE)
         return;
 
     if (SDL_GetWindowFlags(_window) & SDL_WINDOW_MINIMIZED)
@@ -215,8 +244,10 @@ void VulkanEngine::end()
     presentInfo.pImageIndices = &_swapchainNumber;
 
     auto presentResult = vkQueuePresentKHR(_graphicsQueue, &presentInfo);
-    if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
+    if (presentResult == VK_ERROR_OUT_OF_DATE_KHR) {
         _swapChainOutdated = true;
+    } else if (presentResult == VK_SUBOPTIMAL_KHR) {
+        // Presentation succeeded despite suboptimal
     } else {
         VK_CHECK(presentResult);
     }
@@ -272,8 +303,8 @@ void VulkanEngine::imgui_init()
     init_info.Device = _device;
     init_info.Queue = _graphicsQueue;
     init_info.DescriptorPool = imguiPool;
-    init_info.MinImageCount = 3;
-    init_info.ImageCount = 3;
+    init_info.MinImageCount = (uint32_t)_swapchainImages.size();
+    init_info.ImageCount = (uint32_t)_swapchainImages.size();
     init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     init_info.CheckVkResultFn = ImGui_CheckResult;
 
@@ -296,6 +327,9 @@ void VulkanEngine::imgui_end()
     ImGui::Render();
     ImGui_ImplSDL2_ResetFrame();
     ImGui_ImplVulkan_ResetFrame();
+
+    if (!_isFrameActive)
+        return;
 
     if (SDL_GetWindowFlags(_window) & SDL_WINDOW_MINIMIZED)
         return;
@@ -355,12 +389,30 @@ void VulkanEngine::init_vulkan()
     }
 
     vkb::InstanceBuilder builder;
+    builder.set_app_name("EstEngine")
+           .require_api_version(1, 1, 0);
 
-    auto inst_ret = builder.set_app_name("EstEngine")
-                        .request_validation_layers(bUseValidationLayers)
-                        .use_default_debug_messenger()
-                        .require_api_version(1, 1, 0)
-                        .build();
+    unsigned int sdlExtCount = 0;
+    if (SDL_Vulkan_GetInstanceExtensions(_window, &sdlExtCount, nullptr)) {
+        std::vector<const char *> sdlExtensions(sdlExtCount);
+        SDL_Vulkan_GetInstanceExtensions(_window, &sdlExtCount, sdlExtensions.data());
+        for (const auto &ext : sdlExtensions) {
+            builder.enable_extension(ext);
+        }
+    }
+
+#if _DEBUG
+    if (bUseValidationLayers) {
+        builder.request_validation_layers(true)
+               .use_default_debug_messenger();
+    }
+#endif
+
+    auto inst_ret = builder.build();
+    if (!inst_ret) {
+        Logs::Write("Vulkan", "Failed to build Vulkan instance: %s", inst_ret.error().message().c_str());
+        throw std::runtime_error("Failed to build Vulkan instance: " + inst_ret.error().message());
+    }
 
     vkb::Instance vkb_inst = inst_ret.value();
 
@@ -375,22 +427,43 @@ void VulkanEngine::init_vulkan()
     }
 
     vkb::PhysicalDeviceSelector selector{ vkb_inst };
-    vkb::PhysicalDevice         physicalDevice = selector
-                                             .set_minimum_version(1, 1)
-                                             .set_surface(_surface)
-                                             .select()
-                                             .value();
+    auto phys_ret = selector.set_minimum_version(1, 1)
+                            .set_surface(_surface)
+                            .select();
+    if (!phys_ret) {
+        phys_ret = selector.set_minimum_version(1, 0)
+                           .set_surface(_surface)
+                           .select();
+    }
+    if (!phys_ret) {
+        Logs::Write("Vulkan", "Failed to select physical device: %s", phys_ret.error().message().c_str());
+        throw std::runtime_error("Failed to select physical device: " + phys_ret.error().message());
+    }
+
+    vkb::PhysicalDevice physicalDevice = phys_ret.value();
 
     vkb::DeviceBuilder deviceBuilder{ physicalDevice };
+    auto dev_ret = deviceBuilder.build();
+    if (!dev_ret) {
+        Logs::Write("Vulkan", "Failed to build logical device: %s", dev_ret.error().message().c_str());
+        throw std::runtime_error("Failed to build logical device: " + dev_ret.error().message());
+    }
 
-    vkb::Device vkbDevice = deviceBuilder.build().value();
+    vkb::Device vkbDevice = dev_ret.value();
 
     _device = vkbDevice.device;
     _chosenGPU = physicalDevice.physical_device;
 
-    _graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
+    volkLoadDevice(_device);
 
-    _graphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
+    auto queue_ret = vkbDevice.get_queue(vkb::QueueType::graphics);
+    auto queue_idx_ret = vkbDevice.get_queue_index(vkb::QueueType::graphics);
+    if (!queue_ret || !queue_idx_ret) {
+        throw std::runtime_error("Failed to retrieve graphics queue");
+    }
+
+    _graphicsQueue = queue_ret.value();
+    _graphicsQueueFamily = queue_idx_ret.value();
 
     VmaVulkanFunctions vma_vulkan_func{};
     vma_vulkan_func.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
@@ -400,8 +473,12 @@ void VulkanEngine::init_vulkan()
     allocatorInfo.physicalDevice = _chosenGPU;
     allocatorInfo.device = _device;
     allocatorInfo.instance = _instance;
+    allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_1;
     allocatorInfo.pVulkanFunctions = &vma_vulkan_func;
-    vmaCreateAllocator(&allocatorInfo, &_allocator);
+    VkResult allocRes = vmaCreateAllocator(&allocatorInfo, &_allocator);
+    if (allocRes != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create VMA allocator: " + std::to_string(allocRes));
+    }
 
     _mainDeletionQueue.push_function([&]() {
         vmaDestroyAllocator(_allocator);
@@ -423,22 +500,27 @@ bool VulkanEngine::init_swapchain()
 
     swapchainBuilder
         .set_desired_format({ VK_FORMAT_R8G8B8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
-        .set_old_swapchain(_swapchainData)
+        .add_fallback_format({ VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
+        .add_fallback_format({ VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
+        .add_fallback_format({ VK_FORMAT_R8G8B8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
+        .set_old_swapchain(_swapchain)
         .set_desired_extent(_windowExtent.width, _windowExtent.height);
 
     if (m_vsync) {
         swapchainBuilder.set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR);
     } else {
         swapchainBuilder.set_desired_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR);
+        swapchainBuilder.add_fallback_present_mode(VK_PRESENT_MODE_MAILBOX_KHR);
+        swapchainBuilder.add_fallback_present_mode(VK_PRESENT_MODE_FIFO_KHR);
     }
 
     vkb::Result vkbSwapchainResult = swapchainBuilder.build();
 
     if (!vkbSwapchainResult) {
+        Logs::Write("Vulkan", "Failed to build swapchain: %s (VkResult: %d)",
+                    vkbSwapchainResult.error().message().c_str(), (int)vkbSwapchainResult.vk_result());
         _swapchain = VK_NULL_HANDLE;
         _swapchainData.swapchain = VK_NULL_HANDLE;
-        vkb::destroy_swapchain(_swapchainData);
-
         return false;
     }
 
@@ -467,19 +549,25 @@ bool VulkanEngine::init_swapchain()
     dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
     dimg_allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    vmaCreateImage(_allocator, &dimg_info, &dimg_allocinfo, &_depthImage._image, &_depthImage._allocation, nullptr);
+    VkResult imgRes = vmaCreateImage(_allocator, &dimg_info, &dimg_allocinfo, &_depthImage._image, &_depthImage._allocation, nullptr);
+    if (imgRes != VK_SUCCESS) {
+        Logs::Write("Vulkan", "Failed to create depth image: %d", imgRes);
+        return false;
+    }
 
     VkImageViewCreateInfo dview_info = vkinit::imageview_create_info(_depthFormat, _depthImage._image, VK_IMAGE_ASPECT_DEPTH_BIT);
-    ;
 
     VK_CHECK(vkCreateImageView(_device, &dview_info, nullptr, &_depthImageView));
 
+    VkImageView depthView = _depthImageView;
+    AllocatedImage depthImg = _depthImage;
     _swapChainQueue.push_function([=]() {
-        vkDestroyImageView(_device, _depthImageView, nullptr);
-        vmaDestroyImage(_allocator, _depthImage._image, _depthImage._allocation);
-
-        _depthImageView = VK_NULL_HANDLE;
-        _depthImage._image = VK_NULL_HANDLE;
+        if (depthView != VK_NULL_HANDLE) {
+            vkDestroyImageView(_device, depthView, nullptr);
+        }
+        if (depthImg._image != VK_NULL_HANDLE) {
+            vmaDestroyImage(_allocator, depthImg._image, depthImg._allocation);
+        }
     });
 
     return true;
@@ -507,7 +595,7 @@ void VulkanEngine::init_default_renderpass()
     depth_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
     depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     depth_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depth_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     depth_attachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -581,12 +669,11 @@ bool VulkanEngine::init_framebuffers()
         fb_info.attachmentCount = 2;
         VK_CHECK(vkCreateFramebuffer(_device, &fb_info, nullptr, &_framebuffers[i]));
 
+        VkFramebuffer fb = _framebuffers[i];
         _swapChainQueue.push_function([=]() {
-            vkDestroyFramebuffer(_device, _framebuffers[i], nullptr);
-            vkDestroyImageView(_device, _swapchainImageViews[i], nullptr);
-
-            _framebuffers[i] = VK_NULL_HANDLE;
-            _swapchainImageViews[i] = VK_NULL_HANDLE;
+            if (fb != VK_NULL_HANDLE) {
+                vkDestroyFramebuffer(_device, fb, nullptr);
+            }
         });
     }
 
@@ -759,7 +846,7 @@ void VulkanEngine::flush_queue()
     int width, height;
     SDL_GetWindowSize(_window, &width, &height);
 
-    if (_swapChainOutdated || _swapchain == VK_NULL_HANDLE || width <= 0 || height <= 0 || SDL_GetWindowFlags(_window) & SDL_WINDOW_MINIMIZED) {
+    if (!_isFrameActive || _swapChainOutdated || _swapchain == VK_NULL_HANDLE || width <= 0 || height <= 0 || SDL_GetWindowFlags(_window) & SDL_WINDOW_MINIMIZED) {
         _queueInfos.clear();
         return;
     }
@@ -769,6 +856,11 @@ void VulkanEngine::flush_queue()
     for (auto &info : _queueInfos) {
         vertex_size += info.vertices.size() * sizeof(info.vertices[0]);
         indices_size += info.indices.size() * sizeof(info.indices[0]);
+    }
+
+    if (vertex_size == 0 || indices_size == 0) {
+        _queueInfos.clear();
+        return;
     }
 
     vertex_size = std::clamp((uint64_t)vertex_size, (uint64_t)0, _maxVertexBufferSize);
@@ -782,18 +874,24 @@ void VulkanEngine::flush_queue()
 
     VkDeviceSize offset = 0;
     for (auto &info : _queueInfos) {
-        if (offset >= _maxVertexBufferSize) {
-            continue;
+        VkDeviceSize bytes = info.vertices.size() * sizeof(info.vertices[0]);
+        if (offset + bytes > vertex_size) {
+            break;
         }
 
-        memcpy((char *)data + offset, info.vertices.data(), info.vertices.size() * sizeof(info.vertices[0]));
-        offset += info.vertices.size() * sizeof(info.vertices[0]);
+        memcpy((char *)data + offset, info.vertices.data(), bytes);
+        offset += bytes;
     }
 
     offset = 0;
     for (auto &info : _queueInfos) {
-        memcpy((char *)data2 + offset, info.indices.data(), info.indices.size() * sizeof(info.indices[0]));
-        offset += info.indices.size() * sizeof(info.indices[0]);
+        VkDeviceSize bytes = info.indices.size() * sizeof(info.indices[0]);
+        if (offset + bytes > indices_size) {
+            break;
+        }
+
+        memcpy((char *)data2 + offset, info.indices.data(), bytes);
+        offset += bytes;
     }
 
     vkUnmapMemory(_device, _vertexBufferMemory);
@@ -844,7 +942,7 @@ void VulkanEngine::flush_queue()
 
         vkCmdSetScissor(cmd, 0, 1, &info.scissor);
 
-        vkCmdDrawIndexed(cmd, (uint32_t)info.vertices.size(), 1, currentIndiIndex, currentVertIndex, 0);
+        vkCmdDrawIndexed(cmd, (uint32_t)info.indices.size(), 1, currentIndiIndex, currentVertIndex, 0);
         currentVertIndex += (int)info.vertices.size();
         currentIndiIndex += (int)info.indices.size();
     }
@@ -1155,12 +1253,8 @@ void VulkanEngine::re_init_swapchains(int width, int height)
     _windowExtent.width = width;
     _windowExtent.height = height;
 
-    VkSwapchainKHR oldSwapchain = _swapchain;
-
-    // _swapchainImageViews
-    for (int i = 0; i < _swapchainImageViews.size(); i++) {
-        vkDestroyImageView(_device, _swapchainImageViews[i], nullptr);
-    }
+    _swapchainData.destroy_image_views(_swapchainImageViews);
+    _swapchainImageViews.clear();
 
     bool swapchain_recreated = init_swapchain();
     if (!swapchain_recreated) {
@@ -1170,6 +1264,8 @@ void VulkanEngine::re_init_swapchains(int width, int height)
     if (!init_framebuffers()) {
         return;
     }
+
+    ImGui_ImplVulkan_SetMinImageCount((uint32_t)_swapchainImages.size());
 
     Logs::Puts("[VulkanEngine] Swapchain re-create with resolution: %dx%d", width, height);
     _swapChainOutdated = false;

@@ -7,6 +7,7 @@
 
 #include "Configuration.h"
 #include "Fonts/FontResources.h"
+#include <Logs.h>
 
 #include "./Data/Util/Util.hpp"
 #include "./Engine/SkinManager.hpp"
@@ -36,54 +37,62 @@ MyGame::~MyGame()
 
 bool MyGame::Init()
 {
-    SetRenderMode(RendererMode::DIRECTX);
+    Logs::Write("MyGame", "Initializing O2Game...");
+    SetRenderMode(RendererMode::DIRECTX11);
     SetBufferSize(800, 600);
     SetWindowSize(1280, 720);
     SetFullscreen(false);
 
+    Logs::Write("MyGame", "Loading configuration...");
     bool result = LoadConfiguration();
     if (!result) {
-        return result;
+        Logs::Write("MyGame", "Configuration loading failed.");
+        return false;
     }
+    Logs::Write("MyGame", "Configuration loaded successfully.");
 
     result = Game::Init();
-    if (result) {
-        m_window->SetScaleOutput(true);
-
-        EnvironmentSetup::SetInt("Key", -1);
-
-        /* Screen */
-        SceneManager::AddScene(GameScene::INTRO, new IntroScene());
-        SceneManager::AddScene(GameScene::MAINMENU, new MainMenu());
-        SceneManager::AddScene(GameScene::SONGSELECT, new SongSelectScene());
-        SceneManager::AddScene(GameScene::LOADING, new LoadingScene());
-        SceneManager::AddScene(GameScene::GAMEPLAY, new GameplayScene());
-        SceneManager::AddScene(GameScene::RESULT, new ResultScene());
-
-        SceneManager::AddScene(GameScene::EDITOR, new EditorScene());
-        // SceneManager::AddScene(GameScene::MULTIPLAYER, new MultiplayerScene());
-        // SceneManager::AddScene(GameScene::MULTIROOM, new MultiroomScene());
-        SceneManager::AddScene(GameScene::RELOAD, new ReloadScene());
-
-        /* Overlays */
-        SceneManager::AddOverlay(GameOverlay::SETTINGS, new SettingsOverlay());
-
-        std::string title = std::string(O2GAME_TITLE) + "" + ""/*std::string(O2GAME_VERSION)*/;
-        m_window->SetWindowTitle(title);
-
-        if (EnvironmentSetup::GetPath("FILE").empty()) {
-            std::filesystem::path path = Configuration::Load("Music", "Folder");
-            if (!path.empty() && std::filesystem::exists(path)) {
-                Configuration::Set("Music", "Folder", path.string());
-            }
-
-            SceneManager::ChangeScene(GameScene::INTRO);
-        } else {
-            SceneManager::ChangeScene(GameScene::LOADING);
-        }
+    if (!result) {
+        Logs::Write("MyGame", "Engine Game::Init() failed.");
+        return false;
     }
 
-    return result;
+    m_window->SetScaleOutput(true);
+
+    EnvironmentSetup::SetInt("Key", -1);
+
+    /* Screen */
+    SceneManager::AddScene(GameScene::INTRO, new IntroScene());
+    SceneManager::AddScene(GameScene::MAINMENU, new MainMenu());
+    SceneManager::AddScene(GameScene::SONGSELECT, new SongSelectScene());
+    SceneManager::AddScene(GameScene::LOADING, new LoadingScene());
+    SceneManager::AddScene(GameScene::GAMEPLAY, new GameplayScene());
+    SceneManager::AddScene(GameScene::RESULT, new ResultScene());
+
+    SceneManager::AddScene(GameScene::EDITOR, new EditorScene());
+    // SceneManager::AddScene(GameScene::MULTIPLAYER, new MultiplayerScene());
+    // SceneManager::AddScene(GameScene::MULTIROOM, new MultiroomScene());
+    SceneManager::AddScene(GameScene::RELOAD, new ReloadScene());
+
+    /* Overlays */
+    SceneManager::AddOverlay(GameOverlay::SETTINGS, new SettingsOverlay());
+
+    std::string title = std::string(O2GAME_TITLE) + "" + ""/*std::string(O2GAME_VERSION)*/;
+    m_window->SetWindowTitle(title);
+
+    if (EnvironmentSetup::GetPath("FILE").empty()) {
+        std::filesystem::path path = Configuration::Load("Music", "Folder");
+        if (!path.empty() && std::filesystem::exists(path)) {
+            Configuration::Set("Music", "Folder", path.string());
+        }
+
+        SceneManager::ChangeScene(GameScene::INTRO);
+    } else {
+        SceneManager::ChangeScene(GameScene::LOADING);
+    }
+
+    Logs::Write("MyGame", "MyGame initialization complete.");
+    return true;
 }
 
 void MyGame::Run()
@@ -117,19 +126,23 @@ bool MyGame::LoadConfiguration()
                         break;
 
                     case 3:
+                        SetRenderMode(RendererMode::DIRECTX11);
+                        break;
+
+                    case 4:
                         SetRenderMode(RendererMode::DIRECTX12);
                         break;
 
                     default:
                     {
                         std::cout << "Invalid renderer mode: " << index << std::endl;
-                        SetRenderMode(RendererMode::OPENGL);
+                        SetRenderMode(RendererMode::DIRECTX11);
                         break;
                     }
                 }
             } catch (const std::invalid_argument &) {
                 std::cout << "Failed to parse Game.ini::Game::Renderer" << std::endl;
-                SetRenderMode(RendererMode::OPENGL);
+                SetRenderMode(RendererMode::DIRECTX11);
             }
         }
     }
@@ -178,9 +191,24 @@ bool MyGame::LoadConfiguration()
     }
 
     {
-        FontResources::LoadFontRegion(TextRegion::Japanese);
-        FontResources::LoadFontRegion(TextRegion::Chinese);
-        FontResources::LoadFontRegion(TextRegion::Korean);
+        std::string frameLimitStr = Configuration::Load("Game", "FrameLimit");
+        if (frameLimitStr.empty()) {
+            frameLimitStr = "240";
+        }
+        if (frameLimitStr == "VSync") {
+            SetFramelimit(0.0);
+            Renderer::GetInstance()->SetVSync(true);
+        } else if (frameLimitStr == "Unlimited" || frameLimitStr == "9999") {
+            SetFramelimit(9999.0);
+            Renderer::GetInstance()->SetVSync(false);
+        } else {
+            try {
+                SetFramelimit(std::stod(frameLimitStr));
+            } catch (...) {
+                SetFramelimit(60.0);
+            }
+            Renderer::GetInstance()->SetVSync(false);
+        }
     }
 
     return true;

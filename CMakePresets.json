@@ -28,7 +28,8 @@
       "displayName": "x64 Windows Debug",
       "inherits": "windows-base",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release;RelWithDebInfo;MinSizeRel"
       },
       "architecture": {
         "value": "x64",
@@ -40,7 +41,8 @@
       "displayName": "x64 Windows Release",
       "inherits": "windows-base",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CONFIGURATION_TYPES": "Release;Debug;RelWithDebInfo;MinSizeRel"
       }
     },
     {
@@ -78,6 +80,32 @@
         "value": "x64",
         "strategy": "external"
       }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "x64-windows-debug",
+      "displayName": "x64 Windows Debug",
+      "configurePreset": "x64-windows-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "x64-windows",
+      "displayName": "x64 Windows Release",
+      "configurePreset": "x64-windows",
+      "configuration": "Release"
+    },
+    {
+      "name": "x64-linux-debug",
+      "displayName": "x64 Linux Debug",
+      "configurePreset": "x64-linux-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "x64-linux",
+      "displayName": "x64 Linux Release",
+      "configurePreset": "x64-linux",
+      "configuration": "Release"
     }
   ]
 }

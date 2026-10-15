@@ -43,3 +43,6 @@ T FindValue(std::vector<T2> vec, Predicate func) {
 }
 
 std::u8string CodepageToUtf8(const char* string, size_t len, const char* encoding);
+bool IsValidUtf8(const std::string &str);
+std::u8string EnsureUtf8(const char* str, size_t maxLen = 0);
+std::string EnsureUtf8(const std::string &str);

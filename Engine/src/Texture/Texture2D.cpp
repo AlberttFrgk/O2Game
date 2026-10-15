@@ -420,6 +420,15 @@ void Texture2D::SetOriginalRECT(Rect size)
     m_actualSize = size;
 }
 
+void *Texture2D::GetTextureID()
+{
+    Renderer *renderer = Renderer::GetInstance();
+    if (renderer->IsVulkan() && m_vk_tex) {
+        return (void *)vkTexture::GetVkDescriptorSet(m_vk_tex);
+    }
+    return (void *)m_sdl_tex;
+}
+
 void Texture2D::LoadImageResources(uint8_t* buffer, size_t size)
 {
     if (Renderer::GetInstance()->IsVulkan()) {

@@ -80,22 +80,30 @@ void Osu::Beatmap::ParseString(std::stringstream &ss)
         }
 
         if (currentSection == "Metadata") {
-            if (line.starts_with("Title")) {
-                Title = line.substr(line.find(":") + 1);
-            } else if (line.starts_with("TitleUnicode")) {
+            if (line.starts_with("TitleUnicode")) {
                 TitleUnicode = line.substr(line.find(":") + 1);
-            } else if (line.starts_with("Artist")) {
-                Artist = line.substr(line.find(":") + 1);
+                TitleUnicode.erase(0, TitleUnicode.find_first_not_of(" "));
+            } else if (line.starts_with("Title")) {
+                Title = line.substr(line.find(":") + 1);
+                Title.erase(0, Title.find_first_not_of(" "));
             } else if (line.starts_with("ArtistUnicode")) {
                 ArtistUnicode = line.substr(line.find(":") + 1);
+                ArtistUnicode.erase(0, ArtistUnicode.find_first_not_of(" "));
+            } else if (line.starts_with("Artist")) {
+                Artist = line.substr(line.find(":") + 1);
+                Artist.erase(0, Artist.find_first_not_of(" "));
             } else if (line.starts_with("Creator")) {
                 Creator = line.substr(line.find(":") + 1);
+                Creator.erase(0, Creator.find_first_not_of(" "));
             } else if (line.starts_with("Version")) {
                 Version = line.substr(line.find(":") + 1);
+                Version.erase(0, Version.find_first_not_of(" "));
             } else if (line.starts_with("Source")) {
                 Source = line.substr(line.find(":") + 1);
+                Source.erase(0, Source.find_first_not_of(" "));
             } else if (line.starts_with("Tags")) {
                 Tags = line.substr(line.find(":") + 1);
+                Tags.erase(0, Tags.find_first_not_of(" "));
             } else if (line.starts_with("BeatmapID")) {
                 BeatmapID = std::stoi(line.substr(line.find(":") + 1));
             } else if (line.starts_with("BeatmapSetID")) {

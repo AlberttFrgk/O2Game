@@ -65,7 +65,9 @@ void ImguiUtil::SetVulkan(bool v) {
 }
 
 void ImguiUtil::Reset() {
-	ImGui::EndFrame();
+	if (!HasAQueueFrame) {
+		return;
+	}
 
 	if (vulkan) {
 		VulkanEngine::GetInstance()->imgui_end();

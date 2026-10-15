@@ -37,44 +37,52 @@ void SkinConfig::Load(std::filesystem::path path, int keyCount)
             NumericValue e = {};
             e.X = std::stoi(split[0]);
             e.Y = std::stoi(split[1]);
+            e.MaxDigit = 0;
+            e.Direction = 0;
+            e.FillWithZero = false;
 
-            if (split.size() > 2) {
-                e.MaxDigit = std::stoi(split[2]);
-            } else {
-                e.MaxDigit = 0;
-                e.Direction = 0;
-                e.FillWithZero = false;
+            int nextIdx = 2;
+            if (split.size() > nextIdx) {
+                if (split[nextIdx].empty()) {
+                    nextIdx++;
+                } else {
+                    try {
+                        size_t pos = 0;
+                        int val = std::stoi(split[nextIdx], &pos);
+                        if (pos == split[nextIdx].size()) {
+                            e.MaxDigit = val;
+                            nextIdx++;
+                        }
+                    } catch (...) {
+                        e.MaxDigit = 0;
+                    }
+                }
             }
 
-            if (split.size() > 3) {
-                auto direction = split[3];
+            if (split.size() > nextIdx) {
+                auto direction = split[nextIdx];
                 std::transform(direction.begin(), direction.end(), direction.begin(), ::tolower);
 
-                if (direction == "mid")
+                if (direction == "mid") {
                     e.Direction = 0;
-                else if (direction == "left")
+                    nextIdx++;
+                } else if (direction == "left") {
                     e.Direction = -1;
-                else if (direction == "right")
+                    nextIdx++;
+                } else if (direction == "right") {
                     e.Direction = 1;
-            } else {
-                e.Direction = 0;
-                e.FillWithZero = false;
+                    nextIdx++;
+                }
             }
 
-            if (split.size() > 4) {
-                auto direction = split[4];
+            if (split.size() > nextIdx) {
+                auto direction = split[nextIdx];
                 std::transform(direction.begin(), direction.end(), direction.begin(), ::tolower);
 
-                if (direction == "true")
-                    e.FillWithZero = true;
-                else if (direction == "false")
-                    e.FillWithZero = false;
-                else if (direction == "1")
+                if (direction == "true" || direction == "1")
                     e.FillWithZero = true;
                 else
                     e.FillWithZero = false;
-            } else {
-                e.FillWithZero = false;
             }
 
             m_numericValues[key].push_back(std::move(e));
