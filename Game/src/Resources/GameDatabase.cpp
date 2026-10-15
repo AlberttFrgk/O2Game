@@ -340,14 +340,30 @@ DB_MusicItem GameDatabase::Find(int id)
         item.Id = sqlite3_column_int(stmt, 0);
         item.KeyCount = sqlite3_column_int(stmt, 1);
 
-        strncpy(reinterpret_cast<char *>(item.Title), reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2)), sizeof(item.Title) - 1);
-        strncpy(reinterpret_cast<char *>(item.Artist), reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)), sizeof(item.Artist) - 1);
-        strncpy(reinterpret_cast<char *>(item.Noter), reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4)), sizeof(item.Noter) - 1);
+        const char *titleText = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
+        if (titleText) {
+            strncpy(reinterpret_cast<char *>(item.Title), titleText, sizeof(item.Title) - 1);
+            item.Title[sizeof(item.Title) - 1] = '\0';
+        }
+        const char *artistText = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3));
+        if (artistText) {
+            strncpy(reinterpret_cast<char *>(item.Artist), artistText, sizeof(item.Artist) - 1);
+            item.Artist[sizeof(item.Artist) - 1] = '\0';
+        }
+        const char *noterText = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4));
+        if (noterText) {
+            strncpy(reinterpret_cast<char *>(item.Noter), noterText, sizeof(item.Noter) - 1);
+            item.Noter[sizeof(item.Noter) - 1] = '\0';
+        }
         item.BPM = static_cast<float>(sqlite3_column_double(stmt, 5));
 
-        strncpy(reinterpret_cast<char *>(item.Hash[0]), reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6)), 128);
-        strncpy(reinterpret_cast<char *>(item.Hash[1]), reinterpret_cast<const char *>(sqlite3_column_text(stmt, 7)), 128);
-        strncpy(reinterpret_cast<char *>(item.Hash[2]), reinterpret_cast<const char *>(sqlite3_column_text(stmt, 8)), 128);
+        for (int h = 0; h < 3; h++) {
+            const char *hashText = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6 + h));
+            if (hashText) {
+                strncpy(reinterpret_cast<char *>(item.Hash[h]), hashText, sizeof(item.Hash[h]) - 1);
+                item.Hash[h][sizeof(item.Hash[h]) - 1] = '\0';
+            }
+        }
 
         item.Difficulty[0] = sqlite3_column_int(stmt, 9);
         item.Difficulty[1] = sqlite3_column_int(stmt, 10);
@@ -365,6 +381,7 @@ DB_MusicItem GameDatabase::Find(int id)
         const char *fp = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 19));
         if (fp) {
             strncpy(item.FilePath, fp, sizeof(item.FilePath) - 1);
+            item.FilePath[sizeof(item.FilePath) - 1] = '\0';
         }
     } else {
         if (result != SQLITE_DONE) {
@@ -399,14 +416,30 @@ DB_MusicItem GameDatabase::Random()
         item.Id = sqlite3_column_int(stmt, 0);
         item.KeyCount = sqlite3_column_int(stmt, 1);
 
-        strncpy(reinterpret_cast<char *>(item.Title), reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2)), sizeof(item.Title) - 1);
-        strncpy(reinterpret_cast<char *>(item.Artist), reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)), sizeof(item.Artist) - 1);
-        strncpy(reinterpret_cast<char *>(item.Noter), reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4)), sizeof(item.Noter) - 1);
+        const char *titleText = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
+        if (titleText) {
+            strncpy(reinterpret_cast<char *>(item.Title), titleText, sizeof(item.Title) - 1);
+            item.Title[sizeof(item.Title) - 1] = '\0';
+        }
+        const char *artistText = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3));
+        if (artistText) {
+            strncpy(reinterpret_cast<char *>(item.Artist), artistText, sizeof(item.Artist) - 1);
+            item.Artist[sizeof(item.Artist) - 1] = '\0';
+        }
+        const char *noterText = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4));
+        if (noterText) {
+            strncpy(reinterpret_cast<char *>(item.Noter), noterText, sizeof(item.Noter) - 1);
+            item.Noter[sizeof(item.Noter) - 1] = '\0';
+        }
         item.BPM = static_cast<float>(sqlite3_column_double(stmt, 5));
 
-        strncpy(reinterpret_cast<char *>(item.Hash[0]), reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6)), 128);
-        strncpy(reinterpret_cast<char *>(item.Hash[1]), reinterpret_cast<const char *>(sqlite3_column_text(stmt, 7)), 128);
-        strncpy(reinterpret_cast<char *>(item.Hash[2]), reinterpret_cast<const char *>(sqlite3_column_text(stmt, 8)), 128);
+        for (int h = 0; h < 3; h++) {
+            const char *hashText = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6 + h));
+            if (hashText) {
+                strncpy(reinterpret_cast<char *>(item.Hash[h]), hashText, sizeof(item.Hash[h]) - 1);
+                item.Hash[h][sizeof(item.Hash[h]) - 1] = '\0';
+            }
+        }
 
         item.Difficulty[0] = sqlite3_column_int(stmt, 9);
         item.Difficulty[1] = sqlite3_column_int(stmt, 10);
@@ -424,6 +457,7 @@ DB_MusicItem GameDatabase::Random()
         const char *fp = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 19));
         if (fp) {
             strncpy(item.FilePath, fp, sizeof(item.FilePath) - 1);
+            item.FilePath[sizeof(item.FilePath) - 1] = '\0';
         }
     } else {
         if (result != SQLITE_DONE) {
@@ -483,14 +517,30 @@ std::vector<DB_MusicItem> GameDatabase::FindQuery(std::string query, int categor
         item.Id = sqlite3_column_int(stmt, 0);
         item.KeyCount = sqlite3_column_int(stmt, 1);
 
-        strncpy(reinterpret_cast<char *>(item.Title), reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2)), sizeof(item.Title) - 1);
-        strncpy(reinterpret_cast<char *>(item.Artist), reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)), sizeof(item.Artist) - 1);
-        strncpy(reinterpret_cast<char *>(item.Noter), reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4)), sizeof(item.Noter) - 1);
+        const char *titleText = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
+        if (titleText) {
+            strncpy(reinterpret_cast<char *>(item.Title), titleText, sizeof(item.Title) - 1);
+            item.Title[sizeof(item.Title) - 1] = '\0';
+        }
+        const char *artistText = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3));
+        if (artistText) {
+            strncpy(reinterpret_cast<char *>(item.Artist), artistText, sizeof(item.Artist) - 1);
+            item.Artist[sizeof(item.Artist) - 1] = '\0';
+        }
+        const char *noterText = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4));
+        if (noterText) {
+            strncpy(reinterpret_cast<char *>(item.Noter), noterText, sizeof(item.Noter) - 1);
+            item.Noter[sizeof(item.Noter) - 1] = '\0';
+        }
         item.BPM = static_cast<float>(sqlite3_column_double(stmt, 5));
 
-        strncpy(reinterpret_cast<char *>(item.Hash[0]), reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6)), 128);
-        strncpy(reinterpret_cast<char *>(item.Hash[1]), reinterpret_cast<const char *>(sqlite3_column_text(stmt, 7)), 128);
-        strncpy(reinterpret_cast<char *>(item.Hash[2]), reinterpret_cast<const char *>(sqlite3_column_text(stmt, 8)), 128);
+        for (int h = 0; h < 3; h++) {
+            const char *hashText = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6 + h));
+            if (hashText) {
+                strncpy(reinterpret_cast<char *>(item.Hash[h]), hashText, sizeof(item.Hash[h]) - 1);
+                item.Hash[h][sizeof(item.Hash[h]) - 1] = '\0';
+            }
+        }
 
         item.Difficulty[0] = sqlite3_column_int(stmt, 9);
         item.Difficulty[1] = sqlite3_column_int(stmt, 10);
@@ -508,6 +558,7 @@ std::vector<DB_MusicItem> GameDatabase::FindQuery(std::string query, int categor
         const char *fp = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 19));
         if (fp) {
             strncpy(item.FilePath, fp, sizeof(item.FilePath) - 1);
+            item.FilePath[sizeof(item.FilePath) - 1] = '\0';
         }
 
         items.push_back(item);

@@ -40,7 +40,7 @@ static std::wstring OpenFilePrompt() {
   ofn.hwndOwner = NULL;
   ofn.lpstrFilter =
       L"All Supported Files "
-      L"(*.ojn;*.osu;*.bms;*.bme;*.bml;*)\0*.ojn;*.osu;*.bms;*.bme;*.bml\0";
+      L"(*.ojn;*.osu;*.bms;*.bme;*.bml;*.bmsc;*)\0*.ojn;*.osu;*.bms;*.bme;*.bml;*.bmsc\0";
   ofn.lpstrFile = szFile;
   ofn.nMaxFile = MAX_PATH;
   ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
@@ -878,7 +878,8 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
         SortSongs();
 
         isScrolled = true;
-        strcpy(previous, search);
+        strncpy(previous, search, sizeof(previous) - 1);
+        previous[sizeof(previous) - 1] = '\0';
         previousCategory = m_selectedCategory;
       }
 
@@ -897,10 +898,10 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
 
         char buffer[256];
         if (item.Category == 0) {
-          sprintf(buffer, "Lv.%03d | %s", item.Difficulty[currentDifficulty],
-                  (char *)item.Title);
+          snprintf(buffer, sizeof(buffer), "Lv.%03d | %s", item.Difficulty[currentDifficulty],
+                   (char *)item.Title);
         } else {
-          sprintf(buffer, "[%dK] | %s", item.KeyCount, (char *)item.Title);
+          snprintf(buffer, sizeof(buffer), "[%dK] | %s", item.KeyCount, (char *)item.Title);
         }
 
         std::string content = buffer + Id;
@@ -1233,26 +1234,6 @@ bool SongSelectScene::Attach() {
   return true;
 }
 
-void SongSelectScene::RestartGame() {
-  wchar_t moduleFileName[MAX_PATH];
-  GetModuleFileNameW(NULL, moduleFileName, MAX_PATH);
-
-  std::wstring filePath = EnvironmentSetup::GetPath("FILE");
-
-  std::wstring commandLine =
-      std::wstring(moduleFileName) + L" \"" + filePath + L"\"";
-  STARTUPINFOW si = {sizeof(si)};
-  PROCESS_INFORMATION pi;
-
-  if (CreateProcessW(NULL, const_cast<wchar_t *>(commandLine.c_str()), NULL,
-                     NULL, FALSE, 0, NULL, NULL, &si,
-                     &pi)) { // Fix antivirus false detection
-    CloseHandle(pi.hProcess);
-    CloseHandle(pi.hThread);
-    ExitProcess(0);
-  }
-}
-
 bool SongSelectScene::Detach() {
   if (m_bgm) {
     m_bgm->Stop();
@@ -1450,18 +1431,27 @@ void SongSelectScene::LoadChartImage() {
     }
 
     try {
-      if (item.CoverSize < 1) {
+      if (item.CoverSize < 1 || item.CoverOffset < 0 || item.CoverSize > 25 * 1024 * 1024) {
         return;
       }
 
       GameWindow *wnd = GameWindow::GetInstance();
 
       auto buffer = O2::OJN::LoadOJNFile(file);
+      buffer.seekg(0, std::ios::end);
+      std::streampos totalLen = buffer.tellg();
+      if (totalLen <= 0 || item.CoverOffset >= totalLen ||
+          item.CoverOffset + item.CoverSize > totalLen) {
+        return;
+      }
       buffer.seekg(item.CoverOffset);
 
       std::vector<uint8_t> coverData;
       coverData.resize(item.CoverSize);
       buffer.read((char *)coverData.data(), item.CoverSize);
+      if (buffer.gcount() != item.CoverSize) {
+        return;
+      }
 
       m_songBackground =
           std::make_unique<Texture2D>(coverData.data(), item.CoverSize);
@@ -1491,7 +1481,7 @@ void SongSelectScene::LoadDifficultyOptions(const DB_MusicItem &item) {
   std::error_code ec;
   if (item.Category == 1) {
     for (auto &entry : std::filesystem::directory_iterator(folder, ec)) {
-      if (entry.is_regular_file()) {
+      if (entry.is_regular_file(ec)) {
         std::string ext = entry.path().extension().string();
         std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
         if (ext == ".osu") {
@@ -1515,7 +1505,7 @@ void SongSelectScene::LoadDifficultyOptions(const DB_MusicItem &item) {
     }
   } else if (item.Category == 2) {
     for (auto &entry : std::filesystem::directory_iterator(folder, ec)) {
-      if (entry.is_regular_file()) {
+      if (entry.is_regular_file(ec)) {
         std::string ext = entry.path().extension().string();
         std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
         if (ext == ".bms" || ext == ".bme" || ext == ".bml" || ext == ".bmsc") {
@@ -1710,7 +1700,7 @@ void SongSelectScene::ParseExternalChart(std::filesystem::path file) {
         m_externalItem.BPM = 0;
       }
     }
-  } else if (ext == ".bms" || ext == ".bme" || ext == ".bml") {
+  } else if (ext == ".bms" || ext == ".bme" || ext == ".bml" || ext == ".bmsc") {
     BMS::BMSFile bms;
     bms.Load(file);
     if (bms.IsValid()) {
