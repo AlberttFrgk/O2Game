@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "Audio/AudioManager.h"
+#include <bass.h>
 #include "Configuration.h"
 #include "Inputs/Keys.h"
 #include "MsgBox.h"
@@ -883,61 +884,69 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
         previousCategory = m_selectedCategory;
       }
 
-      for (int i = 0; i < m_musicList.size(); i++) {
-        DB_MusicItem &item = m_musicList[i];
+      const float btnHeight = MathUtil::ScaleVec2(0, 25).y;
+      const float itemSpacingY = ImGui::GetStyle().ItemSpacing.y;
+      const float rowHeight = btnHeight + itemSpacingY;
 
-        std::string Id = "###Button" + std::to_string(i);
-        bool isSelected = item.Id == index;
+      ImGuiListClipper clipper;
+      clipper.Begin(static_cast<int>(m_musicList.size()), rowHeight);
 
-        ImVec4 previousColor = ImGui::GetStyleColorVec4(ImGuiCol_Button);
-
-        if (isSelected) {
-          ImGui::PushStyleColor(ImGuiCol_Button,
-                                ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
-        }
-
-        char buffer[256];
-        if (item.Category == 0) {
-          snprintf(buffer, sizeof(buffer), "Lv.%03d | %s", item.Difficulty[currentDifficulty],
-                   (char *)item.Title);
-        } else {
-          snprintf(buffer, sizeof(buffer), "[%dK] | %s", item.KeyCount, (char *)item.Title);
-        }
-
-        std::string content = buffer + Id;
-
-        if (ImGui::ButtonEx(
-                content.c_str(),
-                ImVec2(ImGui::GetContentRegionAvail().x,
-                       MathUtil::ScaleVec2(0, 25).y),
-                ImGuiButtonFlags_MouseButtonLeft |
-                    ImGuiButtonFlags_MouseButtonRight)) {
-
-          if (item.Id != index) {
-            index = item.Id;
-            bSelectNewSong = true;
+      if (isScrolled) {
+        for (int i = 0; i < static_cast<int>(m_musicList.size()); ++i) {
+          if (m_musicList[i].Id == index) {
+            clipper.ForceDisplayRangeByIndices(i, i + 1);
+            break;
           }
         }
+      }
 
-        /*
-                FIXME: Goddamit!, this is hack because for some reason
-                ImGui::IsMouseClicked won't work if ImGui::ButtonEx handled it.
-        */
-        content += "_Context";
-        if (ImGui::BeginPopupContextWindow((const char *)content.c_str())) {
-          ImGui::CloseCurrentPopup();
-          ImGui::EndPopup();
+      while (clipper.Step()) {
+        for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
+          DB_MusicItem &item = m_musicList[i];
+          bool isSelected = (item.Id == index);
 
-          bOpenSongContext = true;
-        }
+          if (isSelected) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+          }
 
-        if (isSelected) {
-          ImGui::PopStyleColor();
+          char labelBuffer[256];
+          if (item.Category == 0) {
+            snprintf(labelBuffer, sizeof(labelBuffer), "Lv.%03d | %s",
+                     item.Difficulty[currentDifficulty], (char *)item.Title);
+          } else {
+            snprintf(labelBuffer, sizeof(labelBuffer), "[%dK] | %s",
+                     item.KeyCount, (char *)item.Title);
+          }
 
-          if (isScrolled) {
-            isScrolled = false;
+          ImGui::PushID(item.Id);
+          if (ImGui::ButtonEx(
+                  labelBuffer,
+                  ImVec2(ImGui::GetContentRegionAvail().x, btnHeight),
+                  ImGuiButtonFlags_MouseButtonLeft |
+                      ImGuiButtonFlags_MouseButtonRight)) {
 
-            ImGui::SetScrollHereY(0.5f);
+            if (item.Id != index) {
+              index = item.Id;
+              bSelectNewSong = true;
+            }
+          }
+
+          char contextName[32];
+          snprintf(contextName, sizeof(contextName), "Ctx_%d", item.Id);
+          if (ImGui::BeginPopupContextWindow(contextName)) {
+            ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+            bOpenSongContext = true;
+          }
+          ImGui::PopID();
+
+          if (isSelected) {
+            ImGui::PopStyleColor();
+
+            if (isScrolled) {
+              isScrolled = false;
+              ImGui::SetScrollHereY(0.5f);
+            }
           }
         }
       }
@@ -950,13 +959,13 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
     ImGui::Separator();
 
     ImGui::Text("Sort by:");
-    const char *sortModes[] = {"Default", "Level", "Name"};
+    const char *sortModes[] = {"Default", "Level", "Name", "BPM", "Length"};
     float sortBtnH = MathUtil::ScaleVec2(0, 22).y;
     float sortComboW = ImGui::GetContentRegionAvail().x - MathUtil::ScaleVec2(60, 0).x - ImGui::GetStyle().ItemSpacing.x;
 
     ImGui::PushItemWidth(sortComboW);
     if (ImGui::BeginCombo("###SortMode", sortModes[m_sortMode], 0)) {
-      for (int s = 0; s < 3; s++) {
+      for (int s = 0; s < 5; s++) {
         bool isSelectedSort = (m_sortMode == s);
         if (ImGui::Selectable(sortModes[s], isSelectedSort)) {
           if (m_sortMode != s) {
@@ -982,8 +991,14 @@ void SongSelectScene::OnGameSelectMusic(double delta) {
     if (ImGui::IsItemHovered()) {
       if (m_sortMode == 1) {
         ImGui::SetTooltip("%s (Difficulty / Level)", m_sortAscending ? "Small -> Big" : "Big -> Small");
-      } else {
+      } else if (m_sortMode == 2) {
         ImGui::SetTooltip("%s", m_sortAscending ? "A -> Z (Ascending)" : "Z -> A (Descending)");
+      } else if (m_sortMode == 3) {
+        ImGui::SetTooltip("%s (BPM)", m_sortAscending ? "Slow -> Fast (Ascending)" : "Fast -> Slow (Descending)");
+      } else if (m_sortMode == 4) {
+        ImGui::SetTooltip("%s (Song Duration)", m_sortAscending ? "Short -> Long (Ascending)" : "Long -> Short (Descending)");
+      } else {
+        ImGui::SetTooltip("%s", m_sortAscending ? "Ascending" : "Descending");
       }
     }
 
@@ -1750,13 +1765,80 @@ void SongSelectScene::ParseExternalChart(std::filesystem::path file) {
   }
 }
 
+int SongSelectScene::GetSongDurationSec(const DB_MusicItem &item) {
+  std::filesystem::path filePath;
+  if (item.FilePath[0] != '\0' && std::filesystem::exists(item.FilePath)) {
+    filePath = item.FilePath;
+  } else if (item.Category == 0) {
+    filePath = GameDatabase::GetInstance()->GetPath() / ("o2ma" + std::to_string(item.Id) + ".ojn");
+  }
+
+  if (filePath.empty() || !std::filesystem::exists(filePath)) {
+    return 0;
+  }
+
+  std::string ext = filePath.extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+
+  if (ext == ".ojn") {
+    try {
+      auto fs = O2::OJN::LoadOJNFile(filePath);
+      OJNHeader header = {};
+      fs.read((char *)&header, sizeof(header));
+      if (fs.gcount() == sizeof(header)) {
+        int diffIdx = std::clamp(currentDifficulty, 0, 2);
+        return header.time[diffIdx] > 0 ? header.time[diffIdx] : header.time[0];
+      }
+    } catch (...) {
+    }
+  } else if (ext == ".bms" || ext == ".bme" || ext == ".bml" || ext == ".bmsc") {
+    BMS::BMSFile bms;
+    bms.Load(filePath);
+    if (bms.IsValid() && bms.AudioLength > 0) {
+      return static_cast<int>(::round(bms.AudioLength / 1000.0));
+    }
+  } else if (ext == ".osu") {
+    Osu::Beatmap beatmap(filePath);
+    if (beatmap.IsValid()) {
+      if (!beatmap.AudioFilename.empty()) {
+        std::filesystem::path audioPath = filePath.parent_path() / beatmap.AudioFilename;
+        if (std::filesystem::exists(audioPath)) {
+          HSTREAM stream = BASS_StreamCreateFile(FALSE, audioPath.string().c_str(), 0, 0, BASS_STREAM_DECODE);
+          if (stream) {
+            double lenSec = BASS_ChannelBytes2Seconds(stream, BASS_ChannelGetLength(stream, BASS_POS_BYTE));
+            BASS_StreamFree(stream);
+            if (lenSec > 0.0) {
+              return static_cast<int>(::round(lenSec));
+            }
+          }
+        }
+      }
+      if (!beatmap.HitObjects.empty()) {
+        auto &lastObj = beatmap.HitObjects.back();
+        double lastTime = (lastObj.Type == 128) ? lastObj.EndTime : lastObj.StartTime;
+        return static_cast<int>(::round(lastTime / 1000.0));
+      }
+    }
+  }
+  return 0;
+}
+
 void SongSelectScene::SortSongs() {
   if (m_sortMode == 0) {
     return;
   }
 
+  // Pre-calculate song duration if sorting by length to avoid repetitive file I/O during sort
+  std::unordered_map<int, int> durationCache;
+  if (m_sortMode == 4) {
+    durationCache.reserve(m_musicList.size());
+    for (const auto &item : m_musicList) {
+      durationCache[item.Id] = GetSongDurationSec(item);
+    }
+  }
+
   std::sort(m_musicList.begin(), m_musicList.end(),
-            [this](const DB_MusicItem &a, const DB_MusicItem &b) {
+            [this, &durationCache](const DB_MusicItem &a, const DB_MusicItem &b) {
               if (m_sortMode == 1) {
                 // Sort by Level / Difficulty
                 int diffA = (a.Category == 0) ? a.Difficulty[currentDifficulty] : a.Difficulty[0];
@@ -1764,9 +1846,21 @@ void SongSelectScene::SortSongs() {
                 if (diffA != diffB) {
                   return m_sortAscending ? (diffA < diffB) : (diffA > diffB);
                 }
+              } else if (m_sortMode == 3) {
+                // Sort by BPM
+                if (a.BPM != b.BPM) {
+                  return m_sortAscending ? (a.BPM < b.BPM) : (a.BPM > b.BPM);
+                }
+              } else if (m_sortMode == 4) {
+                // Sort by Length / Duration
+                int durA = durationCache[a.Id];
+                int durB = durationCache[b.Id];
+                if (durA != durB) {
+                  return m_sortAscending ? (durA < durB) : (durA > durB);
+                }
               }
 
-              // Sort by Name / Title (fallback for same level or when sortMode == 2)
+              // Sort by Name / Title (fallback for identical values or when sortMode == 2)
               std::string titleA = (const char *)a.Title;
               std::string titleB = (const char *)b.Title;
               std::transform(titleA.begin(), titleA.end(), titleA.begin(), ::tolower);

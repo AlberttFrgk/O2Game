@@ -204,46 +204,19 @@ void ResultScene::Render(double delta)
 
             ImGui::Spacing();
 
-            // Song cover with 16:9 aspect ratio and height limit to prevent pushing other stats
+            // Song cover stretched to container width without cropping
             float availW = ImGui::GetContentRegionAvail().x;
-            float idealCoverW = availW;
-            float idealCoverH = idealCoverW * (9.0f / 16.0f);
             float maxCoverH = (std::max)(contentHeight - 210.0f, 50.0f);
-            float coverH = (std::min)(idealCoverH, maxCoverH);
-            float coverW = coverH * (16.0f / 9.0f);
-            if (coverW > availW) {
-                coverW = availW;
-                coverH = coverW * (9.0f / 16.0f);
-            }
+            float coverH = (std::min)(availW * (9.0f / 16.0f), maxCoverH);
+            float coverW = availW;
 
-            float coverOffsetX = (availW - coverW) * 0.5f;
-            ImVec2 c0 = ImVec2(ImGui::GetCursorScreenPos().x + coverOffsetX, ImGui::GetCursorScreenPos().y);
+            ImVec2 c0 = ImGui::GetCursorScreenPos();
             ImVec2 c1 = ImVec2(c0.x + coverW, c0.y + coverH);
             void* texId = m_background ? m_background->GetTextureID() : nullptr;
 
             if (texId != nullptr) {
                 ImVec2 uv0(0.0f, 0.0f);
                 ImVec2 uv1(1.0f, 1.0f);
-                if (m_background) {
-                    Rect origRect = m_background->GetOriginalRECT();
-                    float imgW = (float)(origRect.right - origRect.left);
-                    float imgH = (float)(origRect.bottom - origRect.top);
-                    if (imgW > 0.0f && imgH > 0.0f) {
-                        float srcAspect = imgW / imgH;
-                        float targetAspect = 16.0f / 9.0f;
-                        if (srcAspect < targetAspect) {
-                            float visibleH = imgW / targetAspect;
-                            float cropY = (imgH - visibleH) * 0.5f;
-                            uv0.y = cropY / imgH;
-                            uv1.y = (cropY + visibleH) / imgH;
-                        } else if (srcAspect > targetAspect) {
-                            float visibleW = imgH * targetAspect;
-                            float cropX = (imgW - visibleW) * 0.5f;
-                            uv0.x = cropX / imgW;
-                            uv1.x = (cropX + visibleW) / imgW;
-                        }
-                    }
-                }
                 dl->AddImageRounded((ImTextureID)texId, c0, c1, uv0, uv1, IM_COL32_WHITE, 6.0f);
                 dl->AddRect(c0, c1, IM_COL32(255, 255, 255, 60), 6.0f, 0, 1.0f);
             } else {

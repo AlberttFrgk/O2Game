@@ -197,19 +197,28 @@ void GameAudioSampleCache::Play(int index, int volume, int pan)
         return;
     }
 
-    if (samples.find(index) == samples.end()) {
+    auto it = samples.find(index);
+    if (it == samples.end() || !it->second.Sample) {
         return;
     }
 
     Stop(index);
 
-    auto channel = samples[index].Sample->CreateChannel();
+    auto channel = it->second.Sample->CreateChannel();
+    if (!channel) {
+        return;
+    }
+
     channel->SetVolume(volume);
     channel->SetPan(pan);
 
     bool result = channel->Play();
 
-    sampleIndex[index] = std::move(channel);
+    {
+        std::lock_guard<std::mutex> lock(m_lock);
+        sampleIndex[index] = std::move(channel);
+    }
+
     if (!result) {
         ::printf("Failed to play index %d\n", index);
     }
@@ -219,14 +228,13 @@ void GameAudioSampleCache::Stop(int index)
 {
     std::lock_guard<std::mutex> lock(m_lock);
 
-    if (sampleIndex.find(index) != sampleIndex.end()) {
-        auto &it = sampleIndex[index];
-
-        if (it->IsPlaying()) {
-            it->Stop();
+    auto it = sampleIndex.find(index);
+    if (it != sampleIndex.end()) {
+        if (it->second && it->second->IsPlaying()) {
+            it->second->Stop();
         }
 
-        sampleIndex.erase(index);
+        sampleIndex.erase(it);
     }
 }
 

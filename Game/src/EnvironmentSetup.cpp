@@ -1,13 +1,21 @@
 #include "EnvironmentSetup.hpp"
 #include <mutex>
+#include <string_view>
 #include <unordered_map>
 
 namespace {
+struct StringViewHash {
+  using is_transparent = void;
+  size_t operator()(std::string_view sv) const noexcept {
+    return std::hash<std::string_view>{}(sv);
+  }
+};
+
 struct EnvironmentData {
-  std::unordered_map<std::string, std::string> stores;
-  std::unordered_map<std::string, void *> storesPtr;
-  std::unordered_map<std::string, std::filesystem::path> paths;
-  std::unordered_map<std::string, int> ints;
+  std::unordered_map<std::string, std::string, StringViewHash, std::equal_to<>> stores;
+  std::unordered_map<std::string, void *, StringViewHash, std::equal_to<>> storesPtr;
+  std::unordered_map<std::string, std::filesystem::path, StringViewHash, std::equal_to<>> paths;
+  std::unordered_map<std::string, int, StringViewHash, std::equal_to<>> ints;
   std::mutex mutex;
 };
 
@@ -23,15 +31,16 @@ void EnvironmentSetup::OnExitCheck() {
   data.stores.clear();
   data.paths.clear();
   data.ints.clear();
+  data.storesPtr.clear();
 }
 
-void EnvironmentSetup::Set(std::string key, std::string value) {
+void EnvironmentSetup::Set(std::string_view key, std::string value) {
   auto &data = GetData();
   std::lock_guard<std::mutex> lock(data.mutex);
-  data.stores[key] = std::move(value);
+  data.stores.insert_or_assign(std::string(key), std::move(value));
 }
 
-std::string EnvironmentSetup::Get(std::string key) {
+std::string EnvironmentSetup::Get(std::string_view key) {
   auto &data = GetData();
   std::lock_guard<std::mutex> lock(data.mutex);
   auto it = data.stores.find(key);
@@ -41,13 +50,13 @@ std::string EnvironmentSetup::Get(std::string key) {
   return "";
 }
 
-void EnvironmentSetup::SetObj(std::string key, void *ptr) {
+void EnvironmentSetup::SetObj(std::string_view key, void *ptr) {
   auto &data = GetData();
   std::lock_guard<std::mutex> lock(data.mutex);
-  data.storesPtr[key] = ptr;
+  data.storesPtr.insert_or_assign(std::string(key), ptr);
 }
 
-void *EnvironmentSetup::GetObj(std::string key) {
+void *EnvironmentSetup::GetObj(std::string_view key) {
   auto &data = GetData();
   std::lock_guard<std::mutex> lock(data.mutex);
   auto it = data.storesPtr.find(key);
@@ -57,13 +66,13 @@ void *EnvironmentSetup::GetObj(std::string key) {
   return nullptr;
 }
 
-void EnvironmentSetup::SetPath(std::string key, std::filesystem::path path) {
+void EnvironmentSetup::SetPath(std::string_view key, std::filesystem::path path) {
   auto &data = GetData();
   std::lock_guard<std::mutex> lock(data.mutex);
-  data.paths[key] = std::move(path);
+  data.paths.insert_or_assign(std::string(key), std::move(path));
 }
 
-std::filesystem::path EnvironmentSetup::GetPath(std::string key) {
+std::filesystem::path EnvironmentSetup::GetPath(std::string_view key) {
   auto &data = GetData();
   std::lock_guard<std::mutex> lock(data.mutex);
   auto it = data.paths.find(key);
@@ -73,13 +82,13 @@ std::filesystem::path EnvironmentSetup::GetPath(std::string key) {
   return {};
 }
 
-void EnvironmentSetup::SetInt(std::string key, int value) {
+void EnvironmentSetup::SetInt(std::string_view key, int value) {
   auto &data = GetData();
   std::lock_guard<std::mutex> lock(data.mutex);
-  data.ints[key] = value;
+  data.ints.insert_or_assign(std::string(key), value);
 }
 
-int EnvironmentSetup::GetInt(std::string key) {
+int EnvironmentSetup::GetInt(std::string_view key) {
   auto &data = GetData();
   std::lock_guard<std::mutex> lock(data.mutex);
   auto it = data.ints.find(key);

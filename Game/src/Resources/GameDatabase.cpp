@@ -167,6 +167,8 @@ GameDatabase::GameDatabase()
         }
 
         sqlite3_free(error);
+        sqlite3_exec(m_database, "CREATE INDEX IF NOT EXISTS idx_music_category ON MusicItems(Category);", nullptr, nullptr, nullptr);
+        sqlite3_exec(m_database, "CREATE INDEX IF NOT EXISTS idx_music_title ON MusicItems(Title);", nullptr, nullptr, nullptr);
     }
 }
 
@@ -483,30 +485,42 @@ std::vector<DB_MusicItem> GameDatabase::FindQuery(std::string query, int categor
     std::lock_guard lock(g_mutex);
 
     sqlite3_stmt *stmt = nullptr;
-    const char   *TABLE_AllItems = "SELECT * FROM MusicItems WHERE (Title LIKE ? OR Artist LIKE ? OR Noter LIKE ? OR Id = ?) AND (? = -1 OR Category = ?);";
-    int           result = sqlite3_prepare_v2(m_database, TABLE_AllItems, -1, &stmt, nullptr);
+    int           result = SQLITE_OK;
 
-    if (result != SQLITE_OK) {
-        std::string message = "Failed to prepare statement: " + std::string(sqlite3_errmsg(m_database));
-        throw std::runtime_error(message);
-    }
+    std::string toQuery;
+    if (query.empty()) {
+        const char *TABLE_CategoryItems = "SELECT * FROM MusicItems WHERE (? = -1 OR Category = ?);";
+        result = sqlite3_prepare_v2(m_database, TABLE_CategoryItems, -1, &stmt, nullptr);
+        if (result != SQLITE_OK) {
+            std::string message = "Failed to prepare statement: " + std::string(sqlite3_errmsg(m_database));
+            throw std::runtime_error(message);
+        }
 
-    // This will be used to search for the query in the database
-    std::string toQuery = "%" + query + "%";
-
-    sqlite3_bind_text(stmt, 1, toQuery.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 2, toQuery.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 3, toQuery.c_str(), -1, SQLITE_STATIC);
-
-    if (!query.empty() && std::all_of(query.begin(), query.end(), ::isdigit)) {
-        int id = std::stoi(query);
-        sqlite3_bind_int(stmt, 4, id);
+        sqlite3_bind_int(stmt, 1, category);
+        sqlite3_bind_int(stmt, 2, category);
     } else {
-        sqlite3_bind_int(stmt, 4, -1);
-    }
+        const char *TABLE_AllItems = "SELECT * FROM MusicItems WHERE (Title LIKE ? OR Artist LIKE ? OR Noter LIKE ? OR Id = ?) AND (? = -1 OR Category = ?);";
+        result = sqlite3_prepare_v2(m_database, TABLE_AllItems, -1, &stmt, nullptr);
+        if (result != SQLITE_OK) {
+            std::string message = "Failed to prepare statement: " + std::string(sqlite3_errmsg(m_database));
+            throw std::runtime_error(message);
+        }
 
-    sqlite3_bind_int(stmt, 5, category);
-    sqlite3_bind_int(stmt, 6, category);
+        toQuery = "%" + query + "%";
+        sqlite3_bind_text(stmt, 1, toQuery.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 2, toQuery.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 3, toQuery.c_str(), -1, SQLITE_TRANSIENT);
+
+        if (std::all_of(query.begin(), query.end(), ::isdigit)) {
+            int id = std::stoi(query);
+            sqlite3_bind_int(stmt, 4, id);
+        } else {
+            sqlite3_bind_int(stmt, 4, -1);
+        }
+
+        sqlite3_bind_int(stmt, 5, category);
+        sqlite3_bind_int(stmt, 6, category);
+    }
 
     int                       size = GetMusicCount();
     std::vector<DB_MusicItem> items;

@@ -1,8 +1,10 @@
 #include "Texture/NumericTexture.h"
 #include "Rendering/Renderer.h"
 #include "Texture/Bitmap.h"
+#include <cstdio>
 #include <filesystem>
 #include <stdexcept>
+
 
 NumericTexture::NumericTexture(std::vector<std::string> numericsFiles)
 {
@@ -55,13 +57,23 @@ void NumericTexture::DrawNumber(int number)
 {
     GameWindow *window = GameWindow::GetInstance();
 
-    std::string numberString = std::to_string(number);
-    if (MaxDigits != 0 && numberString.size() > MaxDigits) {
-        numberString = numberString.substr(numberString.size() - MaxDigits, MaxDigits);
+    char numberBuffer[64];
+    int len = 0;
+    if (FillWithZeros && MaxDigits > 0) {
+        len = snprintf(numberBuffer, sizeof(numberBuffer), "%0*d", MaxDigits, number);
     } else {
-        while (numberString.size() < MaxDigits && FillWithZeros) {
-            numberString = "0" + numberString;
-        }
+        len = snprintf(numberBuffer, sizeof(numberBuffer), "%d", number);
+    }
+
+    if (len <= 0) {
+        return;
+    }
+
+    const char *numberStr = numberBuffer;
+    int numLen = len;
+    if (MaxDigits != 0 && numLen > MaxDigits) {
+        numberStr += (numLen - MaxDigits);
+        numLen = MaxDigits;
     }
 
     LONG xPos = static_cast<LONG>(window->GetBufferWidth() * Position.X.Scale) + static_cast<LONG>(Position.X.Offset);
@@ -79,8 +91,9 @@ void NumericTexture::DrawNumber(int number)
         case NumericPosition::LEFT:
         {
             int tx = xPos;
-            for (int i = (int)numberString.length() - 1; i >= 0; i--) {
-                int digit = numberString[i] - '0';
+            for (int i = numLen - 1; i >= 0; i--) {
+                int digit = numberStr[i] - '0';
+                if (digit < 0 || digit > 9) continue;
 
                 tx -= m_maxWidth + (int)(m_maxWidth * offsetScl);
                 auto tex = m_numericsTexture[digit];
@@ -96,13 +109,15 @@ void NumericTexture::DrawNumber(int number)
         case NumericPosition::MID:
         {
             int totalWidth = 0;
-            for (int i = 0; i < numberString.length(); i++) {
+            for (int i = 0; i < numLen; i++) {
                 totalWidth += m_maxWidth + (int)(m_maxWidth * offsetScl);
             }
 
             int tx = xPos - totalWidth / 2 + (Offset * totalWidth) / 200;
-            for (int i = 0; i < numberString.length(); i++) {
-                int  digit = numberString[i] - '0';
+            for (int i = 0; i < numLen; i++) {
+                int digit = numberStr[i] - '0';
+                if (digit < 0 || digit > 9) continue;
+
                 auto tex = m_numericsTexture[digit];
                 float centeredX = tx + (m_maxWidth - m_numbericsWidth[digit].right) / 2.0f;
                 tex->Position = UDim2({ 0, centeredX }, { 0, (float)yPos });
@@ -117,8 +132,10 @@ void NumericTexture::DrawNumber(int number)
         case NumericPosition::RIGHT:
         {
             int tx = xPos;
-            for (int i = 0; i < numberString.length(); i++) {
-                int  digit = numberString[i] - '0';
+            for (int i = 0; i < numLen; i++) {
+                int digit = numberStr[i] - '0';
+                if (digit < 0 || digit > 9) continue;
+
                 auto tex = m_numericsTexture[digit];
                 float centeredX = tx + (m_maxWidth - m_numbericsWidth[digit].right) / 2.0f;
                 tex->Position = UDim2({ 0, centeredX }, { 0, (float)yPos });

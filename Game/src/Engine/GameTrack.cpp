@@ -108,8 +108,7 @@ void GameTrack::OnKeyUp()
 		m_callback(e);
 	}
 
-	// create a copy of it, so it wont be NULL if the note is moved to cache
-	for (std::shared_ptr<Note> note : m_notes) {
+	for (const auto &note : m_notes) {
 		if (note) {
 			auto result = note->CheckRelease();
 			if (std::get<bool>(result)) {
@@ -138,8 +137,7 @@ void GameTrack::OnKeyDown()
 	}
 
 	bool found = false;
-	// create a copy of it, so it wont be NULL if the note is moved to cache
-	for (std::shared_ptr<Note> note : m_notes) {
+	for (const auto &note : m_notes) {
 		if (note) {
 			auto result = note->CheckHit();
 			if (std::get<bool>(result)) {

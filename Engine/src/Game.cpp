@@ -229,7 +229,7 @@ void Game::Run()
 		fps_window_frames++;
 		uint64_t now = SDL_GetPerformanceCounter();
 		double	 elapsed = static_cast<double>(now - fps_window_start) / static_cast<double>(perf_freq);
-		if (elapsed >= 0.25 || (fps_window_frames >= 5 && current_fps.load() == 0.0 && elapsed >= 0.1)) {
+		if (elapsed >= 0.10) {
 			if (fps_window_frames > 0 && elapsed > 0.0) {
 				double fps = static_cast<double>(fps_window_frames) / elapsed;
 				double latency = (elapsed / static_cast<double>(fps_window_frames)) * 1000.0;

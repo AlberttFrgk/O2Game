@@ -52,9 +52,10 @@ private:
     int index = -1;
     int page = 0;
     int m_selectedCategory = -1;
-    int m_sortMode = 0;       // 0: Default, 1: Level/Difficulty, 2: Name
+    int m_sortMode = 0;       // 0: Default, 1: Level/Difficulty, 2: Name, 3: BPM, 4: Length
     bool m_sortAscending = true; // true: Small -> Big (A->Z), false: Big -> Small (Z->A)
     void SortSongs();
+    int GetSongDurationSec(const DB_MusicItem &item);
 
     bool  isWait = false;
     bool  isScrolled = false;

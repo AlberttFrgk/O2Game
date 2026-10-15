@@ -1,21 +1,20 @@
 #pragma once
-#include <string>
-
-// if GCC
 #include <filesystem>
+#include <string>
+#include <string_view>
 
 namespace EnvironmentSetup {
     void OnExitCheck();
 
-    void        Set(std::string key, std::string value);
-    std::string Get(std::string key);
+    void        Set(std::string_view key, std::string value);
+    std::string Get(std::string_view key);
 
-    void  SetObj(std::string key, void *ptr);
-    void *GetObj(std::string key);
+    void  SetObj(std::string_view key, void *ptr);
+    void *GetObj(std::string_view key);
 
-    void SetInt(std::string key, int value);
-    int  GetInt(std::string key);
+    void SetInt(std::string_view key, int value);
+    int  GetInt(std::string_view key);
 
-    void                  SetPath(std::string key, std::filesystem::path path);
-    std::filesystem::path GetPath(std::string key);
+    void                  SetPath(std::string_view key, std::filesystem::path path);
+    std::filesystem::path GetPath(std::string_view key);
 } // namespace EnvironmentSetup
